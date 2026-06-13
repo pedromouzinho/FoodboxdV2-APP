@@ -1,0 +1,122 @@
+[
+  {
+    "id": "monte-dacorda",
+    "name": "Monte d'Açorda",
+    "town": "Campinho",
+    "region": "Alentejo",
+    "category": "tradicional",
+    "lat": 38.3642,
+    "lng": -7.4699,
+    "notes": "Açorda de tomate",
+    "tags": ["açorda", "tradicional", "tasca"],
+    "mapsQuery": "Monte d'Açorda, Campinho, Reguengos de Monsaraz, Portugal"
+  },
+  {
+    "id": "aloendro",
+    "name": "Aloendro",
+    "town": "Reguengos de Monsaraz",
+    "region": "Alentejo",
+    "category": "tradicional",
+    "lat": 38.4244,
+    "lng": -7.5347,
+    "notes": "Cozinha alentejana, borrego e migas",
+    "tags": ["tradicional", "tasca", "migas", "borrego"],
+    "mapsQuery": "Restaurante Aloendro, Reguengos de Monsaraz, Portugal"
+  },
+  {
+    "id": "o-ricardo",
+    "name": "O Ricardo",
+    "town": "Valverde",
+    "region": "Alentejo",
+    "category": "tradicional",
+    "lat": 38.5318,
+    "lng": -8.0215,
+    "notes": "Cozido de grão, ensopado de borrego",
+    "tags": ["cozido", "borrego", "tradicional", "tasca"],
+    "mapsQuery": "Restaurante O Ricardo, Valverde, Évora, Portugal"
+  },
+  {
+    "id": "laranjinha",
+    "name": "Laranjinha",
+    "town": "Valverde",
+    "region": "Alentejo",
+    "category": "petiscos",
+    "lat": 38.534,
+    "lng": -8.0225,
+    "notes": "Batatas fritas",
+    "tags": ["petiscos", "batatas-fritas", "snack-bar"],
+    "mapsQuery": "Laranjinha de Valverde, Évora, Portugal"
+  },
+  {
+    "id": "o-passarinho",
+    "name": "O Passarinho",
+    "town": "Cercal do Alentejo",
+    "region": "Alentejo",
+    "category": "tradicional",
+    "lat": 37.8002,
+    "lng": -8.6734,
+    "notes": "Cozinha caseira alentejana",
+    "tags": ["tradicional", "tasca", "caseira"],
+    "mapsQuery": "Restaurante O Passarinho, Cercal do Alentejo, Portugal"
+  },
+  {
+    "id": "patio-dos-petiscos",
+    "name": "Pátio dos Petiscos",
+    "town": "Montemor-o-Novo",
+    "region": "Alentejo",
+    "category": "petiscos",
+    "lat": 38.6486,
+    "lng": -8.2231,
+    "notes": "Petiscos e borrego",
+    "tags": ["petiscos", "borrego", "açorda"],
+    "mapsQuery": "Pátio dos Petiscos, Montemor-o-Novo, Portugal"
+  },
+  {
+    "id": "o-forjador",
+    "name": "O Forjador",
+    "town": "Arraiolos",
+    "region": "Alentejo",
+    "category": "pastelaria",
+    "lat": 38.7247,
+    "lng": -7.9833,
+    "notes": "Queijadas",
+    "tags": ["queijadas", "doces", "pastelaria"],
+    "mapsQuery": "Restaurante O Forjador, Arraiolos, Portugal"
+  },
+  {
+    "id": "o-alpendre",
+    "name": "O Alpendre",
+    "town": "Arraiolos",
+    "region": "Alentejo",
+    "category": "tradicional",
+    "lat": 38.7207,
+    "lng": -7.9873,
+    "notes": "Migas, carnes do Montado",
+    "tags": ["tradicional", "migas", "carnes"],
+    "mapsQuery": "Restaurante O Alpendre, Arraiolos, Portugal"
+  },
+  {
+    "id": "adega-velha",
+    "name": "Adega Velha",
+    "town": "Mourão",
+    "region": "Alentejo",
+    "category": "tradicional",
+    "lat": 38.3834,
+    "lng": -7.3422,
+    "notes": "Antiga adega, cante alentejano",
+    "tags": ["tradicional", "cante-alentejano", "caseira"],
+    "mapsQuery": "Restaurante Adega Velha, Mourão, Portugal"
+  },
+  {
+    "id": "quarta-feira",
+    "name": "Quarta-Feira",
+    "town": "Évora",
+    "region": "Alentejo",
+    "category": "fine-dining",
+    "lat": 38.5742,
+    "lng": -7.9096,
+    "notes": "Menu de degustação sem ementa fixa",
+    "tags": ["fine-dining", "degustação"],
+    "mapsQuery": "Taberna Típica Quarta-Feira, Évora, Portugal"
+  }
+]
