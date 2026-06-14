@@ -97,6 +97,10 @@ html, body {
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
 }
+/* App shell: pin to the dynamic viewport and never scroll the document
+   (each region scrolls internally). Fixes the dead band below the tab bar in
+   the installed iOS PWA, where `100%` and `100dvh` disagree. */
+body { height: 100dvh; overflow: hidden; }
 
 /* App-like pressed feedback. */
 .btn:active, .card:active, .memory-card:active, .feed-item:active, .lb-rest:active, .seg-btn:active, .tab:active, .chip:active {
