@@ -11,12 +11,38 @@ const Geocode = (() => {
     }
   }
 
+  // Map a Portuguese district (what geocoders return for the country) to the
+  // app's region buckets (NUTS-II), so added places aren't all dumped in Alentejo.
+  const REGION_BY_DISTRICT = {
+    "faro": "Algarve",
+    "beja": "Alentejo", "évora": "Alentejo", "evora": "Alentejo", "portalegre": "Alentejo",
+    "setúbal": "Lisboa", "setubal": "Lisboa", "lisboa": "Lisboa", "lisbon": "Lisboa",
+    "santarém": "Centro", "santarem": "Centro", "leiria": "Centro", "coimbra": "Centro",
+    "aveiro": "Centro", "viseu": "Centro", "guarda": "Centro",
+    "castelo branco": "Centro", "castelo-branco": "Centro",
+    "porto": "Norte", "oporto": "Norte", "braga": "Norte", "viana do castelo": "Norte",
+    "vila real": "Norte", "bragança": "Norte", "braganca": "Norte",
+    "madeira": "Madeira", "região autónoma da madeira": "Madeira",
+    "açores": "Açores", "azores": "Açores", "região autónoma dos açores": "Açores"
+  };
+  function regionForDistrict(name) {
+    if (!name) return null;
+    const key = String(name).toLowerCase().trim();
+    return REGION_BY_DISTRICT[key] || name; // fall back to the district name itself
+  }
+  function regionFromComponents(components) {
+    if (!components) return null;
+    const admin1 = components.find((c) => (c.types || []).includes("administrative_area_level_1"));
+    if (!admin1) return null;
+    return regionForDistrict(admin1.long_name || admin1.short_name);
+  }
+
   function viaGoogle(query) {
     return new Promise((resolve) => {
       googleGeocoder.geocode({ address: query }, (results, status) => {
         if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
           const loc = results[0].geometry.location;
-          resolve({ lat: loc.lat(), lng: loc.lng() });
+          resolve({ lat: loc.lat(), lng: loc.lng(), region: regionFromComponents(results[0].address_components) });
         } else {
           resolve(null);
         }
@@ -26,13 +52,15 @@ const Geocode = (() => {
 
   async function viaNominatim(query) {
     const url =
-      "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" +
+      "https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&q=" +
       encodeURIComponent(query);
     try {
       const res = await fetch(url, { headers: { Accept: "application/json" } });
       const data = await res.json();
       if (data && data[0]) {
-        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        const a = data[0].address || {};
+        const district = a.state || a.county || a.region || a.state_district || "";
+        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), region: regionForDistrict(district) };
       }
     } catch (e) {
       /* ignore network/parse errors and fall through */

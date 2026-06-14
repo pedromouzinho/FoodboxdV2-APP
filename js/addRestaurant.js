@@ -55,7 +55,7 @@ const AddRestaurantModule = (() => {
   function close() {
     modal.classList.add("hidden");
     form.reset();
-    regionInput.value = "Alentejo";
+    regionInput.value = "";
     locateStatus.textContent = "";
     statusEl.textContent = "";
     statusEl.className = "form-status";
@@ -78,7 +78,8 @@ const AddRestaurantModule = (() => {
     if (coords) {
       latInput.value = coords.lat.toFixed(5);
       lngInput.value = coords.lng.toFixed(5);
-      locateStatus.textContent = "Localização encontrada ✓";
+      if (coords.region && !regionInput.value.trim()) regionInput.value = coords.region;
+      locateStatus.textContent = coords.region ? `Localização encontrada · ${coords.region}` : "Localização encontrada ✓";
     } else {
       locateStatus.textContent = "Não encontrado. Preenche as coordenadas manualmente.";
     }
@@ -87,7 +88,8 @@ const AddRestaurantModule = (() => {
   function buildRestaurantFromForm(coords) {
     const name = nameInput.value.trim();
     const town = townInput.value.trim();
-    const region = (regionInput.value || "Alentejo").trim();
+    // Prefer a region the user typed; else the one detected from geocoding; else fall back.
+    const region = regionInput.value.trim() || (coords && coords.region) || "Alentejo";
     const category = categorySelect.value;
     const notes = notesInput.value.trim();
     const lat = coords ? coords.lat : parseFloat(latInput.value);
@@ -139,6 +141,17 @@ const AddRestaurantModule = (() => {
       }
 
       const restaurant = buildRestaurantFromForm(coords);
+
+      // "comunidade" tag only when Google has no real match for the place.
+      // If Google Maps has rating/reviews/photos/phone, treat it as verified.
+      restaurant.verified = false;
+      if (typeof PlacesModule !== "undefined" && PlacesModule.isAvailable()) {
+        setStatus("A verificar no Google…", "info");
+        try {
+          const d = await PlacesModule.fetchDetails(restaurant);
+          restaurant.verified = !!(d && (d.rating || d.userRatingsTotal || d.phone || (d.photos && d.photos.length)));
+        } catch (e) { /* keep unverified */ }
+      }
 
       // Stamp "quem recomendou" when the person is signed in.
       const signedIn = typeof UserData !== "undefined" && UserData.isCloud();

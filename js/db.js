@@ -86,6 +86,7 @@ const DB = (() => {
       createdAt: f.createdAt || "",
       addedByUid: f.addedByUid || "",
       addedByName: f.addedByName || "",
+      verified: f.verified === true,
       source: "community"
     };
   }
@@ -118,6 +119,7 @@ const DB = (() => {
       notes: encodeValue(restaurant.notes || ""),
       tags: encodeValue(restaurant.tags || [restaurant.category]),
       mapsQuery: encodeValue(restaurant.mapsQuery),
+      verified: encodeValue(!!restaurant.verified),
       createdAt: { timestampValue: new Date().toISOString() }
     };
     if (restaurant.addedByUid) fields.addedByUid = encodeValue(restaurant.addedByUid);

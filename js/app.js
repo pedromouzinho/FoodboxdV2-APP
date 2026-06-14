@@ -164,7 +164,7 @@ const App = (() => {
 
     // group/personal badges
     const badges = [];
-    if (r.source === "community") badges.push('<span class="badge community">comunidade</span>');
+    if (r.source === "community" && !r.verified) badges.push('<span class="badge community">comunidade</span>');
     if (UserData.isPriority(r.id)) badges.push(`<span class="badge priority" title="Prioritário">${icon("flame")} Prioritário</span>`);
     if (UserData.isCloud()) {
       const n = UserData.visitedBy(r.id).length;
