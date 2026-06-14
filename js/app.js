@@ -1197,13 +1197,13 @@ const App = (() => {
     const standalone = window.navigator.standalone === true ||
       window.matchMedia("(display-mode: standalone)").matches;
     let dismissed = false;
-    try { dismissed = localStorage.getItem("portugalRestaurants.a2hsDismissed") === "1"; } catch (e) {}
+    try { dismissed = localStorage.getItem("foodboxd.a2hsDismissed") === "1"; } catch (e) {}
     if (isIOS && !standalone && !dismissed) el.classList.remove("hidden");
   }
   function hideA2HS() {
     const el = document.getElementById("ios-a2hs");
     if (el) el.classList.add("hidden");
-    try { localStorage.setItem("portugalRestaurants.a2hsDismissed", "1"); } catch (e) {}
+    try { localStorage.setItem("foodboxd.a2hsDismissed", "1"); } catch (e) {}
   }
 
   // ---------- Photo viewer (in-app lightbox: download / share) ----------

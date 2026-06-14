@@ -1093,8 +1093,8 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 /* ---------- iOS "Add to Home Screen" hint ---------- */
 .ios-a2hs {
   position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-3));
-  z-index: 70; width: min(420px, calc(100vw - 24px));
+  top: calc(var(--topbar-total) + var(--sp-2)); bottom: auto;
+  z-index: 70; width: min(440px, calc(100vw - 24px));
   display: flex; align-items: center; gap: var(--sp-2);
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--r-md); box-shadow: var(--shadow-lg);
