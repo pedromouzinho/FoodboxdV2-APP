@@ -384,7 +384,9 @@ input[type="checkbox"] { width: 18px; height: 18px; }
   transition: background 0.15s var(--ease);
 }
 .planner-results li:hover { background: var(--surface-2); }
+.planner-results li.selected { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }
 .planner-results .dist { color: var(--text-muted); font-size: 0.78rem; }
+.planner-results .route-summary { display: block; margin-top: 3px; color: var(--primary); font-size: 0.78rem; font-weight: 650; }
 
 /* ---------- Restaurant list ---------- */
 .list-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }

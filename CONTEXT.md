@@ -54,7 +54,9 @@ Sem bundler. `index.html` carrega os scripts por ordem. Cada módulo é um IIFE
 - `js/addRestaurant.js` — formulário "Adicionar restaurante".
 - `js/storage.js` — localStorage helpers (visited, custom restaurants, places
   cache, overrides). `removeCustomRestaurant` existe.
-- `js/planner.js` — planeador de viagem (rota + paragens).
+- `js/planner.js` — planeador de viagem: encontra restaurantes perto da rota
+  direta e desenha opções de percurso com waypoint
+  (`origem → restaurante → destino`).
 - `data/restaurants.json` — lista curada (todos `region: "Alentejo"`).
 - `sw.js` — service worker (cache). `manifest.webmanifest` — PWA.
 - `firebase/firestore.rules`, `firebase/storage.rules` — regras.
@@ -84,8 +86,8 @@ rm -rf /tmp/fbcred   # apagar SEMPRE a credencial no fim
 - Targets: `--only hosting`, `--only firestore:rules`, `--only storage` (ou
   combinados). **Não** fazer deploy de functions (não há).
 - **Convenção do service worker:** a cada mudança de assets, **bump `CACHE`** em
-  `sw.js` (`foodboxd-vN`). **Atual: `foodboxd-v19`.** (Histórico: restaurantes-v4
-  → … v10 → foodboxd-v11 … v19.)
+  `sw.js` (`foodboxd-vN`). **Atual: `foodboxd-v20`.** (Histórico: restaurantes-v4
+  → … v10 → foodboxd-v11 … v20.)
 - Em PWA instalada, o utilizador pode precisar de **fechar/reabrir 2x** para
   apanhar a versão nova.
 - **NUNCA** commitar a service account (está em `.gitignore`: `*serviceaccount*`,

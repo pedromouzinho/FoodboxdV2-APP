@@ -1313,13 +1313,38 @@ const App = (() => {
       try {
         const { stops } = await PlannerModule.findStops({ from, to, radiusKm: parseInt(radius.value, 10), restaurants: state.restaurants });
         if (!stops.length) { status.textContent = "Nenhum restaurante perto desta rota."; return; }
-        status.textContent = `${stops.length} paragem(ns) perto da rota:`;
+        status.textContent = `${stops.length} ${stops.length === 1 ? "opção" : "opções"} de percurso com paragem:`;
+        async function selectStop(li, restaurant) {
+          status.textContent = `A calcular percurso por ${restaurant.name}...`;
+          results.querySelectorAll("li").forEach((item) => item.classList.toggle("selected", item === li));
+          try {
+            const summary = await PlannerModule.drawStopRoute(restaurant);
+            const routeEl = li.querySelector("[data-route-summary]");
+            if (routeEl) routeEl.textContent = [summary.distanceText, summary.durationText].filter(Boolean).join(" · ");
+            MapModule.highlightMarker(restaurant.id);
+            status.textContent = `Percurso por ${restaurant.name}.`;
+          } catch (err) {
+            status.textContent = err.message;
+          }
+        }
         stops.forEach(({ restaurant, distanceKm }) => {
           const li = document.createElement("li");
-          li.innerHTML = `<strong>${esc(restaurant.name)}</strong> — ${esc(restaurant.town)}<br><span class="dist">${distanceKm.toFixed(1)} km da rota</span>`;
-          li.addEventListener("click", () => onSelect(restaurant));
+          li.tabIndex = 0;
+          li.setAttribute("role", "button");
+          li.innerHTML = `
+            <strong>${esc(restaurant.name)}</strong> — ${esc(restaurant.town)}
+            <br><span class="dist">${distanceKm.toFixed(1)} km da rota</span>
+            <span class="route-summary" data-route-summary>Ver percurso com esta paragem</span>`;
+          li.addEventListener("click", () => selectStop(li, restaurant));
+          li.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              selectStop(li, restaurant);
+            }
+          });
           results.appendChild(li);
         });
+        selectStop(results.querySelector("li"), stops[0].restaurant);
         // On mobile, close the sidebar so the drawn route is visible.
         if (isMobile()) openSidebar(false);
         else results.scrollIntoView({ behavior: "smooth", block: "nearest" });
