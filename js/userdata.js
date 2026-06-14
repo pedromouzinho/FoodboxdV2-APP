@@ -165,12 +165,13 @@ const UserData = (() => {
   function getRating(id) {
     return (cloud && mine.ratings[id]) || null;
   }
-  function setRating(id, stars, note) {
+  function setRating(id, stars, note, dishes) {
     if (!cloud) return;
-    if (!stars && !note) {
+    const list = Array.isArray(dishes) ? dishes : [];
+    if (!stars && !note && !list.length) {
       delete mine.ratings[id];
     } else {
-      mine.ratings[id] = { stars: stars || 0, note: note || "", updatedAt: new Date().toISOString() };
+      mine.ratings[id] = { stars: stars || 0, note: note || "", dishes: list, updatedAt: new Date().toISOString() };
     }
     scheduleSave();
   }
@@ -204,6 +205,10 @@ const UserData = (() => {
   function others() {
     return group.filter((g) => g.uid !== uid);
   }
+  // Everyone in the group, including me (group already holds my synced snapshot).
+  function everyone() {
+    return group.slice();
+  }
   // Everyone (incl. me) who has visited this restaurant.
   function visitedBy(id) {
     return group.filter((g) => (g.visited || []).includes(id));
@@ -217,8 +222,9 @@ const UserData = (() => {
     return group
       .map((g) => {
         const r = (g.ratings || {})[id];
-        if (!r || (!r.stars && !r.note)) return null;
-        return { uid: g.uid, name: g.displayName, photoURL: g.photoURL, stars: r.stars || 0, note: r.note || "" };
+        const dishes = (r && Array.isArray(r.dishes)) ? r.dishes : [];
+        if (!r || (!r.stars && !r.note && !dishes.length)) return null;
+        return { uid: g.uid, name: g.displayName, photoURL: g.photoURL, stars: r.stars || 0, note: r.note || "", dishes, updatedAt: r.updatedAt || "" };
       })
       .filter(Boolean);
   }
@@ -247,6 +253,7 @@ const UserData = (() => {
     removeVisit,
     lastVisit,
     others,
+    everyone,
     visitedBy,
     priorityBy,
     ratingsFor,

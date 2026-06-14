@@ -11,7 +11,7 @@ const CATEGORIES = {
 };
 
 const App = (() => {
-  const state = { restaurants: [], currentDetail: null, currentScreen: "mapa", criticasScope: "mine" };
+  const state = { restaurants: [], currentDetail: null, currentScreen: "mapa", criticasScope: "mine", amigosTab: "atividade", criticasTab: "minhas" };
 
   function esc(str) {
     return String(str == null ? "" : str).replace(/[&<>"']/g, (c) =>
@@ -400,7 +400,7 @@ const App = (() => {
     }
 
     const priority = UserData.isPriority(r.id);
-    const rating = UserData.getRating(r.id) || { stars: 0, note: "" };
+    const rating = UserData.getRating(r.id) || { stars: 0, note: "", dishes: [] };
 
     el.innerHTML = `
       <div class="detail-section-title">Marcar Prioritário</div>
@@ -414,6 +414,11 @@ const App = (() => {
           .join("")}</div>
       </div>
       <textarea class="note-input" data-note placeholder="Nota pessoal (ex: pedir a sobremesa)…" rows="2">${esc(rating.note || "")}</textarea>
+      <div class="dish-edit">
+        <span class="rate-label">Pratos que provei</span>
+        <div class="dish-chips" data-dish-chips></div>
+        <input class="note-input dish-input" data-dish-input placeholder="Adicionar prato + Enter…" />
+      </div>
       <div class="visit-history">
         <button class="btn btn-ghost btn-sm" data-add-visit>${icon("check-circle")} Marcar visita de hoje</button>
         <div class="visit-list" data-visit-list>${visitListHtml(r)}</div>
@@ -429,9 +434,9 @@ const App = (() => {
     el.querySelectorAll("[data-stars] .star-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         let stars = parseInt(btn.dataset.star, 10);
-        const cur = UserData.getRating(r.id) || { stars: 0, note: "" };
+        const cur = UserData.getRating(r.id) || { stars: 0, note: "", dishes: [] };
         if (cur.stars === stars) stars = 0; // click same star again to clear
-        UserData.setRating(r.id, stars, el.querySelector("[data-note]").value.trim());
+        UserData.setRating(r.id, stars, el.querySelector("[data-note]").value.trim(), cur.dishes || []);
         renderMyMarks(r);
         renderAmigos(r);
       });
@@ -442,8 +447,8 @@ const App = (() => {
       clearTimeout(noteTimer);
       const val = e.target.value.trim();
       noteTimer = setTimeout(() => {
-        const cur = UserData.getRating(r.id) || { stars: 0, note: "" };
-        UserData.setRating(r.id, cur.stars, val);
+        const cur = UserData.getRating(r.id) || { stars: 0, note: "", dishes: [] };
+        UserData.setRating(r.id, cur.stars, val, cur.dishes || []);
         renderAmigos(r);
       }, 600);
     });
@@ -462,6 +467,47 @@ const App = (() => {
         renderAmigos(r);
       });
     });
+
+    // Dishes consumed — add chip-by-chip (Enter or comma), each removable.
+    const curDishes = () => ((UserData.getRating(r.id) || {}).dishes || []).slice();
+    const saveDishes = (list) => {
+      const rt = UserData.getRating(r.id) || { stars: 0, note: "" };
+      UserData.setRating(r.id, rt.stars, rt.note, list);
+    };
+    const chipsWrap = el.querySelector("[data-dish-chips]");
+    const dishInput = el.querySelector("[data-dish-input]");
+    function paintDishChips() {
+      const list = curDishes();
+      chipsWrap.innerHTML = list
+        .map((d, i) => `<span class="dish-chip removable"><span>${esc(d)}</span><button type="button" class="dish-x" data-del-dish="${i}" aria-label="Remover">${icon("x")}</button></span>`)
+        .join("");
+      chipsWrap.querySelectorAll("[data-del-dish]").forEach((b) => {
+        b.addEventListener("click", () => {
+          const list2 = curDishes();
+          list2.splice(parseInt(b.dataset.delDish, 10), 1);
+          saveDishes(list2);
+          paintDishChips();
+          renderAmigos(r);
+        });
+      });
+    }
+    function addDishFromInput() {
+      const raw = dishInput.value.replace(/,+$/, "").trim();
+      dishInput.value = "";
+      if (!raw) return;
+      const list = curDishes();
+      if (!list.some((d) => d.toLowerCase() === raw.toLowerCase())) {
+        list.push(raw);
+        saveDishes(list);
+        paintDishChips();
+        renderAmigos(r);
+      }
+    }
+    dishInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addDishFromInput(); }
+    });
+    dishInput.addEventListener("blur", addDishFromInput);
+    paintDishChips();
   }
 
   // ---------- Group view ("Amigos") ----------
@@ -509,14 +555,26 @@ const App = (() => {
           .join("")}</span></div>`
       );
     }
-    const withNotes = ratings.filter((x) => x.note);
+    // Aggregated list of dishes everyone has had here (deduped, case-insensitive).
+    const dishMap = new Map();
+    ratings.forEach((x) => (x.dishes || []).forEach((d) => {
+      const k = String(d).trim().toLowerCase();
+      if (k && !dishMap.has(k)) dishMap.set(k, String(d).trim());
+    }));
+    if (dishMap.size) {
+      blocks.push(
+        `<div class="amigos-dishes"><span class="amigos-label">${icon("utensils")} Pratos provados aqui</span>${dishChips([...dishMap.values()])}</div>`
+      );
+    }
+
+    const withNotes = ratings.filter((x) => x.note || (x.dishes && x.dishes.length));
     if (withNotes.length) {
       blocks.push(
         `<div class="amigos-notes">${withNotes
           .map(
             (x) => `<div class="amigos-note">${avatar(x.name, x.photoURL)}<div><span class="who">${esc(x.name)}${
               x.stars ? ` · ${icon("star")} ${x.stars}` : ""
-            }</span><p>${esc(x.note)}</p></div></div>`
+            }</span>${x.note ? `<p>${esc(x.note)}</p>` : ""}${dishChips(x.dishes)}</div></div>`
           )
           .join("")}</div>`
       );
@@ -871,6 +929,83 @@ const App = (() => {
     showSigninModal();
   }
 
+  // ---------- Guided tour (spotlight) ----------
+  const TOUR_STEPS = [
+    { title: "Bem-vindo", text: "Esta é a sua app de restaurantes. No mapa explora sítios por todo o Portugal — toque num para ver os detalhes." },
+    { target: '[data-tab-nav="memorias"]', title: "Memórias", text: "Aqui ficam os sítios que avaliou, anotou ou visitou — com as estrelas, notas e pratos que registou." },
+    { target: '[data-tab-nav="criticas"]', title: "Críticas", text: "As suas críticas e o ranking de restaurantes por estrelas do grupo." },
+    { target: '[data-tab-nav="amigos"]', title: "Amigos", text: "A atividade dos amigos e o leaderboard de quem mais explora." },
+    { target: "#user-chip", title: "A sua conta", text: "Com sessão iniciada, tudo fica guardado e sincronizado. Pode rever esta visita no ícone das estrelas." }
+  ];
+  const TOUR_DONE_KEY = "portugalRestaurants.tourDone";
+  let tourIdx = 0;
+  function tourDone() { try { return localStorage.getItem(TOUR_DONE_KEY) === "1"; } catch (e) { return false; } }
+  function markTourDone() { try { localStorage.setItem(TOUR_DONE_KEY, "1"); } catch (e) {} }
+
+  function paintTourSlide() {
+    const step = TOUR_STEPS[tourIdx];
+    document.getElementById("tour-title").textContent = step.title;
+    document.getElementById("tour-text").textContent = step.text;
+    document.getElementById("tour-dots").innerHTML = TOUR_STEPS
+      .map((_, i) => `<span class="tour-dot${i === tourIdx ? " on" : ""}"></span>`).join("");
+    document.getElementById("tour-prev").style.visibility = tourIdx === 0 ? "hidden" : "visible";
+    document.getElementById("tour-next").textContent = tourIdx === TOUR_STEPS.length - 1 ? "Começar" : "Próximo";
+    positionTour();
+  }
+  function positionTour() {
+    const step = TOUR_STEPS[tourIdx];
+    const hl = document.getElementById("tour-highlight");
+    const dim = document.querySelector("#tour .tour-dim");
+    const balloon = document.getElementById("tour-balloon");
+    const target = step.target ? document.querySelector(step.target) : null;
+    const rect = target ? target.getBoundingClientRect() : null;
+    if (rect && rect.width && rect.height) {
+      const pad = 6;
+      hl.style.display = "block";
+      hl.style.top = (rect.top - pad) + "px";
+      hl.style.left = (rect.left - pad) + "px";
+      hl.style.width = (rect.width + pad * 2) + "px";
+      hl.style.height = (rect.height + pad * 2) + "px";
+      dim.style.background = "transparent";
+      balloon.classList.remove("tour-centered");
+      const below = rect.top < window.innerHeight / 2;
+      const bw = balloon.offsetWidth, bh = balloon.offsetHeight;
+      let left = rect.left + rect.width / 2 - bw / 2;
+      left = Math.max(12, Math.min(left, window.innerWidth - bw - 12));
+      let top = below ? rect.bottom + pad + 12 : rect.top - pad - 12 - bh;
+      top = Math.max(12, Math.min(top, window.innerHeight - bh - 12));
+      balloon.style.top = top + "px";
+      balloon.style.left = left + "px";
+    } else {
+      hl.style.display = "none";
+      dim.style.background = "rgba(0,0,0,0.6)";
+      balloon.classList.add("tour-centered");
+      balloon.style.top = "";
+      balloon.style.left = "";
+    }
+  }
+  function showTour() {
+    const el = document.getElementById("tour");
+    if (!el) return;
+    tourIdx = 0;
+    el.classList.remove("hidden");
+    el.setAttribute("aria-hidden", "false");
+    paintTourSlide();
+    window.addEventListener("resize", positionTour);
+    window.addEventListener("orientationchange", positionTour);
+  }
+  function hideTour() {
+    const el = document.getElementById("tour");
+    if (el) { el.classList.add("hidden"); el.setAttribute("aria-hidden", "true"); }
+    markTourDone();
+    window.removeEventListener("resize", positionTour);
+    window.removeEventListener("orientationchange", positionTour);
+  }
+  function tourOpen() {
+    const el = document.getElementById("tour");
+    return el && !el.classList.contains("hidden");
+  }
+
   // ---------- Trip planner ----------
   function wirePlanner() {
     const radius = document.getElementById("planner-radius");
@@ -928,8 +1063,42 @@ const App = (() => {
       t.setAttribute("aria-selected", String(on));
     });
     if (name === "memorias") renderMemorias();
-    else if (name === "criticas") renderCriticas();
-    else if (name === "amigos") renderAmigosFeed();
+    else if (name === "criticas") renderCriticasScreen();
+    else if (name === "amigos") renderAmigosScreen();
+  }
+
+  // Amigos screen: switch between the activity feed and the leaderboard subtab.
+  function renderAmigosScreen() {
+    document.querySelectorAll("#amigos-tabs .seg-btn").forEach((b) => {
+      const on = b.dataset.atab === state.amigosTab;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+    const feed = document.getElementById("amigos-feed");
+    const lb = document.getElementById("amigos-leaderboard");
+    const onLeaderboard = state.amigosTab === "leaderboard";
+    if (feed) feed.hidden = onLeaderboard;
+    if (lb) lb.hidden = !onLeaderboard;
+    if (onLeaderboard) renderAmigosLeaderboard();
+    else renderAmigosFeed();
+  }
+
+  // Críticas screen: switch between "my critiques" and the restaurant leaderboard.
+  function renderCriticasScreen() {
+    document.querySelectorAll("#criticas-tabs .seg-btn").forEach((b) => {
+      const on = b.dataset.ctab === state.criticasTab;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+    const list = document.getElementById("criticas-list");
+    const lb = document.getElementById("criticas-leaderboard");
+    const scope = document.getElementById("criticas-scope");
+    const onLeaderboard = state.criticasTab === "leaderboard";
+    if (list) list.hidden = onLeaderboard;
+    if (lb) lb.hidden = !onLeaderboard;
+    if (scope) scope.hidden = onLeaderboard;
+    if (onLeaderboard) renderCriticasLeaderboard();
+    else renderCriticas();
   }
 
   function navTo(name) {
@@ -949,6 +1118,12 @@ const App = (() => {
     return `<span class="stars-display">${[1, 2, 3, 4, 5]
       .map((i) => `<svg class="icon${i <= n ? "" : " empty"}"><use href="#i-star"/></svg>`)
       .join("")}</span>`;
+  }
+  // Read-only chips for a list of dishes.
+  function dishChips(list) {
+    const items = (list || []).map((d) => String(d).trim()).filter(Boolean);
+    if (!items.length) return "";
+    return `<div class="dish-chips">${items.map((d) => `<span class="dish-chip">${esc(d)}</span>`).join("")}</div>`;
   }
   // Open a restaurant's detail drawer focused on a specific tab.
   function openOnTab(r, tab) {
@@ -970,6 +1145,7 @@ const App = (() => {
         r,
         stars: rating ? rating.stars : 0,
         note: rating ? rating.note : "",
+        dishes: (rating && rating.dishes) || [],
         lastVisit,
         visitCount: hist.length,
         updatedAt: (rating && rating.updatedAt) || lastVisit || ""
@@ -993,6 +1169,7 @@ const App = (() => {
       </div>
       <span class="memory-loc">${dot(cat)} ${esc(m.r.town)}, ${esc(m.r.region)}</span>
       ${m.note ? `<p class="memory-note">${esc(m.note)}</p>` : ""}
+      ${dishChips(m.dishes)}
       <span class="memory-meta muted">${icon("check-circle")} ${esc(meta)}</span>`;
     card.addEventListener("click", () => openOnTab(m.r, "mem"));
     return card;
@@ -1174,6 +1351,99 @@ const App = (() => {
     paintFeed(el, merged);
   }
 
+  // ----- Amigos leaderboard: rank everyone by number of visits (no network) -----
+  function computeAmigosLeaderboard(period) {
+    const ym = new Date().toISOString().slice(0, 7);
+    const inPeriod = (iso) => period === "all" || (iso || "").slice(0, 7) === ym;
+    return UserData.everyone()
+      .map((g) => {
+        let visits = 0, ratings = 0, starSum = 0;
+        Object.values(g.history || {}).forEach((dates) =>
+          (dates || []).forEach((d) => { if (inPeriod(d)) visits++; })
+        );
+        Object.values(g.ratings || {}).forEach((rt) => {
+          if (!rt || !rt.stars) return;
+          if (period === "all" || inPeriod(rt.updatedAt)) { ratings++; starSum += rt.stars; }
+        });
+        return { g, visits, ratings, avgStars: ratings ? starSum / ratings : 0 };
+      })
+      .sort((a, b) => b.visits - a.visits || b.ratings - a.ratings);
+  }
+
+  function lbRankLabel(rank) {
+    return `<span class="lb-rank lb-rank-${rank <= 3 ? rank : "n"}">${rank}</span>`;
+  }
+
+  function lbAmigoRow(item, rank) {
+    return `<div class="lb-row">
+      ${lbRankLabel(rank)}
+      ${avatar(item.g.displayName, item.g.photoURL)}
+      <div class="lb-body">
+        <span class="lb-name">${esc(item.g.displayName || "Amigo")}</span>
+        <span class="lb-stats muted">${icon("star")} ${item.ratings}${item.avgStars ? ` (${item.avgStars.toFixed(1)})` : ""}</span>
+      </div>
+      <span class="lb-score">${icon("check-circle")} ${item.visits}</span>
+    </div>`;
+  }
+
+  let amigosLbPeriod = "all";
+  function renderAmigosLeaderboard() {
+    const el = document.getElementById("amigos-leaderboard");
+    if (!el) return;
+    if (!UserData.isCloud()) { el.innerHTML = signinInvite("Inicie sessão para ver o leaderboard."); return; }
+    const rows = computeAmigosLeaderboard(amigosLbPeriod);
+    const toggle = `<div class="seg lb-period">
+      <button class="seg-btn${amigosLbPeriod === "all" ? " active" : ""}" data-period="all">Sempre</button>
+      <button class="seg-btn${amigosLbPeriod === "month" ? " active" : ""}" data-period="month">Este mês</button>
+    </div>`;
+    el.innerHTML = toggle + (rows.some((r) => r.visits > 0 || r.ratings > 0)
+      ? rows.map((r, i) => lbAmigoRow(r, i + 1)).join("")
+      : `<p class="muted screen-empty">Ainda não há atividade suficiente.</p>`);
+    el.querySelectorAll(".lb-period .seg-btn").forEach((b) =>
+      b.addEventListener("click", () => { amigosLbPeriod = b.dataset.period; renderAmigosLeaderboard(); })
+    );
+  }
+
+  // ----- Críticas leaderboard: rank restaurants by the group's average stars -----
+  function computeCriticasLeaderboard() {
+    const out = [];
+    for (const r of state.restaurants) {
+      const rs = UserData.ratingsFor(r.id).filter((x) => x.stars > 0);
+      if (!rs.length) continue;
+      const avg = rs.reduce((s, x) => s + x.stars, 0) / rs.length;
+      out.push({ r, avg, count: rs.length, raters: rs });
+    }
+    return out.sort((a, b) => b.avg - a.avg || b.count - a.count);
+  }
+
+  function lbRestRow(item, rank) {
+    const avatars = item.raters.slice(0, 6).map((x) => avatar(x.name, x.photoURL)).join("");
+    return `<button type="button" class="lb-row lb-rest" data-lb-rest="${esc(item.r.id)}">
+      ${lbRankLabel(rank)}
+      <div class="lb-body">
+        <span class="lb-name">${esc(item.r.name)}</span>
+        <span class="lb-stats muted">${esc(item.r.town)}, ${esc(item.r.region)}</span>
+      </div>
+      <span class="amigos-avatars">${avatars}</span>
+      <span class="lb-score">${icon("star")} ${item.avg.toFixed(1)} <span class="muted">(${item.count})</span></span>
+    </button>`;
+  }
+
+  function renderCriticasLeaderboard() {
+    const el = document.getElementById("criticas-leaderboard");
+    if (!el) return;
+    if (!UserData.isCloud()) { el.innerHTML = signinInvite("Inicie sessão para ver o ranking de restaurantes."); return; }
+    const rows = computeCriticasLeaderboard();
+    if (!rows.length) { el.innerHTML = `<p class="muted screen-empty">Ainda não há avaliações suficientes.</p>`; return; }
+    el.innerHTML = rows.map((r, i) => lbRestRow(r, i + 1)).join("");
+    el.querySelectorAll("[data-lb-rest]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const r = state.restaurants.find((x) => x.id === b.dataset.lbRest);
+        if (r) openOnTab(r, "crit");
+      })
+    );
+  }
+
   // ---------- Wiring ----------
   function openSidebar(open) {
     const sb = document.getElementById("sidebar");
@@ -1203,8 +1473,22 @@ const App = (() => {
     );
     const signinModalBtn = document.getElementById("signin-modal-btn");
     if (signinModalBtn) signinModalBtn.addEventListener("click", () => { AuthModule.signIn(); hideSigninModal(false); });
+
+    // Guided tour controls
+    document.querySelectorAll("[data-tour-skip]").forEach((el) => el.addEventListener("click", hideTour));
+    const tourNext = document.getElementById("tour-next");
+    if (tourNext) tourNext.addEventListener("click", () => {
+      if (tourIdx >= TOUR_STEPS.length - 1) hideTour();
+      else { tourIdx++; paintTourSlide(); }
+    });
+    const tourPrev = document.getElementById("tour-prev");
+    if (tourPrev) tourPrev.addEventListener("click", () => { if (tourIdx > 0) { tourIdx--; paintTourSlide(); } });
+    const tourReplay = document.getElementById("tour-replay-btn");
+    if (tourReplay) { tourReplay.classList.remove("hidden"); tourReplay.addEventListener("click", showTour); }
+
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
+        if (tourOpen()) { hideTour(); return; }
         const sm = document.getElementById("signin-modal");
         if (sm && !sm.classList.contains("hidden")) { hideSigninModal(true); return; }
         closeDetail(); openSidebar(false);
@@ -1219,6 +1503,12 @@ const App = (() => {
         state.criticasScope = b.dataset.scope;
         renderCriticas();
       })
+    );
+    document.querySelectorAll("#amigos-tabs .seg-btn").forEach((b) =>
+      b.addEventListener("click", () => { state.amigosTab = b.dataset.atab; renderAmigosScreen(); })
+    );
+    document.querySelectorAll("#criticas-tabs .seg-btn").forEach((b) =>
+      b.addEventListener("click", () => { state.criticasTab = b.dataset.ctab; renderCriticasScreen(); })
     );
     wirePlanner();
   }
@@ -1245,6 +1535,7 @@ const App = (() => {
     if (user) {
       hideSigninModal(true); // signed in — close and don't auto-prompt again this session
       UserData.setUser(user, getToken); // async; UserData.onChange triggers re-render
+      if (!tourDone()) showTour(); // first login → guided tour (dismissible)
     } else {
       UserData.clearUser();
       maybePromptSignin();

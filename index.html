@@ -65,6 +65,9 @@
     <button id="signin-btn" class="btn btn-ghost btn-sm topbar-signin hidden">
       <svg class="icon"><use href="#i-log-in"/></svg> Entrar
     </button>
+    <button id="tour-replay-btn" class="icon-btn hidden" aria-label="Rever tutorial">
+      <svg class="icon"><use href="#i-sparkles"/></svg>
+    </button>
     <div id="user-chip" class="user-chip hidden">
       <img id="user-chip-img" class="avatar" alt="" />
       <span id="user-chip-name" class="user-chip-name"></span>
@@ -189,21 +192,33 @@
   </section>
 
   <section id="screen-criticas" class="screen screen-data" data-screen="criticas" hidden>
-    <div class="screen-head">
-      <h2>As minhas críticas</h2>
+    <div class="screen-head screen-head-col">
+      <div class="screen-head-row">
+        <h2>Críticas</h2>
+        <div class="seg subtabs" id="criticas-tabs" role="group" aria-label="Vista de críticas">
+          <button class="seg-btn active" data-ctab="minhas" aria-pressed="true">As minhas</button>
+          <button class="seg-btn" data-ctab="leaderboard" aria-pressed="false">Leaderboard</button>
+        </div>
+      </div>
       <div class="seg" id="criticas-scope" role="group" aria-label="Âmbito das críticas">
         <button class="seg-btn active" data-scope="mine" aria-pressed="true">As minhas</button>
         <button class="seg-btn" data-scope="all" aria-pressed="false">Todas</button>
       </div>
     </div>
     <div id="criticas-list" class="screen-list"></div>
+    <div id="criticas-leaderboard" class="screen-list" hidden></div>
   </section>
 
   <section id="screen-amigos" class="screen screen-data" data-screen="amigos" hidden>
     <div class="screen-head">
-      <h2>Atividade dos amigos</h2>
+      <h2>Amigos</h2>
+      <div class="seg subtabs" id="amigos-tabs" role="group" aria-label="Vista de amigos">
+        <button class="seg-btn active" data-atab="atividade" aria-pressed="true">Atividade</button>
+        <button class="seg-btn" data-atab="leaderboard" aria-pressed="false">Leaderboard</button>
+      </div>
     </div>
     <div id="amigos-feed" class="screen-list"></div>
+    <div id="amigos-leaderboard" class="screen-list" hidden></div>
   </section>
 
   <!-- Bottom tab bar -->
@@ -308,6 +323,25 @@
           <svg class="icon"><use href="#i-log-in"/></svg> Iniciar sessão com a Google
         </button>
         <button class="btn btn-ghost btn-block" data-close-signin>Agora não</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Guided tour (spotlight) -->
+  <div id="tour" class="tour hidden" aria-hidden="true">
+    <div class="tour-dim" data-tour-skip></div>
+    <div class="tour-highlight" id="tour-highlight"></div>
+    <div class="tour-balloon" id="tour-balloon" role="dialog" aria-modal="true" aria-label="Visita guiada">
+      <button class="icon-btn tour-x" data-tour-skip aria-label="Fechar">
+        <svg class="icon"><use href="#i-x"/></svg>
+      </button>
+      <h3 class="tour-title" id="tour-title"></h3>
+      <p class="tour-text" id="tour-text"></p>
+      <div class="tour-dots" id="tour-dots"></div>
+      <div class="tour-nav">
+        <button class="btn btn-ghost btn-sm" id="tour-prev">Anterior</button>
+        <button class="btn btn-ghost btn-sm" data-tour-skip>Saltar</button>
+        <button class="btn btn-primary btn-sm" id="tour-next">Próximo</button>
       </div>
     </div>
   </div>

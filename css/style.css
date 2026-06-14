@@ -844,6 +844,75 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .signin-modal-actions { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
 .signin-modal-actions .icon { width: 18px; height: 18px; }
 
+/* ---------- Dishes (chips) ---------- */
+.dish-edit { display: flex; flex-direction: column; gap: 6px; }
+.dish-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.dish-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.76rem; font-weight: 600; color: var(--text-muted);
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--r-pill); padding: 3px 10px;
+}
+.dish-chip.removable { padding-right: 4px; }
+.dish-chip .dish-x { display: inline-flex; padding: 0; background: none; border: none; cursor: pointer; color: var(--text-faint); }
+.dish-chip .dish-x .icon { width: 13px; height: 13px; }
+.dish-chip .dish-x:hover { color: var(--danger); }
+.dish-input { width: 100%; }
+.amigos-dishes { display: flex; flex-direction: column; gap: 6px; }
+
+/* ---------- Screen subtabs ---------- */
+.screen-head-col { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
+.screen-head-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.subtabs { align-self: flex-start; }
+/* These set display:flex, so override the [hidden] attribute explicitly. */
+.screen-list[hidden], .seg[hidden] { display: none; }
+
+/* ---------- Leaderboards ---------- */
+.lb-row {
+  display: flex; align-items: center; gap: var(--sp-3);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--sp-3);
+}
+.lb-rest { appearance: none; text-align: left; cursor: pointer; width: 100%; }
+.lb-rest:hover { border-color: var(--border-strong); }
+.lb-rank {
+  font-weight: 700; min-width: 28px; text-align: center; font-size: 1rem;
+  color: var(--text-faint); flex-shrink: 0;
+}
+.lb-rank-1 { color: #d4a017; }
+.lb-rank-2 { color: #9aa3ad; }
+.lb-rank-3 { color: #b87333; }
+.lb-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.lb-name { font-weight: 600; font-size: 0.95rem; }
+.lb-stats { font-size: 0.78rem; display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lb-stats .icon { width: 13px; height: 13px; color: var(--star); fill: var(--star); stroke: var(--star); }
+.lb-score { font-weight: 700; color: var(--primary); font-size: 1rem; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.lb-score .icon { width: 14px; height: 14px; color: var(--star); fill: var(--star); stroke: var(--star); }
+.lb-period { margin-bottom: var(--sp-1); align-self: flex-start; }
+
+/* ---------- Guided tour (spotlight) ---------- */
+.tour { position: fixed; inset: 0; z-index: 200; }
+.tour.hidden { display: none; }
+.tour-dim { position: absolute; inset: 0; }
+.tour-highlight {
+  position: fixed; border-radius: var(--r-md);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
+  outline: 2px solid var(--primary); pointer-events: none;
+  transition: top 0.2s var(--ease), left 0.2s var(--ease), width 0.2s var(--ease), height 0.2s var(--ease);
+}
+.tour-balloon {
+  position: fixed; z-index: 1; width: min(320px, calc(100vw - 24px));
+  background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-lg);
+  padding: var(--sp-4); padding-top: var(--sp-5);
+}
+.tour-balloon.tour-centered { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+.tour-x { position: absolute; top: var(--sp-2); right: var(--sp-2); }
+.tour-title { font-family: var(--font-display); font-size: 1.2rem; }
+.tour-text { color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin: 6px 0 var(--sp-3); }
+.tour-dots { display: flex; gap: 6px; margin-bottom: var(--sp-3); }
+.tour-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); }
+.tour-dot.on { background: var(--primary); }
+.tour-nav { display: flex; justify-content: space-between; gap: var(--sp-2); }
+
 /* Bottom tab bar */
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
