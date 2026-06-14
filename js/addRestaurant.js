@@ -88,8 +88,9 @@ const AddRestaurantModule = (() => {
   function buildRestaurantFromForm(coords) {
     const name = nameInput.value.trim();
     const town = townInput.value.trim();
-    // Prefer a region the user typed; else the one detected from geocoding; else fall back.
-    const region = regionInput.value.trim() || (coords && coords.region) || "Alentejo";
+    const inferredRegion = typeof Geocode !== "undefined" ? Geocode.regionForTown(town) : null;
+    // Prefer a region the user typed; else geocoding; else infer from known towns.
+    const region = regionInput.value.trim() || (coords && coords.region) || inferredRegion || "Portugal";
     const category = categorySelect.value;
     const notes = notesInput.value.trim();
     const lat = coords ? coords.lat : parseFloat(latInput.value);

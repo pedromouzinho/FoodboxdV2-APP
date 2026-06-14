@@ -72,11 +72,12 @@ const DB = (() => {
 
   function docToRestaurant(doc) {
     const f = decodeFields(doc);
+    const inferredRegion = typeof Geocode !== "undefined" ? Geocode.regionForTown(f.town) : null;
     return {
       id: doc.name.split("/").pop(),
       name: f.name,
       town: f.town,
-      region: f.region || "Alentejo",
+      region: f.region || inferredRegion || "Portugal",
       category: f.category || "tradicional",
       lat: f.lat,
       lng: f.lng,

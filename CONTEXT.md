@@ -48,7 +48,9 @@ Sem bundler. `index.html` carrega os scripts por ordem. Cada módulo é um IIFE
 - `js/places.js` — PlacesModule: `fetchDetails(r)` (Places: rating, reviews,
   fotos, telefone, horário…); cache em localStorage 1 semana. `isAvailable()`.
 - `js/geocode.js` — Geocode: `locate(name,town)` → `{lat,lng,region}`. Mapeia
-  distrito→região (NUTS‑II) via `REGION_BY_DISTRICT`.
+  distrito→região (NUTS‑II) via `REGION_BY_DISTRICT` e tem fallback por
+  localidade (`regionForTown`) para evitar que falhas de geocoding caiam
+  silenciosamente em Alentejo.
 - `js/addRestaurant.js` — formulário "Adicionar restaurante".
 - `js/storage.js` — localStorage helpers (visited, custom restaurants, places
   cache, overrides). `removeCustomRestaurant` existe.
@@ -82,8 +84,8 @@ rm -rf /tmp/fbcred   # apagar SEMPRE a credencial no fim
 - Targets: `--only hosting`, `--only firestore:rules`, `--only storage` (ou
   combinados). **Não** fazer deploy de functions (não há).
 - **Convenção do service worker:** a cada mudança de assets, **bump `CACHE`** em
-  `sw.js` (`foodboxd-vN`). **Atual: `foodboxd-v18`.** (Histórico: restaurantes-v4
-  → … v10 → foodboxd-v11 … v18.)
+  `sw.js` (`foodboxd-vN`). **Atual: `foodboxd-v19`.** (Histórico: restaurantes-v4
+  → … v10 → foodboxd-v11 … v19.)
 - Em PWA instalada, o utilizador pode precisar de **fechar/reabrir 2x** para
   apanhar a versão nova.
 - **NUNCA** commitar a service account (está em `.gitignore`: `*serviceaccount*`,
@@ -107,8 +109,8 @@ Quando é preciso ler/apagar/patchar dados ou pôr CORS, faço scripts Node que:
   `storage.googleapis.com/storage/v1/b/{bucket}?fields=cors`, origin `*`, GET/HEAD).
 - **Já executado nesta sessão:** apagados 2 utilizadores de teste vazios
   (mantida a conta principal `OW3B2oJHkONxk40J3AE0Hben5pl1` = Pedro Mouzinho);
-  corrigida região dos 7 restaurantes da comunidade + marcados `verified`
-  Gambrinus e O Teodósio.
+  corrigida região dos restaurantes da comunidade, incluindo os que tinham sido
+  gravados com Alentejo por fallback; marcados `verified` Gambrinus e O Teodósio.
 
 ## 5. Modelo de dados
 
@@ -204,8 +206,8 @@ all; write se `auth && file começa por uid + imagem + <6MB`; delete se auth.
 - **OTA (live updates)** para a app nativa (Capgo/Appflow) — opcional, evita
   resubmeter a cada mudança de código.
 - **Backfill `verified`** dos restantes 5 da comunidade — só se forem reais.
-- **`region` default "Alentejo"** ainda existe como último fallback no add e em
-  `docToRestaurant` (`f.region || "Alentejo"`).
+- Confirmar que novas localidades relevantes ficam no fallback `regionForTown`
+  quando a geocodificação não devolver distrito.
 
 ## 10. App nativa iOS (Capacitor) — roadmap
 
