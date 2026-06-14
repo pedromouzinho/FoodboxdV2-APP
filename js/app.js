@@ -141,7 +141,7 @@ const App = (() => {
     const container = document.getElementById("restaurant-list");
     container.innerHTML = "";
     if (!restaurants.length) {
-      container.innerHTML = `<p class="empty">Nenhum restaurante encontrado.<br>Tenta limpar os filtros.</p>`;
+      container.innerHTML = `<p class="empty">Nenhum restaurante encontrado.<br>Ajuste ou limpe os filtros.</p>`;
       return;
     }
     const grouped = {};
@@ -165,7 +165,7 @@ const App = (() => {
     // group/personal badges
     const badges = [];
     if (r.source === "community") badges.push('<span class="badge community">comunidade</span>');
-    if (UserData.isPriority(r.id)) badges.push(`<span class="badge priority" title="Quero ir já">${icon("flame")} já</span>`);
+    if (UserData.isPriority(r.id)) badges.push(`<span class="badge priority" title="Prioritário">${icon("flame")} Prioritário</span>`);
     if (UserData.isCloud()) {
       const n = UserData.visitedBy(r.id).length;
       if (n) badges.push(`<span class="badge visited-by" title="Visitado por ${n}">${icon("users")} ${n}</span>`);
@@ -277,25 +277,46 @@ const App = (() => {
       <div class="detail-stats" data-stats>
         <div class="stat"><span class="label">Avaliação</span><span class="value"><span class="skeleton sk-line" style="width:60px"></span></span></div>
       </div>
-      ${r.notes ? `<div class="detail-note">${icon("sparkles")} <strong>Provar:</strong> ${esc(r.notes)}</div>` : ""}
+      ${r.notes ? `<div class="detail-note">${icon("sparkles")} <strong>Especialidade:</strong> ${esc(r.notes)}</div>` : ""}
       <div class="detail-actions" data-actions>
         <a class="btn btn-ghost" href="${directionsUrl(r)}" target="_blank" rel="noopener">${icon("navigation")} Direções</a>
         <a class="btn btn-ghost" href="${googleMapsUrl(r)}" target="_blank" rel="noopener">${icon("external")} Google</a>
         <button class="btn btn-ghost btn-block" data-share>${icon("share")} Partilhar</button>
         <button class="btn btn-block" data-visit-toggle="${esc(r.id)}"></button>
       </div>
-      <div class="my-marks" data-my-marks></div>
-      <div class="cat-edit">
-        <span class="detail-section-title">Tipo de sítio${DB.isAvailable() ? "" : " (só neste navegador)"}</span>
-        <div class="chip-row" data-cat-edit></div>
-        <div class="cat-suggest" data-cat-suggest hidden></div>
+      <div class="detail-tabs" role="tablist">
+        <button class="detail-tab active" data-tab="rest" role="tab" aria-selected="true">Restaurante</button>
+        <button class="detail-tab" data-tab="mem" role="tab" aria-selected="false">As minhas memórias</button>
+        <button class="detail-tab" data-tab="crit" role="tab" aria-selected="false">Críticas</button>
+        <button class="detail-tab" data-tab="amigos" role="tab" aria-selected="false">Amigos</button>
       </div>
-      <div data-gallery></div>
-      <div class="photos" data-photos></div>
-      <div data-hours></div>
-      <div data-reviews></div>
-      <div class="amigos" data-amigos></div>
-      <div class="comments" data-comments></div>`;
+      <div class="detail-panes">
+        <div class="detail-pane" data-pane="rest" role="tabpanel">
+          <div data-gallery></div>
+          <div data-hours></div>
+          <div data-reviews></div>
+          <div class="cat-edit">
+            <span class="detail-section-title">Tipo de sítio${DB.isAvailable() ? "" : " (só neste navegador)"}</span>
+            <div class="chip-row" data-cat-edit></div>
+            <div class="cat-suggest" data-cat-suggest hidden></div>
+          </div>
+        </div>
+        <div class="detail-pane" data-pane="mem" role="tabpanel" hidden>
+          <div class="my-marks" data-my-marks></div>
+          <div class="photos" data-my-photos></div>
+        </div>
+        <div class="detail-pane" data-pane="crit" role="tabpanel" hidden>
+          <div class="comments" data-comments></div>
+        </div>
+        <div class="detail-pane" data-pane="amigos" role="tabpanel" hidden>
+          <div class="amigos" data-amigos></div>
+          <div class="photos" data-friends-photos></div>
+        </div>
+      </div>`;
+
+    body.querySelectorAll(".detail-tab").forEach((tab) => {
+      tab.addEventListener("click", () => switchTab(body, tab.dataset.tab));
+    });
 
     const visitBtn = body.querySelector("[data-visit-toggle]");
     syncDetailVisitBtn(visitBtn, visited);
@@ -337,7 +358,31 @@ const App = (() => {
     if (r && panel.getAttribute("aria-hidden") === "false") openDetail(r);
   }
 
+  // Toggle which detail tab/pane is visible.
+  function switchTab(body, name) {
+    body.querySelectorAll(".detail-tab").forEach((t) => {
+      const on = t.dataset.tab === name;
+      t.classList.toggle("active", on);
+      t.setAttribute("aria-selected", String(on));
+    });
+    body.querySelectorAll(".detail-pane").forEach((p) => {
+      p.hidden = p.dataset.pane !== name;
+    });
+  }
+
   // ---------- Personal marks (priority / rating / note / visit history) ----------
+  function visitListHtml(r) {
+    const hist = UserData.getHistory(r.id).slice().reverse();
+    if (!hist.length) return `<span class="muted history-summary">Sem visitas registadas</span>`;
+    return hist
+      .map(
+        (iso) =>
+          `<div class="visit-entry"><span>${icon("check-circle")} ${fmtDate(iso)}</span>` +
+          `<button type="button" class="icon-btn visit-del" data-del-visit="${esc(iso)}" aria-label="Remover visita">${icon("x")}</button></div>`
+      )
+      .join("");
+  }
+
   function renderMyMarks(r) {
     const el = document.querySelector("#detail-body [data-my-marks]");
     if (!el) return;
@@ -345,7 +390,7 @@ const App = (() => {
     if (!UserData.isCloud()) {
       if (DB.isAvailable()) {
         el.innerHTML =
-          `<div class="signin-invite">${icon("log-in")} <span>Inicia sessão com a Google para marcar prioridade, avaliar e guardar notas — e ver as dos amigos.</span></div>`;
+          `<div class="signin-invite">${icon("log-in")} <span>Inicie sessão com a Google para marcar prioridade, avaliar e guardar notas.</span></div>`;
       } else {
         el.innerHTML = "";
       }
@@ -354,13 +399,11 @@ const App = (() => {
 
     const priority = UserData.isPriority(r.id);
     const rating = UserData.getRating(r.id) || { stars: 0, note: "" };
-    const last = UserData.lastVisit(r.id);
-    const visits = UserData.getHistory(r.id).length;
 
     el.innerHTML = `
-      <div class="detail-section-title">A minha marcação</div>
+      <div class="detail-section-title">Marcar Prioritário</div>
       <button class="btn btn-block priority-toggle${priority ? " on" : ""}" data-priority aria-pressed="${priority}">
-        ${icon("flame")} ${priority ? "Na lista “quero ir já”" : "Quero ir já"}
+        ${icon("flame")} ${priority ? "Marcado como prioritário" : "Marcar prioritário"}
       </button>
       <div class="rate-row">
         <span class="rate-label">A minha nota</span>
@@ -371,9 +414,7 @@ const App = (() => {
       <textarea class="note-input" data-note placeholder="Nota pessoal (ex: pedir a sobremesa)…" rows="2">${esc(rating.note || "")}</textarea>
       <div class="visit-history">
         <button class="btn btn-ghost btn-sm" data-add-visit>${icon("check-circle")} Marcar visita de hoje</button>
-        <span class="muted history-summary">${
-          last ? `Última visita: ${fmtDate(last)}${visits > 1 ? ` · ${visits} visitas` : ""}` : "Sem visitas registadas"
-        }</span>
+        <div class="visit-list" data-visit-list>${visitListHtml(r)}</div>
       </div>`;
 
     el.querySelector("[data-priority]").addEventListener("click", () => {
@@ -411,13 +452,29 @@ const App = (() => {
       renderMyMarks(r);
       renderAmigos(r);
     });
+
+    el.querySelectorAll("[data-del-visit]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        UserData.removeVisit(r.id, btn.dataset.delVisit);
+        renderMyMarks(r);
+        renderAmigos(r);
+      });
+    });
   }
 
   // ---------- Group view ("Amigos") ----------
   function renderAmigos(r) {
     const el = document.querySelector("#detail-body [data-amigos]");
     if (!el) return;
-    if (!UserData.isCloud()) { el.innerHTML = ""; return; }
+
+    const title = `<div class="detail-section-title">${icon("users")} Amigos</div>`;
+
+    if (!UserData.isCloud()) {
+      el.innerHTML =
+        title +
+        `<div class="signin-invite">${icon("log-in")} <span>Inicie sessão com a Google para ver a atividade de amigos.</span></div>`;
+      return;
+    }
 
     const visitedBy = UserData.visitedBy(r.id);
     const priorityBy = UserData.priorityBy(r.id);
@@ -425,11 +482,11 @@ const App = (() => {
     const avg = UserData.avgRating(r.id);
 
     if (!visitedBy.length && !priorityBy.length && !ratings.length) {
-      el.innerHTML = "";
+      el.innerHTML = title + `<p class="muted">Ainda não há atividade de amigos por aqui.</p>`;
       return;
     }
 
-    const blocks = [`<div class="detail-section-title">${icon("users")} Amigos</div>`];
+    const blocks = [title];
 
     if (typeof avg === "number") {
       blocks.push(
@@ -480,11 +537,11 @@ const App = (() => {
       ${
         signedIn
           ? `<div class="comment-form">
-               <textarea class="note-input" data-comment-text placeholder="Escreve um comentário para o grupo…" rows="2"></textarea>
+               <textarea class="note-input" data-comment-text placeholder="Escreva um comentário…" rows="2"></textarea>
                <button class="btn btn-primary btn-sm" data-comment-send>Comentar</button>
              </div>`
           : DB.isAvailable()
-          ? `<p class="hint">${icon("log-in")} Inicia sessão para comentar.</p>`
+          ? `<p class="hint">${icon("log-in")} Inicie sessão para comentar.</p>`
           : ""
       }`;
 
@@ -494,12 +551,12 @@ const App = (() => {
     if (state.currentDetail !== r) return;
     listEl.innerHTML = comments.length
       ? comments.map(renderComment).join("")
-      : `<p class="muted">Ainda sem comentários. Sê o primeiro!</p>`;
+      : `<p class="muted">Ainda não há comentários.</p>`;
 
     if (signedIn) {
       const textEl = el.querySelector("[data-comment-text]");
       const sendBtn = el.querySelector("[data-comment-send]");
-      sendBtn.addEventListener("click", async () => {
+      const submit = async () => {
         const text = textEl.value.trim();
         if (!text) return;
         sendBtn.disabled = true;
@@ -516,9 +573,17 @@ const App = (() => {
           textEl.value = "";
         } catch (e) {
           // surface a minimal error inline
-          textEl.placeholder = "Não consegui publicar. Tenta de novo.";
+          textEl.placeholder = "Não foi possível publicar. Tente novamente.";
         }
         sendBtn.disabled = false;
+      };
+      sendBtn.addEventListener("click", submit);
+      // Enter publica; Shift+Enter insere uma nova linha.
+      textEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          submit();
+        }
       });
     }
   }
@@ -540,38 +605,56 @@ const App = (() => {
   }
 
   async function renderPhotos(r) {
-    const el = document.querySelector("#detail-body [data-photos]");
-    if (!el) return;
-    if (!DB.isAvailable()) { el.innerHTML = ""; return; }
+    const mineEl = document.querySelector("#detail-body [data-my-photos]");
+    const friendsEl = document.querySelector("#detail-body [data-friends-photos]");
+    if (!mineEl && !friendsEl) return;
+    if (!DB.isAvailable()) {
+      if (mineEl) mineEl.innerHTML = "";
+      if (friendsEl) friendsEl.innerHTML = "";
+      return;
+    }
 
+    const me = UserData.isCloud() ? UserData.me() : null;
     const canUpload = UserData.isCloud() && window.FirebaseStorage && window.FirebaseStorage.configured;
-    el.innerHTML = `
-      <div class="photos-head">
-        <span class="detail-section-title">${icon("camera")} Fotos da malta</span>
-        ${canUpload ? `<button class="btn btn-ghost btn-sm" data-add-photo>${icon("camera")} Adicionar</button>
-          <input type="file" accept="image/*" data-photo-input hidden />` : ""}
-      </div>
-      <div class="photo-grid" data-photo-grid><div class="skeleton" style="height:70px"></div></div>
-      <p class="photo-status muted" data-photo-status></p>`;
 
-    const grid = el.querySelector("[data-photo-grid]");
+    if (mineEl) {
+      mineEl.innerHTML = `
+        <div class="photos-head">
+          <span class="detail-section-title">${icon("camera")} As minhas fotos</span>
+          ${canUpload ? `<button class="btn btn-ghost btn-sm" data-add-photo>${icon("camera")} Adicionar foto</button>
+            <input type="file" accept="image/*" data-photo-input hidden />` : ""}
+        </div>
+        <div class="photo-grid" data-my-grid><div class="skeleton" style="height:70px"></div></div>
+        <p class="photo-status muted" data-photo-status></p>`;
+    }
+    if (friendsEl) {
+      friendsEl.innerHTML = `
+        <div class="photos-head"><span class="detail-section-title">${icon("camera")} Fotos de amigos</span></div>
+        <div class="photo-grid" data-friends-grid><div class="skeleton" style="height:70px"></div></div>`;
+    }
+
+    const myGrid = mineEl ? mineEl.querySelector("[data-my-grid]") : null;
+    const friendsGrid = friendsEl ? friendsEl.querySelector("[data-friends-grid]") : null;
+
     const photos = await DB.fetchPhotos(r.id);
     if (state.currentDetail !== r) return;
-    paintPhotoGrid(grid, photos);
+    const mine = me ? photos.filter((p) => p.uid === me.uid) : [];
+    const others = me ? photos.filter((p) => p.uid !== me.uid) : photos;
+    if (myGrid) paintPhotoGrid(myGrid, mine, me ? "Ainda não adicionou fotos." : "Inicie sessão para adicionar fotos.");
+    if (friendsGrid) paintPhotoGrid(friendsGrid, others, "Ainda não há fotos de amigos.");
 
-    if (canUpload) {
-      const input = el.querySelector("[data-photo-input]");
-      const statusEl = el.querySelector("[data-photo-status]");
-      el.querySelector("[data-add-photo]").addEventListener("click", () => input.click());
+    if (canUpload && myGrid) {
+      const input = mineEl.querySelector("[data-photo-input]");
+      const statusEl = mineEl.querySelector("[data-photo-status]");
+      mineEl.querySelector("[data-add-photo]").addEventListener("click", () => input.click());
       input.addEventListener("change", async () => {
         const file = input.files && input.files[0];
         input.value = "";
         if (!file) return;
-        if (!/^image\//.test(file.type)) { statusEl.textContent = "Escolhe uma imagem."; return; }
-        if (file.size > 6 * 1024 * 1024) { statusEl.textContent = "Imagem demasiado grande (máx 6 MB)."; return; }
+        if (!/^image\//.test(file.type)) { statusEl.textContent = "Selecione uma imagem."; return; }
+        if (file.size > 6 * 1024 * 1024) { statusEl.textContent = "Imagem demasiado grande (máx. 6 MB)."; return; }
         statusEl.textContent = "A enviar foto…";
         try {
-          const me = UserData.me();
           const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
           const path = `restaurants/${slugifyId(r.id)}/${me.uid}-${Date.now()}.${ext}`;
           const url = await window.FirebaseStorage.upload(path, file);
@@ -579,20 +662,20 @@ const App = (() => {
           const token = fb ? await fb.getToken() : null;
           const saved = await DB.addPhoto({ restaurantId: r.id, uid: me.uid, author: me.displayName, url, path }, token);
           if (state.currentDetail !== r) return;
-          const empty = grid.querySelector(".photo-empty");
-          if (empty) grid.innerHTML = "";
-          grid.insertAdjacentHTML("beforeend", photoTile(saved));
-          statusEl.textContent = "Foto adicionada! 🎉";
+          const empty = myGrid.querySelector(".photo-empty");
+          if (empty) myGrid.innerHTML = "";
+          myGrid.insertAdjacentHTML("beforeend", photoTile(saved));
+          statusEl.textContent = "Foto adicionada.";
         } catch (e) {
-          statusEl.textContent = "Não consegui enviar. As fotos já estão ativadas no Firebase?";
+          statusEl.textContent = "Não foi possível enviar. As fotos já estão ativadas no Firebase?";
         }
       });
     }
   }
 
-  function paintPhotoGrid(grid, photos) {
+  function paintPhotoGrid(grid, photos, emptyMsg) {
     if (!photos.length) {
-      grid.innerHTML = `<p class="photo-empty muted">Ainda sem fotos da malta.</p>`;
+      grid.innerHTML = `<p class="photo-empty muted">${esc(emptyMsg || "Ainda não há fotos.")}</p>`;
       return;
     }
     grid.innerHTML = photos.map(photoTile).join("");
@@ -647,7 +730,7 @@ const App = (() => {
     const reviewsEl = body.querySelector("[data-reviews]");
 
     if (!PlacesModule.isAvailable()) {
-      statsEl.innerHTML = `<p class="hint">Ativa a Google Maps API para ver avaliações, fotos e horários aqui.</p>`;
+      statsEl.innerHTML = `<p class="hint">Ative a Google Maps API para ver avaliações, fotos e horários.</p>`;
       return;
     }
     // skeletons
@@ -775,7 +858,7 @@ const App = (() => {
       const status = document.getElementById("planner-status");
       const results = document.getElementById("planner-results");
       results.innerHTML = "";
-      if (!from || !to) { status.textContent = "Indica o ponto de partida e o destino."; return; }
+      if (!from || !to) { status.textContent = "Indique o ponto de partida e o destino."; return; }
       if (!PlannerModule.isAvailable()) { status.textContent = "O planeador precisa da Google Maps ativa."; return; }
       status.textContent = "A calcular rota…";
       try {

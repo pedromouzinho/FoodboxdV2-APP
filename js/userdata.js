@@ -186,6 +186,15 @@ const UserData = (() => {
     mine.visited.add(id); // a recorded visit implies visited
     scheduleSave();
   }
+  function removeVisit(id, isoDate) {
+    if (!cloud) return;
+    const list = mine.history[id] || [];
+    const idx = list.indexOf(isoDate);
+    if (idx >= 0) list.splice(idx, 1);
+    if (list.length) mine.history[id] = list;
+    else delete mine.history[id];
+    scheduleSave();
+  }
   function lastVisit(id) {
     const h = getHistory(id);
     return h.length ? h[h.length - 1] : null;
@@ -235,6 +244,7 @@ const UserData = (() => {
     setRating,
     getHistory,
     addVisit,
+    removeVisit,
     lastVisit,
     others,
     visitedBy,

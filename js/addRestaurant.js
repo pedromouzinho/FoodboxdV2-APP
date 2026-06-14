@@ -70,7 +70,7 @@ const AddRestaurantModule = (() => {
   // user can see/adjust them before saving.
   async function manualLocate() {
     if (!nameInput.value || !townInput.value) {
-      locateStatus.textContent = "Indica o nome e a localidade primeiro.";
+      locateStatus.textContent = "Indique o nome e a localidade primeiro.";
       return;
     }
     locateStatus.textContent = "A procurar...";
@@ -110,7 +110,7 @@ const AddRestaurantModule = (() => {
   async function onSubmit(e) {
     e.preventDefault();
     if (!nameInput.value.trim() || !townInput.value.trim()) {
-      setStatus("Indica o nome e a localidade.", "error");
+      setStatus("Indique o nome e a localidade.", "error");
       return;
     }
 
@@ -131,7 +131,7 @@ const AddRestaurantModule = (() => {
 
       if (!coords) {
         setStatus(
-          "Não consegui encontrar essa localização. Tenta uma cidade mais específica, ou abre \"Opções avançadas\".",
+          "Não foi possível encontrar essa localização. Tente uma cidade mais específica ou abra as \"Opções avançadas\".",
           "error"
         );
         submitBtn.disabled = false;
@@ -155,7 +155,7 @@ const AddRestaurantModule = (() => {
         setStatus("A guardar para todos...", "info");
         const saved = await DB.add(restaurant, token);
         App.onRestaurantAdded(saved);
-        setStatus("Adicionado para todos! 🎉", "success");
+        setStatus("Restaurante adicionado.", "success");
       } else {
         Storage.addCustomRestaurant(restaurant);
         App.onRestaurantAdded(restaurant);

@@ -6,7 +6,7 @@
 //   - Other static files -> stale-while-revalidate (fast, self-healing).
 //   - Cross-origin (Google Maps/Places/Directions, Firebase) -> network only.
 
-const CACHE = "restaurantes-v4";
+const CACHE = "restaurantes-v5";
 const ASSETS = [
   "./",
   "index.html",

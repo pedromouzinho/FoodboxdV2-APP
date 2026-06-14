@@ -546,6 +546,40 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 
 .detail-section-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); font-weight: 600; font-family: var(--font-body); }
 
+/* ---------- Detail: tabs ---------- */
+.detail-tabs {
+  display: flex; gap: var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  margin: 0 calc(var(--sp-5) * -1) var(--sp-1);
+  padding: 0 var(--sp-5);
+  overflow-x: auto; scrollbar-width: none;
+}
+.detail-tabs::-webkit-scrollbar { display: none; }
+.detail-tab {
+  appearance: none; background: none; border: none; cursor: pointer;
+  font-family: var(--font-body); font-size: 0.86rem; font-weight: 600;
+  color: var(--text-muted); white-space: nowrap;
+  padding: var(--sp-2) 2px; margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+}
+.detail-tab:hover { color: var(--text); }
+.detail-tab.active { color: var(--text); border-bottom-color: var(--primary); }
+.detail-tab:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent); border-radius: var(--r-sm); }
+.detail-pane { display: flex; flex-direction: column; gap: var(--sp-4); }
+.detail-pane[hidden] { display: none; }
+
+/* ---------- Detail: visit history ---------- */
+.visit-list { display: flex; flex-direction: column; gap: 4px; margin-top: var(--sp-2); }
+.visit-entry {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2);
+  font-size: 0.85rem; color: var(--text-muted);
+}
+.visit-entry > span { display: inline-flex; align-items: center; gap: 6px; }
+.visit-entry .icon { width: 15px; height: 15px; }
+.visit-del { width: 26px; height: 26px; color: var(--text-faint); }
+.visit-del:hover { color: var(--primary); }
+.visit-del .icon { width: 15px; height: 15px; }
+
 .hours-list { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--text-muted); }
 .hours-list .today { color: var(--text); font-weight: 600; }
 
@@ -702,6 +736,13 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 /* ---------- Detail: user photos (Cloud Storage) ---------- */
 .photos { display: flex; flex-direction: column; gap: var(--sp-2); }
 .photos:empty { display: none; }
+/* Distinguish the user's own photos from everyone else's. */
+.photos[data-my-photos] {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--sp-3);
+}
 .photos-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .photos-head .btn .icon { width: 15px; height: 15px; }
 .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); }
