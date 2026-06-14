@@ -783,13 +783,16 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .screen-empty { padding: var(--sp-6) var(--sp-2); text-align: center; }
 
 /* Segmented control (Críticas: mine / all) */
-.seg { display: inline-flex; gap: 2px; background: var(--surface-2); border-radius: var(--r-pill); padding: 3px; }
+/* Segmented control — each option reads as a distinct chip. */
+.seg { display: inline-flex; gap: var(--sp-2); background: none; padding: 0; flex-wrap: wrap; }
 .seg-btn {
-  appearance: none; border: none; background: none; cursor: pointer;
+  appearance: none; cursor: pointer;
   font-family: var(--font-body); font-size: 0.8rem; font-weight: 600; color: var(--text-muted);
-  padding: 5px var(--sp-3); border-radius: var(--r-pill);
+  padding: 6px var(--sp-3); border-radius: var(--r-pill);
+  background: var(--surface); border: 1px solid var(--border);
 }
-.seg-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+.seg-btn:hover { border-color: var(--border-strong); }
+.seg-btn.active { background: var(--primary); color: var(--primary-ink); border-color: var(--primary); }
 
 /* Stars (read-only) */
 .stars-display { display: inline-flex; gap: 1px; flex-shrink: 0; }
@@ -843,6 +846,39 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 /* Sign-in prompt modal */
 .signin-modal-actions { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
 .signin-modal-actions .icon { width: 18px; height: 18px; }
+
+/* ---------- Visit + priority chip (detail actions) ---------- */
+.visit-row { grid-column: 1 / -1; display: flex; gap: var(--sp-2); }
+.visit-row [data-visit-toggle] { flex: 1; }
+.chip-toggle {
+  flex-shrink: 0; white-space: nowrap;
+  background: var(--surface); border: 1px solid var(--border); color: var(--text-muted);
+}
+.chip-toggle .icon { width: 16px; height: 16px; }
+.chip-toggle.on { background: color-mix(in srgb, var(--primary) 14%, transparent); border-color: var(--primary); color: var(--primary); }
+
+/* ---------- Experience journey ---------- */
+.exp-step { display: flex; flex-direction: column; gap: 6px; }
+.exp-hint { font-size: 0.78rem; }
+
+/* Leaderboard unit label */
+.lb-unit { font-size: 0.72rem; font-weight: 600; color: var(--text-faint); }
+
+/* ---------- Success modal ---------- */
+.success-card { text-align: center; }
+.success-icon { display: flex; justify-content: center; margin-bottom: var(--sp-2); }
+.success-icon .icon { width: 44px; height: 44px; color: var(--success); }
+.success-card .btn { margin-top: var(--sp-2); }
+
+/* ---------- Profile modal ---------- */
+.profile-card { text-align: center; }
+.profile-photo {
+  width: 96px; height: 96px; border-radius: 50%; object-fit: cover;
+  background: var(--surface-2); border: 1px solid var(--border);
+  margin: var(--sp-2) auto var(--sp-3); display: block;
+}
+.profile-card .photo-status { text-align: center; }
+#user-chip-img { cursor: pointer; }
 
 /* ---------- Dishes (chips) ---------- */
 .dish-edit { display: flex; flex-direction: column; gap: 6px; }

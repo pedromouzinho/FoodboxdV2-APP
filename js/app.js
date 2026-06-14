@@ -258,6 +258,13 @@ const App = (() => {
       : `${icon("check")} Marcar como visitado`;
   }
 
+  function syncPriorityChip(btn, on) {
+    btn.classList.toggle("on", on);
+    btn.setAttribute("aria-pressed", String(on));
+    btn.title = on ? "Prioritário" : "Marcar prioritário";
+    btn.innerHTML = `${icon("flame")} ${on ? "Prioritário" : "Prioridade"}`;
+  }
+
   function openDetail(r) {
     state.currentDetail = r;
     const cat = catFor(r);
@@ -284,11 +291,14 @@ const App = (() => {
         <a class="btn btn-ghost" href="${directionsUrl(r)}" target="_blank" rel="noopener">${icon("navigation")} Direções</a>
         <a class="btn btn-ghost" href="${googleMapsUrl(r)}" target="_blank" rel="noopener">${icon("external")} Google</a>
         <button class="btn btn-ghost btn-block" data-share>${icon("share")} Partilhar</button>
-        <button class="btn btn-block" data-visit-toggle="${esc(r.id)}"></button>
+        <div class="visit-row">
+          <button class="btn" data-visit-toggle="${esc(r.id)}"></button>
+          <button class="btn chip-toggle" data-priority-chip hidden></button>
+        </div>
       </div>
       <div class="detail-tabs" role="tablist">
         <button class="detail-tab active" data-tab="rest" role="tab" aria-selected="true">Restaurante</button>
-        <button class="detail-tab" data-tab="mem" role="tab" aria-selected="false">As minhas memórias</button>
+        <button class="detail-tab" data-tab="mem" role="tab" aria-selected="false">As minhas experiências</button>
         <button class="detail-tab" data-tab="crit" role="tab" aria-selected="false">Críticas</button>
         <button class="detail-tab" data-tab="amigos" role="tab" aria-selected="false">Amigos</button>
       </div>
@@ -306,6 +316,7 @@ const App = (() => {
         <div class="detail-pane" data-pane="mem" role="tabpanel" hidden>
           <div class="my-marks" data-my-marks></div>
           <div class="photos" data-my-photos></div>
+          <div class="my-marks-tail" data-my-marks-tail></div>
         </div>
         <div class="detail-pane" data-pane="crit" role="tabpanel" hidden>
           <div class="comments" data-comments></div>
@@ -329,6 +340,19 @@ const App = (() => {
       renderMyMarks(r);
       renderAmigos(r);
     });
+
+    // Priority is now a chip next to the visit toggle (only when signed in).
+    const priBtn = body.querySelector("[data-priority-chip]");
+    if (UserData.isCloud()) {
+      priBtn.hidden = false;
+      syncPriorityChip(priBtn, UserData.isPriority(r.id));
+      priBtn.addEventListener("click", () => {
+        const now = !UserData.isPriority(r.id);
+        UserData.setPriority(r.id, now);
+        syncPriorityChip(priBtn, now);
+        render(); // refresh the "Prioritário" badge on the cards
+      });
+    }
 
     body.querySelector("[data-share]").addEventListener("click", () => shareRestaurant(r));
 
@@ -387,86 +411,93 @@ const App = (() => {
 
   function renderMyMarks(r) {
     const el = document.querySelector("#detail-body [data-my-marks]");
+    const tail = document.querySelector("#detail-body [data-my-marks-tail]");
     if (!el) return;
 
     if (!UserData.isCloud()) {
       if (DB.isAvailable()) {
         el.innerHTML =
-          `<div class="signin-invite">${icon("log-in")} <span>Inicie sessão com a Google para marcar prioridade, avaliar e guardar notas.</span></div>`;
+          `<div class="signin-invite">${icon("log-in")} <span>Inicie sessão com a Google para registar a sua experiência.</span></div>`;
       } else {
         el.innerHTML = "";
       }
+      if (tail) tail.innerHTML = "";
       return;
     }
 
-    const priority = UserData.isPriority(r.id);
     const rating = UserData.getRating(r.id) || { stars: 0, note: "", dishes: [] };
+    const hasStars = rating.stars > 0;
 
+    // Journey part 1: rating + dishes.
     el.innerHTML = `
-      <div class="detail-section-title">Marcar Prioritário</div>
-      <button class="btn btn-block priority-toggle${priority ? " on" : ""}" data-priority aria-pressed="${priority}">
-        ${icon("flame")} ${priority ? "Marcado como prioritário" : "Marcar prioritário"}
-      </button>
-      <div class="rate-row">
+      <div class="exp-step">
         <span class="rate-label">A minha nota</span>
         <div class="stars-input" data-stars>${[1, 2, 3, 4, 5]
           .map((n) => `<button type="button" class="star-btn${n <= rating.stars ? " on" : ""}" data-star="${n}" aria-label="${n} estrelas">${icon("star")}</button>`)
           .join("")}</div>
       </div>
-      <textarea class="note-input" data-note placeholder="Nota pessoal (ex: pedir a sobremesa)…" rows="2">${esc(rating.note || "")}</textarea>
-      <div class="dish-edit">
-        <span class="rate-label">Pratos que provei</span>
+      <div class="exp-step dish-edit">
+        <span class="rate-label">Pratos que comi</span>
         <div class="dish-chips" data-dish-chips></div>
         <input class="note-input dish-input" data-dish-input placeholder="Adicionar prato + Enter…" />
-      </div>
-      <div class="visit-history">
-        <button class="btn btn-ghost btn-sm" data-add-visit>${icon("check-circle")} Marcar visita de hoje</button>
-        <div class="visit-list" data-visit-list>${visitListHtml(r)}</div>
       </div>`;
 
-    el.querySelector("[data-priority]").addEventListener("click", () => {
-      const now = !UserData.isPriority(r.id);
-      UserData.setPriority(r.id, now);
-      renderMyMarks(r);
-      render(); // refresh the "quero ir já" badge on the cards
-    });
+    // Journey part 3 (after photos): personal note + submit + history.
+    if (tail) tail.innerHTML = `
+      <div class="exp-step">
+        <span class="rate-label">Nota pessoal</span>
+        <textarea class="note-input" data-note placeholder="Nota pessoal (ex: pedir a sobremesa)…" rows="2">${esc(rating.note || "")}</textarea>
+      </div>
+      <div class="visit-history">
+        <button class="btn btn-primary btn-block" data-add-visit${hasStars ? "" : " disabled"}>${icon("check-circle")} Marcar visita de hoje</button>
+        ${hasStars ? "" : `<span class="muted exp-hint">Dá a tua nota para registar a experiência.</span>`}
+        <div class="visit-list" data-visit-list>${visitListHtml(r)}</div>
+      </div>`;
 
     el.querySelectorAll("[data-stars] .star-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         let stars = parseInt(btn.dataset.star, 10);
         const cur = UserData.getRating(r.id) || { stars: 0, note: "", dishes: [] };
         if (cur.stars === stars) stars = 0; // click same star again to clear
-        UserData.setRating(r.id, stars, el.querySelector("[data-note]").value.trim(), cur.dishes || []);
+        const noteEl = tail && tail.querySelector("[data-note]");
+        const note = noteEl ? noteEl.value.trim() : (cur.note || "");
+        UserData.setRating(r.id, stars, note, cur.dishes || []);
         renderMyMarks(r);
         renderAmigos(r);
       });
     });
 
-    let noteTimer = null;
-    el.querySelector("[data-note]").addEventListener("input", (e) => {
-      clearTimeout(noteTimer);
-      const val = e.target.value.trim();
-      noteTimer = setTimeout(() => {
-        const cur = UserData.getRating(r.id) || { stars: 0, note: "", dishes: [] };
-        UserData.setRating(r.id, cur.stars, val, cur.dishes || []);
-        renderAmigos(r);
-      }, 600);
-    });
+    if (tail) {
+      let noteTimer = null;
+      const noteEl = tail.querySelector("[data-note]");
+      if (noteEl) noteEl.addEventListener("input", (e) => {
+        clearTimeout(noteTimer);
+        const val = e.target.value.trim();
+        noteTimer = setTimeout(() => {
+          const cur = UserData.getRating(r.id) || { stars: 0, note: "", dishes: [] };
+          UserData.setRating(r.id, cur.stars, val, cur.dishes || []);
+          renderAmigos(r);
+        }, 600);
+      });
 
-    el.querySelector("[data-add-visit]").addEventListener("click", () => {
-      UserData.addVisit(r.id, new Date().toISOString());
-      setVisited(r.id, true);
-      renderMyMarks(r);
-      renderAmigos(r);
-    });
-
-    el.querySelectorAll("[data-del-visit]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        UserData.removeVisit(r.id, btn.dataset.delVisit);
+      const submitBtn = tail.querySelector("[data-add-visit]");
+      if (submitBtn) submitBtn.addEventListener("click", () => {
+        if (!((UserData.getRating(r.id) || {}).stars)) return; // gated on a rating
+        UserData.addVisit(r.id, new Date().toISOString());
+        setVisited(r.id, true);
         renderMyMarks(r);
         renderAmigos(r);
+        showSuccess(r.name);
       });
-    });
+
+      tail.querySelectorAll("[data-del-visit]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          UserData.removeVisit(r.id, btn.dataset.delVisit);
+          renderMyMarks(r);
+          renderAmigos(r);
+        });
+      });
+    }
 
     // Dishes consumed — add chip-by-chip (Enter or comma), each removable.
     const curDishes = () => ((UserData.getRating(r.id) || {}).dishes || []).slice();
@@ -1006,6 +1037,72 @@ const App = (() => {
     return el && !el.classList.contains("hidden");
   }
 
+  // ---------- Success modal (after registering an experience) ----------
+  let successTimer = null;
+  function showSuccess(name) {
+    const m = document.getElementById("success-modal");
+    if (!m) return;
+    const txt = m.querySelector("[data-success-text]");
+    if (txt) txt.textContent = `Refeição no ${name} registada e partilhada.`;
+    m.classList.remove("hidden");
+    clearTimeout(successTimer);
+    successTimer = setTimeout(hideSuccess, 3000);
+  }
+  function hideSuccess() {
+    const m = document.getElementById("success-modal");
+    if (m) m.classList.add("hidden");
+    clearTimeout(successTimer);
+  }
+
+  // ---------- Profile modal (edit avatar) ----------
+  function openProfileModal() {
+    const m = document.getElementById("profile-modal");
+    if (!m) return;
+    const img = m.querySelector("[data-profile-img]");
+    const me = UserData.isCloud() ? UserData.me() : null;
+    if (img) img.src = (me && me.photoURL) || "";
+    const status = m.querySelector("[data-profile-status]");
+    if (status) status.textContent = "";
+    m.classList.remove("hidden");
+  }
+  function hideProfileModal() {
+    const m = document.getElementById("profile-modal");
+    if (m) m.classList.add("hidden");
+  }
+  function wireProfileUpload() {
+    const input = document.querySelector("#profile-modal [data-profile-input]");
+    const status = document.querySelector("#profile-modal [data-profile-status]");
+    if (!input) return;
+    input.addEventListener("change", async () => {
+      const file = input.files && input.files[0];
+      input.value = "";
+      if (!file) return;
+      if (!UserData.isCloud() || !(window.FirebaseStorage && window.FirebaseStorage.configured)) {
+        if (status) status.textContent = "Inicie sessão para mudar a foto.";
+        return;
+      }
+      if (!/^image\//.test(file.type)) { if (status) status.textContent = "Selecione uma imagem."; return; }
+      if (file.size > 6 * 1024 * 1024) { if (status) status.textContent = "Imagem demasiado grande (máx. 6 MB)."; return; }
+      if (status) status.textContent = "A enviar…";
+      try {
+        const me = UserData.me();
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const path = `avatars/${me.uid}-${Date.now()}.${ext}`;
+        const url = await window.FirebaseStorage.upload(path, file);
+        UserData.setPhotoURL(url);
+        const chipImg = document.getElementById("user-chip-img");
+        if (chipImg) { chipImg.src = url; chipImg.classList.remove("hidden"); }
+        const pm = document.querySelector("#profile-modal [data-profile-img]");
+        if (pm) pm.src = url;
+        refreshOpenDetail();
+        refreshActiveDataScreen();
+        if (status) status.textContent = "Foto atualizada.";
+      } catch (e) {
+        if (status) status.textContent = "Não foi possível enviar. As fotos já estão ativadas no Firebase?";
+      }
+    });
+  }
+
   // ---------- Trip planner ----------
   function wirePlanner() {
     const radius = document.getElementById("planner-radius");
@@ -1357,10 +1454,18 @@ const App = (() => {
     const inPeriod = (iso) => period === "all" || (iso || "").slice(0, 7) === ym;
     return UserData.everyone()
       .map((g) => {
-        let visits = 0, ratings = 0, starSum = 0;
-        Object.values(g.history || {}).forEach((dates) =>
-          (dates || []).forEach((d) => { if (inPeriod(d)) visits++; })
-        );
+        // All-time: number of restaurants marked visited (covers the toggle,
+        // not only dated history). Monthly: dated visits in the current month.
+        let visits;
+        if (period === "all") {
+          visits = (g.visited || []).length;
+        } else {
+          visits = 0;
+          Object.values(g.history || {}).forEach((dates) =>
+            (dates || []).forEach((d) => { if (inPeriod(d)) visits++; })
+          );
+        }
+        let ratings = 0, starSum = 0;
         Object.values(g.ratings || {}).forEach((rt) => {
           if (!rt || !rt.stars) return;
           if (period === "all" || inPeriod(rt.updatedAt)) { ratings++; starSum += rt.stars; }
@@ -1382,7 +1487,7 @@ const App = (() => {
         <span class="lb-name">${esc(item.g.displayName || "Amigo")}</span>
         <span class="lb-stats muted">${icon("star")} ${item.ratings}${item.avgStars ? ` (${item.avgStars.toFixed(1)})` : ""}</span>
       </div>
-      <span class="lb-score">${icon("check-circle")} ${item.visits}</span>
+      <span class="lb-score"><strong>${item.visits}</strong> <span class="lb-unit">${item.visits === 1 ? "visita" : "visitas"}</span></span>
     </div>`;
   }
 
@@ -1486,9 +1591,20 @@ const App = (() => {
     const tourReplay = document.getElementById("tour-replay-btn");
     if (tourReplay) { tourReplay.classList.remove("hidden"); tourReplay.addEventListener("click", showTour); }
 
+    // Success + profile modals
+    document.querySelectorAll("[data-close-success]").forEach((el) => el.addEventListener("click", hideSuccess));
+    document.querySelectorAll("[data-close-profile]").forEach((el) => el.addEventListener("click", hideProfileModal));
+    const chipImg = document.getElementById("user-chip-img");
+    if (chipImg) chipImg.addEventListener("click", openProfileModal);
+    wireProfileUpload();
+
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         if (tourOpen()) { hideTour(); return; }
+        const pm = document.getElementById("profile-modal");
+        if (pm && !pm.classList.contains("hidden")) { hideProfileModal(); return; }
+        const su = document.getElementById("success-modal");
+        if (su && !su.classList.contains("hidden")) { hideSuccess(); return; }
         const sm = document.getElementById("signin-modal");
         if (sm && !sm.classList.contains("hidden")) { hideSigninModal(true); return; }
         closeDetail(); openSidebar(false);

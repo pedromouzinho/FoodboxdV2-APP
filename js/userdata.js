@@ -55,6 +55,9 @@ const UserData = (() => {
         ratings: doc.ratings || {},
         history: doc.history || {}
       };
+      // Prefer a custom profile photo saved in the cloud over Google's, so it
+      // survives the next sign-in.
+      if (doc.photoURL) photoURL = doc.photoURL;
       // First sign-in: fold in whatever was marked locally before logging in.
       if (firstTime) {
         Storage.getVisited().forEach((id) => mine.visited.add(id));
@@ -88,6 +91,15 @@ const UserData = (() => {
     } catch (e) {
       group = [];
     }
+  }
+
+  // Update my profile photo (custom upload) — persists and refreshes the UI.
+  function setPhotoURL(url) {
+    photoURL = url || "";
+    if (!cloud) { if (onChange) onChange(); return; }
+    syncMineToGroup();
+    persistNow().catch(() => {});
+    if (onChange) onChange();
   }
 
   // Keep my entry in the in-memory group snapshot current so badges (visited
@@ -239,6 +251,7 @@ const UserData = (() => {
     isCloud,
     me,
     setUser,
+    setPhotoURL,
     clearUser,
     reloadGroup,
     isVisited,

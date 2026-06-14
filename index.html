@@ -346,6 +346,38 @@
     </div>
   </div>
 
+  <!-- Success modal (experience registered) -->
+  <div id="success-modal" class="modal hidden">
+    <div class="modal-scrim" data-close-success></div>
+    <div class="modal-card success-card" role="dialog" aria-modal="true" aria-label="Refeição registada">
+      <button class="icon-btn modal-close" data-close-success aria-label="Fechar">
+        <svg class="icon"><use href="#i-x"/></svg>
+      </button>
+      <div class="success-icon"><svg class="icon"><use href="#i-check-circle"/></svg></div>
+      <h2 class="modal-title">Refeição registada</h2>
+      <p class="modal-intro" data-success-text></p>
+      <button class="btn btn-primary btn-block" data-close-success>Fechar</button>
+    </div>
+  </div>
+
+  <!-- Profile modal (edit avatar) -->
+  <div id="profile-modal" class="modal hidden">
+    <div class="modal-scrim" data-close-profile></div>
+    <div class="modal-card profile-card" role="dialog" aria-modal="true" aria-label="Perfil">
+      <button class="icon-btn modal-close" data-close-profile aria-label="Fechar">
+        <svg class="icon"><use href="#i-x"/></svg>
+      </button>
+      <h2 class="modal-title">A minha foto</h2>
+      <img class="profile-photo" data-profile-img alt="" />
+      <label class="btn btn-primary btn-block">
+        <svg class="icon"><use href="#i-camera"/></svg> Mudar foto
+        <input type="file" accept="image/*" data-profile-input hidden />
+      </label>
+      <p class="photo-status muted" data-profile-status></p>
+      <button class="btn btn-ghost btn-block" data-close-profile>Fechar</button>
+    </div>
+  </div>
+
   <script src="js/config.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/db.js"></script>
