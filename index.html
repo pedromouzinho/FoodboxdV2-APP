@@ -392,6 +392,21 @@
     </div>
   </div>
 
+  <!-- Photo viewer (in-app lightbox) -->
+  <div id="photo-viewer" class="modal hidden">
+    <div class="modal-scrim" data-close-viewer></div>
+    <button class="icon-btn viewer-close" data-close-viewer aria-label="Fechar">
+      <svg class="icon"><use href="#i-x"/></svg>
+    </button>
+    <div class="viewer-card" role="dialog" aria-modal="true" aria-label="Foto">
+      <img class="viewer-img" data-viewer-img alt="" />
+      <div class="viewer-actions">
+        <button class="btn btn-ghost" data-viewer-download><svg class="icon"><use href="#i-download"/></svg> Descarregar</button>
+        <button class="btn btn-primary" data-viewer-share><svg class="icon"><use href="#i-share"/></svg> Partilhar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/config.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/db.js"></script>

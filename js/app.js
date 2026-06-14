@@ -713,7 +713,9 @@ const App = (() => {
       mineEl.innerHTML = `
         <div class="photos-head">
           <span class="detail-section-title">${icon("camera")} As minhas fotos</span>
-          ${canUpload ? `<button class="btn btn-ghost btn-sm" data-add-photo>${icon("camera")} Adicionar foto</button>
+          ${canUpload ? `<button class="btn btn-ghost btn-sm" data-take-photo>${icon("camera")} Tirar foto</button>
+            <button class="btn btn-ghost btn-sm" data-add-photo>Galeria</button>
+            <input type="file" accept="image/*" capture="environment" data-photo-camera hidden />
             <input type="file" accept="image/*" data-photo-input hidden />` : ""}
         </div>
         <div class="photo-grid" data-my-grid><div class="skeleton" style="height:70px"></div></div>
@@ -736,12 +738,10 @@ const App = (() => {
     if (friendsGrid) paintPhotoGrid(friendsGrid, others, "Ainda não há fotos de amigos.");
 
     if (canUpload && myGrid) {
-      const input = mineEl.querySelector("[data-photo-input]");
+      const galleryInput = mineEl.querySelector("[data-photo-input]");
+      const cameraInput = mineEl.querySelector("[data-photo-camera]");
       const statusEl = mineEl.querySelector("[data-photo-status]");
-      mineEl.querySelector("[data-add-photo]").addEventListener("click", () => input.click());
-      input.addEventListener("change", async () => {
-        const file = input.files && input.files[0];
-        input.value = "";
+      const handleFile = async (file) => {
         if (!file) return;
         if (!/^image\//.test(file.type)) { statusEl.textContent = "Selecione uma imagem."; return; }
         if (file.size > 6 * 1024 * 1024) { statusEl.textContent = "Imagem demasiado grande (máx. 6 MB)."; return; }
@@ -761,7 +761,11 @@ const App = (() => {
         } catch (e) {
           statusEl.textContent = "Não foi possível enviar. As fotos já estão ativadas no Firebase?";
         }
-      });
+      };
+      mineEl.querySelector("[data-add-photo]").addEventListener("click", () => galleryInput.click());
+      mineEl.querySelector("[data-take-photo]").addEventListener("click", () => cameraInput.click());
+      galleryInput.addEventListener("change", () => { const f = galleryInput.files && galleryInput.files[0]; galleryInput.value = ""; handleFile(f); });
+      cameraInput.addEventListener("change", () => { const f = cameraInput.files && cameraInput.files[0]; cameraInput.value = ""; handleFile(f); });
     }
   }
 
@@ -774,9 +778,9 @@ const App = (() => {
   }
 
   function photoTile(p) {
-    return `<a class="photo-tile" href="${esc(p.url)}" target="_blank" rel="noopener" title="${esc(p.author || "")}">
+    return `<button type="button" class="photo-tile" data-photo-url="${esc(p.url)}" title="${esc(p.author || "")}">
       <img src="${esc(p.url)}" alt="" loading="lazy" />
-    </a>`;
+    </button>`;
   }
 
   function shareRestaurant(r) {
@@ -893,7 +897,7 @@ const App = (() => {
     if (data.photos && data.photos.length > 1) {
       galleryEl.innerHTML =
         `<div class="detail-section-title" style="margin-bottom:8px">Fotos</div>` +
-        `<div class="gallery">${data.photos.slice(1, 6).map((p) => `<img src="${esc(p)}" alt="" loading="lazy">`).join("")}</div>`;
+        `<div class="gallery">${data.photos.slice(1, 6).map((p) => `<img class="gallery-img" data-photo-url="${esc(p)}" src="${esc(p)}" alt="" loading="lazy">`).join("")}</div>`;
     }
 
     // hours
@@ -1200,6 +1204,55 @@ const App = (() => {
     const el = document.getElementById("ios-a2hs");
     if (el) el.classList.add("hidden");
     try { localStorage.setItem("portugalRestaurants.a2hsDismissed", "1"); } catch (e) {}
+  }
+
+  // ---------- Photo viewer (in-app lightbox: download / share) ----------
+  let viewerUrl = "";
+  function viewerOpen() {
+    const m = document.getElementById("photo-viewer");
+    return m && !m.classList.contains("hidden");
+  }
+  function openPhotoViewer(url) {
+    const m = document.getElementById("photo-viewer");
+    if (!m || !url) return;
+    viewerUrl = url;
+    const img = m.querySelector("[data-viewer-img]");
+    if (img) img.src = url;
+    m.classList.remove("hidden");
+  }
+  function hidePhotoViewer() {
+    const m = document.getElementById("photo-viewer");
+    if (!m) return;
+    m.classList.add("hidden");
+    const img = m.querySelector("[data-viewer-img]");
+    if (img) img.src = "";
+  }
+  async function downloadPhoto(url) {
+    if (!url) return;
+    try {
+      const res = await fetch(url, { mode: "cors" });
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "foodboxd-" + Date.now() + (/(png)/.test(blob.type) ? ".png" : ".jpg");
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    } catch (e) {
+      window.open(url, "_blank", "noopener"); // fallback when the blob can't be fetched
+    }
+  }
+  async function sharePhoto(url) {
+    if (!url) return;
+    try {
+      if (navigator.canShare) {
+        const res = await fetch(url, { mode: "cors" });
+        const blob = await res.blob();
+        const file = new File([blob], "foodboxd.jpg", { type: blob.type || "image/jpeg" });
+        if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; }
+      }
+      if (navigator.share) { await navigator.share({ url }); return; }
+      await navigator.clipboard.writeText(url);
+    } catch (e) { /* cancelled or unsupported */ }
   }
 
   // ---------- Trip planner ----------
@@ -1699,6 +1752,7 @@ const App = (() => {
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
+        if (viewerOpen()) { hidePhotoViewer(); return; }
         if (tourOpen()) { hideTour(); return; }
         const pm = document.getElementById("profile-modal");
         if (pm && !pm.classList.contains("hidden")) { hideProfileModal(); return; }
@@ -1726,6 +1780,18 @@ const App = (() => {
       b.addEventListener("click", () => { state.criticasTab = b.dataset.ctab; renderCriticasScreen(); })
     );
     document.querySelectorAll("[data-a2hs-close]").forEach((el) => el.addEventListener("click", hideA2HS));
+
+    // Photo viewer: open on any [data-photo-url] tap; wire its actions.
+    document.addEventListener("click", (e) => {
+      const t = e.target.closest("[data-photo-url]");
+      if (t) { e.preventDefault(); openPhotoViewer(t.dataset.photoUrl); }
+    });
+    document.querySelectorAll("[data-close-viewer]").forEach((el) => el.addEventListener("click", hidePhotoViewer));
+    const vDl = document.querySelector("[data-viewer-download]");
+    const vSh = document.querySelector("[data-viewer-share]");
+    if (vDl) vDl.addEventListener("click", () => downloadPhoto(viewerUrl));
+    if (vSh) vSh.addEventListener("click", () => sharePhoto(viewerUrl));
+
     wireDetailSwipe();
     wirePullToRefresh();
     wirePlanner();
