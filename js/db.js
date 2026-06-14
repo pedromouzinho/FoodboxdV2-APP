@@ -420,6 +420,44 @@ const DB = (() => {
     }
   }
 
+  // Most recent photos across every restaurant and user (newest first).
+  async function fetchRecentPhotos(max) {
+    if (!ready) return [];
+    try {
+      const body = {
+        structuredQuery: {
+          from: [{ collectionId: "photos" }],
+          orderBy: [{ field: { fieldPath: "createdAt" }, direction: "DESCENDING" }],
+          limit: max || 60
+        }
+      };
+      const res = await fetch(`${docsBase}:runQuery?${keyQ()}`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) return [];
+      const rows = await res.json();
+      return (rows || [])
+        .filter((row) => row.document)
+        .map((row) => {
+          const f = decodeFields(row.document);
+          return {
+            id: row.document.name.split("/").pop(),
+            restaurantId: f.restaurantId || "",
+            uid: f.uid || "",
+            author: f.author || "",
+            url: f.url || "",
+            path: f.path || "",
+            createdAt: f.createdAt || ""
+          };
+        })
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    } catch (e) {
+      return [];
+    }
+  }
+
   async function addPhoto(photo, token) {
     if (!ready) throw new Error("Cloud database not configured.");
     const fields = encodeFields({
@@ -463,6 +501,7 @@ const DB = (() => {
     fetchRecentComments,
     addComment,
     fetchPhotos,
+    fetchRecentPhotos,
     addPhoto
   };
 })();

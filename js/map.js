@@ -119,6 +119,20 @@ const MapModule = (() => {
     map.setZoom(13);
   }
 
+  // Remember the current camera so we can return to it later (e.g. after the
+  // user closes a restaurant's detail). Restore clears the saved state.
+  let savedCamera = null;
+  function saveCamera() {
+    if (!available) return;
+    savedCamera = { center: map.getCenter(), zoom: map.getZoom() };
+  }
+  function restoreCamera() {
+    if (!available || !savedCamera) return;
+    map.panTo(savedCamera.center);
+    map.setZoom(savedCamera.zoom);
+    savedCamera = null;
+  }
+
   function getDirectionsService() {
     return directionsService;
   }
@@ -157,6 +171,8 @@ const MapModule = (() => {
     setMarkerVisited,
     openInfoWindow,
     focusRestaurant,
+    saveCamera,
+    restoreCamera,
     getDirectionsService,
     drawRoute,
     clearRoute,

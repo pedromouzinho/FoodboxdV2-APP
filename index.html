@@ -294,6 +294,24 @@
     </div>
   </div>
 
+  <!-- Sign-in prompt modal (dismissible) -->
+  <div id="signin-modal" class="modal hidden">
+    <div class="modal-scrim" data-close-signin></div>
+    <div class="modal-card signin-modal-card" role="dialog" aria-modal="true" aria-label="Iniciar sessão">
+      <button class="icon-btn modal-close" data-close-signin aria-label="Fechar">
+        <svg class="icon"><use href="#i-x"/></svg>
+      </button>
+      <h2 class="modal-title">Desbloqueie todas as funcionalidades</h2>
+      <p class="modal-intro">Inicie sessão com a Google para marcar prioridades, avaliar e guardar memórias, ver a atividade dos amigos e partilhar fotos. A app continua a funcionar sem sessão.</p>
+      <div class="signin-modal-actions">
+        <button id="signin-modal-btn" class="btn btn-primary btn-block">
+          <svg class="icon"><use href="#i-log-in"/></svg> Iniciar sessão com a Google
+        </button>
+        <button class="btn btn-ghost btn-block" data-close-signin>Agora não</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/config.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/db.js"></script>

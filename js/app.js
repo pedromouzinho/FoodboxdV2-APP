@@ -241,6 +241,8 @@ const App = (() => {
 
   // ---------- Select + detail drawer ----------
   function onSelect(r) {
+    // Remember the overview before the first focus, so closing returns to it.
+    if (!state.currentDetail) MapModule.saveCamera();
     MapModule.focusRestaurant(r);
     MapModule.highlightMarker(r.id);
     highlightCard(r.id);
@@ -845,6 +847,28 @@ const App = (() => {
   function closeDetail() {
     document.getElementById("detail-panel").setAttribute("aria-hidden", "true");
     state.currentDetail = null;
+    MapModule.restoreCamera();
+  }
+
+  // ---------- Sign-in prompt modal (dismissible) ----------
+  function showSigninModal() {
+    const m = document.getElementById("signin-modal");
+    if (m) m.classList.remove("hidden");
+  }
+  function hideSigninModal(remember) {
+    const m = document.getElementById("signin-modal");
+    if (m) m.classList.add("hidden");
+    if (remember) {
+      try { sessionStorage.setItem("rp.signinPrompt", "off"); } catch (e) {}
+    }
+  }
+  function maybePromptSignin() {
+    if (UserData.isCloud()) return;
+    if (!(window.FirebaseAuth && window.FirebaseAuth.configured)) return;
+    let dismissed = false;
+    try { dismissed = sessionStorage.getItem("rp.signinPrompt") === "off"; } catch (e) {}
+    if (dismissed) return;
+    showSigninModal();
   }
 
   // ---------- Trip planner ----------
@@ -1066,29 +1090,53 @@ const App = (() => {
     return items.sort((a, b) => (a.when < b.when ? 1 : -1));
   }
 
+  // Group friends' recent photo uploads into feed items (one per friend +
+  // restaurant + day), so the feed doesn't flood with one row per photo.
+  function buildPhotoFeedItems(photos) {
+    const me = UserData.me();
+    const meUid = me ? me.uid : null;
+    const memberByUid = new Map(UserData.others().map((g) => [g.uid, g]));
+    const byId = new Map(state.restaurants.map((r) => [r.id, r]));
+    const groups = new Map();
+    photos.forEach((p) => {
+      if (!p.uid || p.uid === meUid || !memberByUid.has(p.uid)) return;
+      const r = byId.get(p.restaurantId);
+      if (!r) return;
+      const day = (p.createdAt || "").slice(0, 10);
+      const key = `${p.uid}|${p.restaurantId}|${day}`;
+      let grp = groups.get(key);
+      if (!grp) {
+        grp = { type: "upload", when: p.createdAt || "", g: memberByUid.get(p.uid), r, photos: [] };
+        groups.set(key, grp);
+      }
+      grp.photos.push(p);
+      if ((p.createdAt || "") > grp.when) grp.when = p.createdAt || "";
+    });
+    return [...groups.values()];
+  }
+
   function feedRow(it) {
     const who = `<strong>${esc(it.g.displayName || "Amigo")}</strong>`;
     const rest = `<strong>${esc(it.r.name)}</strong>`;
     let line, ic;
     if (it.type === "rating") { ic = "star"; line = `${who} avaliou ${rest}${it.stars ? ` · ${it.stars}★` : ""}`; }
     else if (it.type === "visit") { ic = "check-circle"; line = `${who} visitou ${rest}`; }
+    else if (it.type === "upload") { ic = "camera"; line = `${who} partilhou ${it.photos.length > 1 ? `${it.photos.length} fotos` : "uma foto"} em ${rest}`; }
     else { ic = "flame"; line = `${who} quer ir a ${rest}`; }
     const when = it.when ? `<span class="feed-when">${esc(fmtDate(it.when))}</span>` : "";
     const note = it.type === "rating" && it.note ? `<p class="feed-note">${esc(it.note)}</p>` : "";
-    return `<button type="button" class="feed-item" data-feed-rest="${esc(it.r.id)}">
+    const photos = it.type === "upload"
+      ? `<div class="feed-photos">${it.photos.slice(0, 4)
+          .map((p) => `<img class="feed-photo" src="${esc(p.url)}" alt="" loading="lazy">`)
+          .join("")}</div>`
+      : "";
+    return `<button type="button" class="feed-item${it.type === "upload" ? " feed-upload" : ""}" data-feed-rest="${esc(it.r.id)}">
       ${avatar(it.g.displayName, it.g.photoURL)}
-      <div class="feed-body"><span class="feed-line">${icon(ic)} ${line}</span>${note}${when}</div>
+      <div class="feed-body"><span class="feed-line">${icon(ic)} ${line}</span>${note}${when}${photos}</div>
     </button>`;
   }
 
-  function renderAmigosFeed() {
-    const el = document.getElementById("amigos-feed");
-    if (!el) return;
-    if (!UserData.isCloud()) {
-      el.innerHTML = signinInvite("Inicie sessão com a Google para ver a atividade dos amigos.");
-      return;
-    }
-    const feed = buildFriendsFeed();
+  function paintFeed(el, feed) {
     if (!feed.length) {
       el.innerHTML = `<p class="muted screen-empty">Ainda não há atividade de amigos.</p>`;
       return;
@@ -1100,6 +1148,30 @@ const App = (() => {
         if (r) openOnTab(r, "amigos");
       });
     });
+  }
+
+  let amigosReqId = 0;
+  async function renderAmigosFeed() {
+    const el = document.getElementById("amigos-feed");
+    if (!el) return;
+    if (!UserData.isCloud()) {
+      el.innerHTML = signinInvite("Inicie sessão com a Google para ver a atividade dos amigos.");
+      return;
+    }
+    const reqId = ++amigosReqId;
+    const base = buildFriendsFeed();
+    // Paint group activity instantly, then fold in friends' photos.
+    if (base.length) paintFeed(el, base);
+    else if (DB.isAvailable()) el.innerHTML = `<div class="skeleton" style="height:64px"></div>`;
+    else paintFeed(el, base);
+    if (!DB.isAvailable()) return;
+    let photoItems = [];
+    try {
+      photoItems = buildPhotoFeedItems(await DB.fetchRecentPhotos(60));
+    } catch (e) { photoItems = []; }
+    if (reqId !== amigosReqId) return;
+    const merged = base.concat(photoItems).sort((a, b) => (a.when < b.when ? 1 : -1));
+    paintFeed(el, merged);
   }
 
   // ---------- Wiring ----------
@@ -1126,8 +1198,17 @@ const App = (() => {
     const sbClose = document.getElementById("sidebar-close");
     if (sbClose) sbClose.addEventListener("click", () => openSidebar(false));
     document.querySelectorAll("[data-close-detail]").forEach((el) => el.addEventListener("click", closeDetail));
+    document.querySelectorAll("[data-close-signin]").forEach((el) =>
+      el.addEventListener("click", () => hideSigninModal(true))
+    );
+    const signinModalBtn = document.getElementById("signin-modal-btn");
+    if (signinModalBtn) signinModalBtn.addEventListener("click", () => { AuthModule.signIn(); hideSigninModal(false); });
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") { closeDetail(); openSidebar(false); }
+      if (e.key === "Escape") {
+        const sm = document.getElementById("signin-modal");
+        if (sm && !sm.classList.contains("hidden")) { hideSigninModal(true); return; }
+        closeDetail(); openSidebar(false);
+      }
     });
     document.querySelectorAll("#tabbar .tab").forEach((t) =>
       t.addEventListener("click", () => navTo(t.dataset.tabNav))
@@ -1162,9 +1243,11 @@ const App = (() => {
   // Called by AuthModule when the signed-in user changes.
   function onAuthChange(user, getToken) {
     if (user) {
+      hideSigninModal(true); // signed in — close and don't auto-prompt again this session
       UserData.setUser(user, getToken); // async; UserData.onChange triggers re-render
     } else {
       UserData.clearUser();
+      maybePromptSignin();
     }
   }
 

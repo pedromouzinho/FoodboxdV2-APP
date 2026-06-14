@@ -832,6 +832,18 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .feed-note { font-size: 0.86rem; color: var(--text-muted); margin: 0; }
 .feed-when { font-size: 0.74rem; color: var(--text-faint); }
 
+/* Friends' uploaded photos get prominence in the activity feed. */
+.feed-upload { background: var(--surface-2); border-color: var(--border-strong); }
+.feed-photos { display: flex; gap: var(--sp-2); margin-top: 6px; flex-wrap: wrap; }
+.feed-photo {
+  width: 84px; height: 84px; object-fit: cover; display: block;
+  border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface);
+}
+
+/* Sign-in prompt modal */
+.signin-modal-actions { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
+.signin-modal-actions .icon { width: 18px; height: 18px; }
+
 /* Bottom tab bar */
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
