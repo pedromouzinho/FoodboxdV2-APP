@@ -11,6 +11,7 @@
       "firebase.json",
       "firebase/**",
       "README.md",
+      "CONTEXT.md",
       ".git/**",
       ".github/**",
       ".agents/**",
