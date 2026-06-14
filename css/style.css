@@ -896,6 +896,10 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .profile-card .photo-status { text-align: center; }
 #user-chip-img { cursor: pointer; }
 
+/* Subtle danger button (e.g. remove a restaurant you added). */
+.btn-danger { color: var(--danger); }
+.btn-danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); }
+
 /* ---------- Dishes (chips) ---------- */
 .dish-edit { display: flex; flex-direction: column; gap: 6px; }
 .dish-chips { display: flex; flex-wrap: wrap; gap: 6px; }

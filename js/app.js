@@ -313,6 +313,7 @@ const App = (() => {
             <div class="chip-row" data-cat-edit></div>
             <div class="cat-suggest" data-cat-suggest hidden></div>
           </div>
+          ${canDeleteRestaurant(r) ? `<button class="btn btn-ghost btn-block btn-danger" data-delete-restaurant>${icon("x")} Remover restaurante</button>` : ""}
         </div>
         <div class="detail-pane" data-pane="mem" role="tabpanel" hidden>
           <div class="my-marks" data-my-marks></div>
@@ -356,6 +357,9 @@ const App = (() => {
     }
 
     body.querySelector("[data-share]").addEventListener("click", () => shareRestaurant(r));
+
+    const delBtn = body.querySelector("[data-delete-restaurant]");
+    if (delBtn) delBtn.addEventListener("click", () => removeRestaurant(r));
 
     const catEdit = body.querySelector("[data-cat-edit]");
     Object.entries(CATEGORIES).forEach(([key, c]) => {
@@ -790,6 +794,32 @@ const App = (() => {
       navigator.share({ title: r.name, text, url }).catch(() => {});
     } else {
       navigator.clipboard.writeText(`${text}\n${url}`).catch(() => {});
+    }
+  }
+
+  // ---------- Remove a restaurant the user added ----------
+  function isLocalCustom(r) {
+    return Storage.getCustomRestaurants().some((c) => c.id === r.id);
+  }
+  function canDeleteRestaurant(r) {
+    if (isLocalCustom(r)) return true;
+    return UserData.isCloud() && r.addedByUid && r.addedByUid === UserData.me().uid;
+  }
+  async function removeRestaurant(r) {
+    if (!confirm(`Remover "${r.name}"? Esta ação não pode ser anulada.`)) return;
+    try {
+      if (isLocalCustom(r)) {
+        Storage.removeCustomRestaurant(r.id);
+      } else {
+        const token = window.FirebaseAuth ? await window.FirebaseAuth.getToken() : null;
+        await DB.deleteRestaurant(r.id, token);
+      }
+      state.restaurants = state.restaurants.filter((x) => x.id !== r.id);
+      closeDetail();
+      buildRegionFilters();
+      render();
+    } catch (e) {
+      alert("Não foi possível remover. Tenta de novo.");
     }
   }
 

@@ -131,6 +131,17 @@ const DB = (() => {
     return docToRestaurant(await res.json());
   }
 
+  // Delete a community restaurant (Firestore rules only allow its author).
+  async function deleteRestaurant(id, token) {
+    if (!ready) throw new Error("Cloud database not configured.");
+    const res = await fetch(`${docsBase}/restaurants/${encodeURIComponent(id)}?${keyQ()}`, {
+      method: "DELETE",
+      headers: authHeaders(token)
+    });
+    if (!res.ok) throw new Error(`Could not delete (${res.status}).`);
+    return true;
+  }
+
   // ---- Overrides (shared edits, e.g. category) ----
   async function fetchOverrides() {
     if (!ready) return {};
@@ -491,6 +502,7 @@ const DB = (() => {
     isAvailable,
     fetchAll,
     add,
+    deleteRestaurant,
     fetchOverrides,
     setOverride,
     fetchUserDoc,
