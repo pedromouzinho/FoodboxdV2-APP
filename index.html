@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Restaurantes Portugal</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <button id="sidebar-toggle" class="icon-btn" aria-label="Abrir lista">☰</button>
+    <h1>🍽️ Restaurantes Portugal</h1>
+    <div id="visited-counter" class="visited-counter">0 / 0 visitados</div>
+  </header>
+
+  <div class="layout">
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-section">
+        <input id="search-input" type="search" placeholder="Procurar nome, localidade ou prato..." />
+      </div>
+
+      <div class="sidebar-section actions-row">
+        <button id="pick-random-btn" class="action-btn">🎲 Escolher por mim</button>
+        <button id="add-restaurant-btn" class="action-btn">➕ Adicionar restaurante</button>
+      </div>
+
+      <details class="sidebar-section filters-section">
+        <summary>Filtros</summary>
+        <div class="filter-group">
+          <h3>Região</h3>
+          <div id="region-filters" class="filter-list"></div>
+        </div>
+        <div class="filter-group">
+          <h3>Categoria</h3>
+          <div id="category-filters" class="filter-list"></div>
+        </div>
+        <div class="filter-group">
+          <label class="checkbox-row">
+            <input type="checkbox" id="hide-visited-checkbox" />
+            Esconder visitados
+          </label>
+        </div>
+      </details>
+
+      <details class="sidebar-section planner-section">
+        <summary>🚗 Planeador de viagem</summary>
+        <p class="planner-hint">Indica de onde partes e para onde vais — mostramos restaurantes perto do caminho.</p>
+        <div class="planner-field">
+          <label for="planner-from">De</label>
+          <input id="planner-from" type="text" placeholder="ex: Lisboa" />
+        </div>
+        <div class="planner-field">
+          <label for="planner-to">Para</label>
+          <input id="planner-to" type="text" placeholder="ex: Évora" />
+        </div>
+        <div class="planner-field">
+          <label for="planner-radius">Distância máx. à rota: <span id="planner-radius-value">25</span> km</label>
+          <input id="planner-radius" type="range" min="5" max="60" step="5" value="25" />
+        </div>
+        <div class="planner-buttons">
+          <button id="planner-find-btn" class="action-btn">Encontrar paragens</button>
+          <button id="planner-clear-btn" class="action-btn secondary">Limpar rota</button>
+        </div>
+        <div id="planner-status" class="planner-status"></div>
+        <ul id="planner-results" class="planner-results"></ul>
+      </details>
+
+      <div id="restaurant-list" class="restaurant-list"></div>
+    </aside>
+
+    <main class="map-area">
+      <div id="map"></div>
+      <div id="map-banner" class="map-banner hidden">
+        <div class="map-banner-content">
+          <h2>Mapa do Google Maps por ativar</h2>
+          <p>
+            Para mostrar o mapa interativo, as rotas e a informação do Google (avaliações, fotos, horários),
+            adiciona a tua chave da API do Google Maps em <code>js/config.js</code>.
+          </p>
+          <p>A lista de restaurantes, filtros, pesquisa e os links "Abrir no Google Maps" funcionam sem chave.</p>
+          <p>Vê o <code>README.md</code> para o passo a passo.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Add restaurant modal -->
+  <div id="add-restaurant-modal" class="modal hidden">
+    <div class="modal-content">
+      <button id="add-modal-close" class="icon-btn modal-close" aria-label="Fechar">✕</button>
+      <h2>Adicionar restaurante</h2>
+      <p class="modal-intro">Diz-nos só o nome, a localidade e o tipo. Tratamos do resto. 🙂</p>
+      <form id="add-restaurant-form">
+        <label for="form-name">Nome do restaurante</label>
+        <input id="form-name" type="text" placeholder="ex: O Ricardo" required />
+
+        <label for="form-town">Localidade / cidade</label>
+        <input id="form-town" type="text" placeholder="ex: Évora" required />
+
+        <label for="form-category">Tipo de sítio</label>
+        <select id="form-category">
+          <option value="tradicional">Tradicional / Tasca</option>
+          <option value="petiscos">Petiscos</option>
+          <option value="pastelaria">Pastelaria / Doces</option>
+          <option value="fine-dining">Fine Dining</option>
+        </select>
+
+        <label for="form-notes">O que provar? (opcional)</label>
+        <input id="form-notes" type="text" placeholder="ex: cozido de grão" />
+
+        <div class="form-buttons">
+          <button type="submit" class="action-btn primary" id="form-submit-btn">Adicionar ao mapa</button>
+        </div>
+        <p id="form-status" class="form-status"></p>
+
+        <details class="advanced-section">
+          <summary>Opções avançadas</summary>
+          <label for="form-region">Região</label>
+          <input id="form-region" type="text" value="Alentejo" />
+
+          <div class="form-row">
+            <button type="button" id="form-locate-btn" class="action-btn secondary">📍 Encontrar localização</button>
+            <span id="form-locate-status"></span>
+          </div>
+
+          <div class="form-row coords-row">
+            <div>
+              <label for="form-lat">Latitude</label>
+              <input id="form-lat" type="number" step="any" />
+            </div>
+            <div>
+              <label for="form-lng">Longitude</label>
+              <input id="form-lng" type="number" step="any" />
+            </div>
+          </div>
+          <p class="form-hint">
+            As coordenadas são preenchidas automaticamente. Só precisas de mexer aqui se a localização
+            ficar errada. <button type="button" id="form-copy-json-btn" class="linklike">Copiar como JSON</button>
+            para adicionar à mão em <code>data/restaurants.json</code>.
+          </p>
+        </details>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/geocode.js"></script>
+  <script src="js/places.js"></script>
+  <script src="js/planner.js"></script>
+  <script src="js/addRestaurant.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    window.initApp = function () {
+      App.init({ googleMapsLoaded: true });
+    };
+
+    (function loadGoogleMaps() {
+      if (!CONFIG.GOOGLE_MAPS_API_KEY) {
+        App.init({ googleMapsLoaded: false });
+        return;
+      }
+      const script = document.createElement('script');
+      script.src =
+        'https://maps.googleapis.com/maps/api/js?key=' +
+        encodeURIComponent(CONFIG.GOOGLE_MAPS_API_KEY) +
+        '&libraries=places,geometry&v=weekly&callback=initApp';
+      script.async = true;
+      script.onerror = function () {
+        App.init({ googleMapsLoaded: false });
+      };
+      document.head.appendChild(script);
+    })();
+  </script>
+</body>
+</html>
