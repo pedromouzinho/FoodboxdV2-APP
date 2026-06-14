@@ -82,8 +82,8 @@ rm -rf /tmp/fbcred   # apagar SEMPRE a credencial no fim
 - Targets: `--only hosting`, `--only firestore:rules`, `--only storage` (ou
   combinados). **Não** fazer deploy de functions (não há).
 - **Convenção do service worker:** a cada mudança de assets, **bump `CACHE`** em
-  `sw.js` (`foodboxd-vN`). **Atual: `foodboxd-v17`.** (Histórico: restaurantes-v4
-  → … v10 → foodboxd-v11 … v17.)
+  `sw.js` (`foodboxd-vN`). **Atual: `foodboxd-v18`.** (Histórico: restaurantes-v4
+  → … v10 → foodboxd-v11 … v18.)
 - Em PWA instalada, o utilizador pode precisar de **fechar/reabrir 2x** para
   apanhar a versão nova.
 - **NUNCA** commitar a service account (está em `.gitignore`: `*serviceaccount*`,
@@ -117,6 +117,9 @@ Quando é preciso ler/apagar/patchar dados ou pôr CORS, faço scripts Node que:
 - **Comunidade:** Firestore `restaurants/{autoId}`. `docToRestaurant` põe
   `source: "community"`. Campos: name, town, region, category, lat, lng, notes,
   tags, mapsQuery, createdAt, **addedByUid/addedByName**, **verified** (bool).
+  O badge "comunidade" só aparece se `!verified` **e** a cache/detalhe Google
+  não tiver telefone (`phone`), para não marcar restaurantes reais antigos como
+  comunidade.
 - **Locais:** `Storage.getCustomRestaurants()` (quando sem sessão).
 
 **Por utilizador:** `userData/{uid}` = `{ displayName, photoURL, visited[],
@@ -173,7 +176,8 @@ all; write se `auth && file começa por uid + imagem + <6MB`; delete se auth.
 9. **Remover restaurante** (botão no detalhe, só autor/local).
 10. **Adicionar:** região automática (geocode→distrito→região) + **tag
     "comunidade" só sem correspondência Google** (`verified` no add via
-    `PlacesModule.fetchDetails`; badge = `source==="community" && !verified`).
+    `PlacesModule.fetchDetails`; badge = comunidade não verificada sem telefone
+    Google em cache/detalhe).
 
 ## 8. Convenções / decisões
 
@@ -183,7 +187,7 @@ all; write se `auth && file começa por uid + imagem + <6MB`; delete se auth.
 - **localStorage:** não renomear as keys `portugalRestaurants.*` (perderia dados
   de utilizadores). Novas → `foodboxd.*`.
 - **Verified/comunidade:** curados nunca têm badge; comunidade só tem "comunidade"
-  se `!verified`.
+  se `!verified` e o Google Places não devolver telefone.
 - **Região:** Setúbal→Lisboa por omissão (AML); fronteiras Alentejo Litoral podem
   precisar de correção manual no campo (editável).
 

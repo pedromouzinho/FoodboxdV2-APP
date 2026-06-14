@@ -24,6 +24,13 @@ const App = (() => {
   function catFor(r) {
     return CATEGORIES[r.category] || { label: r.category, varName: "--text-muted", hex: "#888" };
   }
+  function hasGooglePhone(r) {
+    const cached = Storage.getCachedPlace(r.id);
+    return !!(cached && cached.phone);
+  }
+  function showsCommunityBadge(r) {
+    return r.source === "community" && !r.verified && !hasGooglePhone(r);
+  }
   function dot(cat) {
     return `<span class="dot" style="background:var(${cat.varName})"></span>`;
   }
@@ -164,7 +171,7 @@ const App = (() => {
 
     // group/personal badges
     const badges = [];
-    if (r.source === "community" && !r.verified) badges.push('<span class="badge community">comunidade</span>');
+    if (showsCommunityBadge(r)) badges.push('<span class="badge community" data-community-badge>comunidade</span>');
     if (UserData.isPriority(r.id)) badges.push(`<span class="badge priority" title="Prioritário">${icon("flame")} Prioritário</span>`);
     if (UserData.isCloud()) {
       const n = UserData.visitedBy(r.id).length;
@@ -194,7 +201,11 @@ const App = (() => {
       e.stopPropagation();
       setVisited(r.id, !UserData.isVisited(r.id));
     });
-    if (PlacesModule.isAvailable()) PlacesModule.enrichCard(r, card.querySelector("[data-meta]"));
+    if (PlacesModule.isAvailable()) {
+      PlacesModule.enrichCard(r, card.querySelector("[data-meta]")).then((data) => {
+        if (data && data.phone) card.querySelector("[data-community-badge]")?.remove();
+      });
+    }
     return card;
   }
 

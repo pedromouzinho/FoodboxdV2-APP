@@ -80,9 +80,9 @@ const PlacesModule = (() => {
 
   // Inline rating + open-now for a sidebar card meta element.
   async function enrichCard(restaurant, metaEl) {
-    if (!metaEl) return;
+    if (!metaEl) return null;
     const data = await fetchDetails(restaurant);
-    if (!data) return;
+    if (!data) return null;
     const parts = [];
     if (typeof data.rating === "number") {
       parts.push(
@@ -94,6 +94,7 @@ const PlacesModule = (() => {
     }
     if (data.priceLevel) parts.push(`<span class="muted" style="font-size:0.82rem">${data.priceLevel}</span>`);
     metaEl.innerHTML = parts.join("");
+    return data;
   }
 
   return { init, isAvailable, fetchDetails, enrichCard };
