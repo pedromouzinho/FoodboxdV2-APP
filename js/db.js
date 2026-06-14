@@ -274,6 +274,81 @@ const DB = (() => {
     }
   }
 
+  // Map a runQuery row to a comment object (includes restaurantId so callers
+  // can link a critique back to its restaurant).
+  function rowToComment(row) {
+    const f = decodeFields(row.document);
+    return {
+      id: row.document.name.split("/").pop(),
+      restaurantId: f.restaurantId || "",
+      uid: f.uid || "",
+      author: f.author || "Anónimo",
+      photoURL: f.photoURL || "",
+      text: f.text || "",
+      createdAt: f.createdAt || ""
+    };
+  }
+
+  // All comments written by one user, across every restaurant (newest first).
+  async function fetchCommentsByUser(uid, max) {
+    if (!ready || !uid) return [];
+    try {
+      const body = {
+        structuredQuery: {
+          from: [{ collectionId: "comments" }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath: "uid" },
+              op: "EQUAL",
+              value: { stringValue: uid }
+            }
+          },
+          limit: max || 100
+        }
+      };
+      const res = await fetch(`${docsBase}:runQuery?${keyQ()}`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) return [];
+      const rows = await res.json();
+      return (rows || [])
+        .filter((row) => row.document)
+        .map(rowToComment)
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Most recent comments across every restaurant and user (newest first).
+  async function fetchRecentComments(max) {
+    if (!ready) return [];
+    try {
+      const body = {
+        structuredQuery: {
+          from: [{ collectionId: "comments" }],
+          orderBy: [{ field: { fieldPath: "createdAt" }, direction: "DESCENDING" }],
+          limit: max || 100
+        }
+      };
+      const res = await fetch(`${docsBase}:runQuery?${keyQ()}`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) return [];
+      const rows = await res.json();
+      return (rows || [])
+        .filter((row) => row.document)
+        .map(rowToComment)
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    } catch (e) {
+      return [];
+    }
+  }
+
   async function addComment(comment, token) {
     if (!ready) throw new Error("Cloud database not configured.");
     const fields = encodeFields({
@@ -384,6 +459,8 @@ const DB = (() => {
     saveUserDoc,
     fetchAllUsers,
     fetchComments,
+    fetchCommentsByUser,
+    fetchRecentComments,
     addComment,
     fetchPhotos,
     addPhoto

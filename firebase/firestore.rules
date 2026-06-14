@@ -1,11 +1,13 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Shared restaurant list. Anyone can read the map and add a new place,
-    // but existing entries cannot be deleted from the browser.
+    // Shared restaurant list. Anyone can read the map; only a signed-in user
+    // can add a new place, and the entry must be stamped with their own uid.
+    // Existing entries cannot be edited or deleted from the browser.
     match /restaurants/{doc} {
       allow read: if true;
-      allow create: if true;
+      allow create: if request.auth != null
+                    && request.resource.data.addedByUid == request.auth.uid;
       allow update, delete: if false;
     }
     // Shared edits (e.g. category changes) keyed by restaurant id. Anyone can

@@ -2,13 +2,14 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Restaurantes Portugal</title>
   <meta name="description" content="Mapa interativo de restaurantes em Portugal para visitar." />
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#b5531f" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#181511" media="(prefers-color-scheme: dark)" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Restaurantes" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -76,6 +77,7 @@
     </div>
   </header>
 
+  <section id="screen-mapa" class="screen screen-mapa" data-screen="mapa">
   <div class="layout">
     <div id="sidebar-scrim" class="sidebar-scrim" aria-hidden="true"></div>
     <aside id="sidebar" class="sidebar">
@@ -175,6 +177,50 @@
       </div>
     </main>
   </div>
+  </section>
+
+  <!-- App-level views (overlays above the always-rendered map) -->
+  <section id="screen-memorias" class="screen screen-data" data-screen="memorias" hidden>
+    <div class="screen-head">
+      <h2>As minhas memórias</h2>
+      <span class="screen-sub" id="memorias-count"></span>
+    </div>
+    <div id="memorias-list" class="screen-list"></div>
+  </section>
+
+  <section id="screen-criticas" class="screen screen-data" data-screen="criticas" hidden>
+    <div class="screen-head">
+      <h2>As minhas críticas</h2>
+      <div class="seg" id="criticas-scope" role="group" aria-label="Âmbito das críticas">
+        <button class="seg-btn active" data-scope="mine" aria-pressed="true">As minhas</button>
+        <button class="seg-btn" data-scope="all" aria-pressed="false">Todas</button>
+      </div>
+    </div>
+    <div id="criticas-list" class="screen-list"></div>
+  </section>
+
+  <section id="screen-amigos" class="screen screen-data" data-screen="amigos" hidden>
+    <div class="screen-head">
+      <h2>Atividade dos amigos</h2>
+    </div>
+    <div id="amigos-feed" class="screen-list"></div>
+  </section>
+
+  <!-- Bottom tab bar -->
+  <nav id="tabbar" class="tabbar" role="tablist" aria-label="Navegação">
+    <button class="tab active" data-tab-nav="mapa" role="tab" aria-selected="true">
+      <svg class="icon"><use href="#i-map"/></svg><span>Mapa</span>
+    </button>
+    <button class="tab" data-tab-nav="memorias" role="tab" aria-selected="false">
+      <svg class="icon"><use href="#i-star"/></svg><span>Memórias</span>
+    </button>
+    <button class="tab" data-tab-nav="criticas" role="tab" aria-selected="false">
+      <svg class="icon"><use href="#i-message"/></svg><span>Críticas</span>
+    </button>
+    <button class="tab" data-tab-nav="amigos" role="tab" aria-selected="false">
+      <svg class="icon"><use href="#i-users"/></svg><span>Amigos</span>
+    </button>
+  </nav>
 
   <!-- Restaurant detail drawer -->
   <section id="detail-panel" class="detail-panel" aria-hidden="true">

@@ -141,8 +141,9 @@ const AddRestaurantModule = (() => {
       const restaurant = buildRestaurantFromForm(coords);
 
       // Stamp "quem recomendou" when the person is signed in.
+      const signedIn = typeof UserData !== "undefined" && UserData.isCloud();
       let token = null;
-      if (typeof UserData !== "undefined" && UserData.isCloud()) {
+      if (signedIn) {
         const me = UserData.me();
         restaurant.addedByUid = me.uid;
         restaurant.addedByName = me.displayName;
@@ -151,7 +152,9 @@ const AddRestaurantModule = (() => {
         }
       }
 
-      if (DB.isAvailable()) {
+      // The shared list requires a signed-in author (Firestore rules enforce
+      // addedByUid == auth.uid). Without a session, save locally instead.
+      if (DB.isAvailable() && signedIn) {
         setStatus("A guardar para todos...", "info");
         const saved = await DB.add(restaurant, token);
         App.onRestaurantAdded(saved);
@@ -159,7 +162,12 @@ const AddRestaurantModule = (() => {
       } else {
         Storage.addCustomRestaurant(restaurant);
         App.onRestaurantAdded(restaurant);
-        setStatus("Adicionado (guardado só neste navegador).", "success");
+        setStatus(
+          DB.isAvailable()
+            ? "Guardado só neste navegador. Inicie sessão para partilhar com todos."
+            : "Adicionado (guardado só neste navegador).",
+          "success"
+        );
       }
 
       setTimeout(close, 900);

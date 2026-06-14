@@ -11,7 +11,7 @@ const CATEGORIES = {
 };
 
 const App = (() => {
-  const state = { restaurants: [], currentDetail: null };
+  const state = { restaurants: [], currentDetail: null, currentScreen: "mapa", criticasScope: "mine" };
 
   function esc(str) {
     return String(str == null ? "" : str).replace(/[&<>"']/g, (c) =>
@@ -884,6 +884,224 @@ const App = (() => {
     });
   }
 
+  // ---------- App-level screens (bottom tab bar + global views) ----------
+  const SCREENS = ["mapa", "memorias", "criticas", "amigos"];
+
+  function screenFromHash() {
+    const h = (location.hash || "").replace("#", "");
+    return SCREENS.includes(h) ? h : "mapa";
+  }
+
+  function showScreen(name) {
+    if (!SCREENS.includes(name)) name = "mapa";
+    state.currentScreen = name;
+    document.querySelectorAll(".screen-data").forEach((s) => {
+      s.hidden = s.dataset.screen !== name;
+    });
+    document.querySelectorAll("#tabbar .tab").forEach((t) => {
+      const on = t.dataset.tabNav === name;
+      t.classList.toggle("active", on);
+      t.setAttribute("aria-selected", String(on));
+    });
+    if (name === "memorias") renderMemorias();
+    else if (name === "criticas") renderCriticas();
+    else if (name === "amigos") renderAmigosFeed();
+  }
+
+  function navTo(name) {
+    if (location.hash !== "#" + name) location.hash = name;
+    else showScreen(name);
+  }
+  function onHashChange() { showScreen(screenFromHash()); }
+  // Re-render whichever data screen is currently open (e.g. after sign-in).
+  function refreshActiveDataScreen() {
+    if (state.currentScreen && state.currentScreen !== "mapa") showScreen(state.currentScreen);
+  }
+
+  function signinInvite(msg) {
+    return `<div class="signin-invite">${icon("log-in")} <span>${esc(msg)}</span></div>`;
+  }
+  function starsDisplay(n) {
+    return `<span class="stars-display">${[1, 2, 3, 4, 5]
+      .map((i) => `<svg class="icon${i <= n ? "" : " empty"}"><use href="#i-star"/></svg>`)
+      .join("")}</span>`;
+  }
+  // Open a restaurant's detail drawer focused on a specific tab.
+  function openOnTab(r, tab) {
+    onSelect(r);
+    const body = document.getElementById("detail-body");
+    if (body) switchTab(body, tab);
+  }
+
+  // ----- Memórias: every restaurant I rated / noted / visited (no network) -----
+  function gatherMemories() {
+    const out = [];
+    for (const r of state.restaurants) {
+      const rating = UserData.getRating(r.id);
+      const hist = UserData.getHistory(r.id);
+      const visited = UserData.isVisited(r.id);
+      if (!rating && !hist.length && !visited) continue;
+      const lastVisit = hist.length ? hist[hist.length - 1] : null;
+      out.push({
+        r,
+        stars: rating ? rating.stars : 0,
+        note: rating ? rating.note : "",
+        lastVisit,
+        visitCount: hist.length,
+        updatedAt: (rating && rating.updatedAt) || lastVisit || ""
+      });
+    }
+    return out.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+  }
+
+  function buildMemoryCard(m) {
+    const cat = catFor(m.r);
+    const meta = m.lastVisit
+      ? `Última visita: ${fmtDate(m.lastVisit)}${m.visitCount > 1 ? ` · ${m.visitCount} visitas` : ""}`
+      : "Sem visitas registadas";
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "memory-card";
+    card.innerHTML = `
+      <div class="memory-head">
+        <span class="memory-name">${esc(m.r.name)}</span>
+        ${m.stars ? starsDisplay(m.stars) : ""}
+      </div>
+      <span class="memory-loc">${dot(cat)} ${esc(m.r.town)}, ${esc(m.r.region)}</span>
+      ${m.note ? `<p class="memory-note">${esc(m.note)}</p>` : ""}
+      <span class="memory-meta muted">${icon("check-circle")} ${esc(meta)}</span>`;
+    card.addEventListener("click", () => openOnTab(m.r, "mem"));
+    return card;
+  }
+
+  function renderMemorias() {
+    const listEl = document.getElementById("memorias-list");
+    const countEl = document.getElementById("memorias-count");
+    if (!listEl) return;
+    if (!UserData.isCloud()) {
+      listEl.innerHTML = signinInvite("Inicie sessão com a Google para guardar e rever as suas memórias.");
+      if (countEl) countEl.textContent = "";
+      return;
+    }
+    const mems = gatherMemories();
+    if (countEl) countEl.textContent = mems.length ? `${mems.length} ${mems.length === 1 ? "sítio" : "sítios"}` : "";
+    listEl.innerHTML = "";
+    if (!mems.length) {
+      listEl.innerHTML = `<p class="muted screen-empty">Ainda não tem memórias. Avalie ou marque uma visita num restaurante.</p>`;
+      return;
+    }
+    mems.forEach((m) => listEl.appendChild(buildMemoryCard(m)));
+  }
+
+  // ----- Críticas: my comments (or all), across every restaurant -----
+  let criticasReqId = 0;
+  function critiqueRow(c) {
+    const r = state.restaurants.find((x) => x.id === c.restaurantId);
+    const name = r ? r.name : "Restaurante";
+    return `<div class="critique" data-crit-rest="${esc(c.restaurantId)}">
+      <div class="critique-rest">${icon("pin")} ${esc(name)}</div>
+      ${renderComment(c)}
+    </div>`;
+  }
+  function renderCriticas() {
+    const listEl = document.getElementById("criticas-list");
+    if (!listEl) return;
+    document.querySelectorAll("#criticas-scope .seg-btn").forEach((b) => {
+      const on = b.dataset.scope === state.criticasScope;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+    if (!DB.isAvailable()) {
+      listEl.innerHTML = `<p class="muted screen-empty">As críticas precisam da cloud configurada.</p>`;
+      return;
+    }
+    if (state.criticasScope === "mine" && !UserData.isCloud()) {
+      listEl.innerHTML = signinInvite("Inicie sessão para ver as suas críticas.");
+      return;
+    }
+    const reqId = ++criticasReqId;
+    listEl.innerHTML = `<div class="skeleton sk-line" style="width:55%"></div><div class="skeleton" style="height:54px;margin-top:8px"></div>`;
+    const p = state.criticasScope === "mine"
+      ? DB.fetchCommentsByUser(UserData.me().uid)
+      : DB.fetchRecentComments(100);
+    p.then((comments) => {
+      if (reqId !== criticasReqId) return;
+      if (!comments.length) {
+        listEl.innerHTML = `<p class="muted screen-empty">${
+          state.criticasScope === "mine" ? "Ainda não escreveu críticas." : "Ainda não há críticas."
+        }</p>`;
+        return;
+      }
+      listEl.innerHTML = comments.map(critiqueRow).join("");
+      listEl.querySelectorAll("[data-crit-rest]").forEach((el) => {
+        el.addEventListener("click", () => {
+          const r = state.restaurants.find((x) => x.id === el.dataset.critRest);
+          if (r) openOnTab(r, "crit");
+        });
+      });
+    });
+  }
+
+  // ----- Amigos: activity feed across all restaurants (from group data) -----
+  function buildFriendsFeed() {
+    const items = [];
+    const byId = new Map(state.restaurants.map((r) => [r.id, r]));
+    UserData.others().forEach((g) => {
+      Object.entries(g.ratings || {}).forEach(([id, rt]) => {
+        const r = byId.get(id);
+        if (!r || (!rt.stars && !rt.note)) return;
+        items.push({ type: "rating", when: rt.updatedAt || "", g, r, stars: rt.stars || 0, note: rt.note || "" });
+      });
+      Object.entries(g.history || {}).forEach(([id, dates]) => {
+        const r = byId.get(id);
+        if (!r) return;
+        (dates || []).forEach((d) => items.push({ type: "visit", when: d, g, r }));
+      });
+      (g.priority || []).forEach((id) => {
+        const r = byId.get(id);
+        if (!r) return;
+        items.push({ type: "priority", when: "", g, r });
+      });
+    });
+    return items.sort((a, b) => (a.when < b.when ? 1 : -1));
+  }
+
+  function feedRow(it) {
+    const who = `<strong>${esc(it.g.displayName || "Amigo")}</strong>`;
+    const rest = `<strong>${esc(it.r.name)}</strong>`;
+    let line, ic;
+    if (it.type === "rating") { ic = "star"; line = `${who} avaliou ${rest}${it.stars ? ` · ${it.stars}★` : ""}`; }
+    else if (it.type === "visit") { ic = "check-circle"; line = `${who} visitou ${rest}`; }
+    else { ic = "flame"; line = `${who} quer ir a ${rest}`; }
+    const when = it.when ? `<span class="feed-when">${esc(fmtDate(it.when))}</span>` : "";
+    const note = it.type === "rating" && it.note ? `<p class="feed-note">${esc(it.note)}</p>` : "";
+    return `<button type="button" class="feed-item" data-feed-rest="${esc(it.r.id)}">
+      ${avatar(it.g.displayName, it.g.photoURL)}
+      <div class="feed-body"><span class="feed-line">${icon(ic)} ${line}</span>${note}${when}</div>
+    </button>`;
+  }
+
+  function renderAmigosFeed() {
+    const el = document.getElementById("amigos-feed");
+    if (!el) return;
+    if (!UserData.isCloud()) {
+      el.innerHTML = signinInvite("Inicie sessão com a Google para ver a atividade dos amigos.");
+      return;
+    }
+    const feed = buildFriendsFeed();
+    if (!feed.length) {
+      el.innerHTML = `<p class="muted screen-empty">Ainda não há atividade de amigos.</p>`;
+      return;
+    }
+    el.innerHTML = feed.map(feedRow).join("");
+    el.querySelectorAll("[data-feed-rest]").forEach((b) => {
+      b.addEventListener("click", () => {
+        const r = state.restaurants.find((x) => x.id === b.dataset.feedRest);
+        if (r) openOnTab(r, "amigos");
+      });
+    });
+  }
+
   // ---------- Wiring ----------
   function openSidebar(open) {
     const sb = document.getElementById("sidebar");
@@ -911,6 +1129,16 @@ const App = (() => {
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") { closeDetail(); openSidebar(false); }
     });
+    document.querySelectorAll("#tabbar .tab").forEach((t) =>
+      t.addEventListener("click", () => navTo(t.dataset.tabNav))
+    );
+    window.addEventListener("hashchange", onHashChange);
+    document.querySelectorAll("#criticas-scope .seg-btn").forEach((b) =>
+      b.addEventListener("click", () => {
+        state.criticasScope = b.dataset.scope;
+        renderCriticas();
+      })
+    );
     wirePlanner();
   }
 
@@ -951,6 +1179,7 @@ const App = (() => {
       onChange: () => {
         render();
         refreshOpenDetail();
+        refreshActiveDataScreen();
       }
     });
     AuthModule.init({ onUser: onAuthChange });
@@ -969,6 +1198,7 @@ const App = (() => {
     buildRegionFilters();
     wireEvents();
     render();
+    showScreen(screenFromHash());
   }
 
   return { init, onRestaurantAdded, onAuthChange };

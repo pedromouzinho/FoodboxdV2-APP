@@ -3,12 +3,14 @@ rules_version = '2';
 // Cloud Storage rules for user-uploaded restaurant photos.
 //   restaurants/{restaurantId}/{fileName}
 // Anyone can view the photos; only signed-in people can upload (images only,
-// max ~6 MB), and a signed-in person can delete files.
+// max ~6 MB) and the file name must be prefixed with the uploader's own uid
+// (the client writes "{uid}-{timestamp}.{ext}"). A signed-in person can delete.
 service firebase.storage {
   match /b/{bucket}/o {
     match /restaurants/{restaurantId}/{fileName} {
       allow read: if true;
       allow write: if request.auth != null
+                   && fileName.matches(request.auth.uid + '-.*')
                    && request.resource.size < 6 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
       allow delete: if request.auth != null;
