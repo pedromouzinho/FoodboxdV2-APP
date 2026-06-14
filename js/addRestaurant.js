@@ -5,7 +5,7 @@
 // "Opções avançadas" for the rare case the auto-location is off.
 
 const AddRestaurantModule = (() => {
-  let modal, form, closeBtn, locateBtn, locateStatus, copyJsonBtn, submitBtn, statusEl;
+  let modal, form, closeBtn, locateBtn, locateStatus, copyJsonBtn, submitBtn, statusEl, aiSuggestBtn;
   let nameInput, townInput, regionInput, categorySelect, notesInput, latInput, lngInput;
 
   function slugify(text) {
@@ -43,6 +43,34 @@ const AddRestaurantModule = (() => {
     locateBtn.addEventListener("click", manualLocate);
     copyJsonBtn.addEventListener("click", copyAsJson);
     form.addEventListener("submit", onSubmit);
+
+    // AI: suggest a category + specialty from the name/town (signed-in only).
+    aiSuggestBtn = document.getElementById("form-ai-suggest-btn");
+    if (aiSuggestBtn && typeof AIModule !== "undefined" && AIModule.available()) {
+      aiSuggestBtn.classList.remove("hidden");
+      aiSuggestBtn.addEventListener("click", aiSuggest);
+    }
+  }
+
+  async function aiSuggest() {
+    if (!nameInput.value.trim()) { locateStatus.textContent = "Indique o nome primeiro."; return; }
+    if (typeof UserData === "undefined" || !UserData.isCloud()) return;
+    aiSuggestBtn.disabled = true;
+    const prev = aiSuggestBtn.innerHTML;
+    aiSuggestBtn.innerHTML = "A sugerir…";
+    try {
+      const out = await AIModule.categorize({
+        name: nameInput.value.trim(),
+        town: townInput.value.trim(),
+        googleTypes: []
+      });
+      if (out && out.category) categorySelect.value = out.category;
+      if (out && out.specialty && !notesInput.value.trim()) notesInput.value = out.specialty;
+    } catch (e) {
+      locateStatus.textContent = e.message;
+    }
+    aiSuggestBtn.innerHTML = prev;
+    aiSuggestBtn.disabled = false;
   }
 
   function open() {

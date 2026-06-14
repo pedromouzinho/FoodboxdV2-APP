@@ -5,13 +5,19 @@
   "storage": {
     "rules": "firebase/storage.rules"
   },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs20"
+  },
   "hosting": {
     "public": ".",
     "ignore": [
       "firebase.json",
       "firebase/**",
+      "functions/**",
       "README.md",
       "CONTEXT.md",
+      "AI_SETUP.md",
       ".git/**",
       ".github/**",
       ".agents/**",
@@ -24,6 +30,9 @@
       "package-lock.json",
       "capacitor.config.json",
       "SETUP_IOS.md"
+    ],
+    "rewrites": [
+      { "source": "/api/ai", "function": "ai", "region": "europe-west1" }
     ],
     "headers": [
       {

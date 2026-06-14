@@ -463,6 +463,9 @@ const App = (() => {
       <div class="exp-step">
         <span class="rate-label">Nota pessoal</span>
         <textarea class="note-input" data-note placeholder="Nota pessoal (ex: pedir a sobremesa)…" rows="2">${esc(rating.note || "")}</textarea>
+        ${AIModule.available() && UserData.isCloud()
+          ? `<button type="button" class="linklike ai-draft" data-ai-draft>${icon("sparkles")} Ajudar a escrever</button>`
+          : ""}
       </div>
       <div class="visit-history">
         <button class="btn btn-primary btn-block" data-add-visit${hasStars ? "" : " disabled"}>${icon("check-circle")} Marcar visita de hoje</button>
@@ -495,6 +498,9 @@ const App = (() => {
           renderAmigos(r);
         }, 600);
       });
+
+      const draftBtn = tail.querySelector("[data-ai-draft]");
+      if (draftBtn && noteEl) draftBtn.addEventListener("click", () => runDraftReview(r, noteEl, draftBtn));
 
       const submitBtn = tail.querySelector("[data-add-visit]");
       if (submitBtn) submitBtn.addEventListener("click", () => {
@@ -953,10 +959,17 @@ const App = (() => {
 
     // reviews
     if (data.reviews && data.reviews.length) {
+      const canAi = AIModule.available() && UserData.isCloud() && data.reviews.some((rv) => rv.text);
       reviewsEl.innerHTML =
         `<div class="detail-section-title" style="margin-bottom:10px">Avaliações</div>` +
+        (canAi ? `<button class="btn btn-ghost btn-sm ai-action" data-ai-summarize>${icon("sparkles")} Resumir avaliações</button>
+          <div class="ai-reviews" data-ai-reviews></div>` : "") +
         `<div class="reviews">${data.reviews.map(renderReview).join("")}</div>` +
         `<p class="attribution">Avaliações via Google</p>`;
+      if (canAi) {
+        const sumBtn = reviewsEl.querySelector("[data-ai-summarize]");
+        sumBtn.addEventListener("click", () => runSummarizeReviews(r, data.reviews, sumBtn));
+      }
     } else {
       reviewsEl.innerHTML = "";
     }
@@ -1296,6 +1309,223 @@ const App = (() => {
     } catch (e) { /* cancelled or unsupported */ }
   }
 
+  // ---------- AI layer (Claude via the `ai` Cloud Function) ----------
+  // Distance in km between two lat/lng points (haversine), for "perto de mim".
+  function distKm(a, b) {
+    const R = 6371, toRad = (d) => (d * Math.PI) / 180;
+    const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
+    const s = Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+    return Math.round(2 * R * Math.asin(Math.sqrt(s)) * 10) / 10;
+  }
+
+  function restById(id) {
+    return state.restaurants.find((r) => r.id === id) || null;
+  }
+
+  // Compact catalog the model reasons over: only already-visible data + my marks.
+  function aiCatalog(near) {
+    return state.restaurants.map((r) => {
+      const rt = UserData.getRating(r.id) || {};
+      const e = { id: r.id, name: r.name, town: r.town, region: r.region, cat: r.category };
+      if (r.notes) e.specialty = r.notes;
+      if (UserData.isVisited(r.id)) e.visited = true;
+      if (UserData.isPriority(r.id)) e.priority = true;
+      if (rt.stars) e.myStars = rt.stars;
+      if (rt.dishes && rt.dishes.length) e.myDishes = rt.dishes;
+      const avg = UserData.avgRating(r.id);
+      if (avg) e.groupAvg = Math.round(avg * 10) / 10;
+      if (near && typeof r.lat === "number" && typeof r.lng === "number") {
+        e.distKm = distKm(near, { lat: r.lat, lng: r.lng });
+      }
+      return e;
+    });
+  }
+
+  // A short taste profile aggregated from my ratings.
+  function aiProfile() {
+    const catWeights = {};
+    const likedDishes = [];
+    let rated = 0, sum = 0;
+    state.restaurants.forEach((r) => {
+      const rt = UserData.getRating(r.id);
+      if (rt && rt.stars) {
+        rated++; sum += rt.stars;
+        catWeights[r.category] = (catWeights[r.category] || 0) + rt.stars;
+        if (rt.stars >= 4 && Array.isArray(rt.dishes)) likedDishes.push(...rt.dishes);
+      }
+    });
+    return {
+      name: UserData.isCloud() ? (UserData.me().displayName || "") : "",
+      visitedCount: state.restaurants.filter((r) => UserData.isVisited(r.id)).length,
+      avgStars: rated ? Math.round((sum / rated) * 10) / 10 : null,
+      catWeights,
+      likedDishes: [...new Set(likedDishes)].slice(0, 20)
+    };
+  }
+
+  // AI suggestion modal ------------------------------------------------------
+  function openAi() { document.getElementById("ai-modal").classList.remove("hidden"); }
+  function hideAi() { document.getElementById("ai-modal").classList.add("hidden"); }
+  function aiOpen() { return !document.getElementById("ai-modal").classList.contains("hidden"); }
+  function aiLoading(msg) {
+    document.getElementById("ai-body").innerHTML =
+      `<div class="ai-loading"><span class="ai-spinner"></span> ${esc(msg || "A pensar…")}</div>`;
+  }
+  function aiError(msg) {
+    document.getElementById("ai-body").innerHTML =
+      `<div class="ai-error">${icon("info")} ${esc(msg || "Não foi possível gerar agora.")}</div>`;
+  }
+
+  async function runSuggest() {
+    if (!UserData.isCloud()) { showSigninModal(); return; }
+    if (!state.restaurants.length) return;
+    openAi();
+    aiLoading("A analisar os teus restaurantes…");
+    let near = null;
+    if (navigator.geolocation) {
+      near = await new Promise((res) =>
+        navigator.geolocation.getCurrentPosition(
+          (p) => res({ lat: p.coords.latitude, lng: p.coords.longitude }),
+          () => res(null),
+          { timeout: 6000, maximumAge: 300000 }
+        )
+      );
+    }
+    try {
+      const r = await AIModule.recommend({
+        catalog: aiCatalog(near),
+        profile: aiProfile(),
+        criteria: near ? { near: true } : {}
+      });
+      renderSuggest(r);
+    } catch (e) {
+      aiError(e.message);
+    }
+  }
+
+  function renderSuggest(r) {
+    const pick = r && restById(r.restaurantId);
+    if (!pick) { aiError("A IA não devolveu uma sugestão válida."); return; }
+    const alts = (r.alternatives || [])
+      .map((a) => ({ rest: restById(a.restaurantId), reason: a.reason }))
+      .filter((a) => a.rest && a.rest.id !== pick.id)
+      .slice(0, 3);
+    const cat = catFor(pick);
+    document.getElementById("ai-body").innerHTML = `
+      <div class="ai-pick" data-ai-open="${esc(pick.id)}">
+        <span class="ai-pick-cat" style="background:var(${cat.varName})"></span>
+        <div class="ai-pick-main">
+          <div class="ai-pick-name">${esc(pick.name)}</div>
+          <div class="ai-pick-loc">${esc(pick.town)} · ${esc(pick.region)}</div>
+          <div class="ai-pick-reason">${esc(r.reason || "")}</div>
+        </div>
+        ${icon("chevron-right")}
+      </div>
+      ${alts.length ? `<div class="ai-alts-title">Também podes gostar</div>
+      <div class="ai-alts">${alts.map((a) => `
+        <button class="ai-alt" data-ai-open="${esc(a.rest.id)}">
+          <span class="ai-alt-name">${esc(a.rest.name)}</span>
+          <span class="ai-alt-reason">${esc(a.reason || "")}</span>
+        </button>`).join("")}</div>` : ""}`;
+    document.querySelectorAll("#ai-body [data-ai-open]").forEach((el) =>
+      el.addEventListener("click", () => {
+        const rest = restById(el.dataset.aiOpen);
+        if (rest) { hideAi(); onSelect(rest); }
+      })
+    );
+  }
+
+  // Natural-language search: a query → structured filters applied to the UI.
+  async function runNlSearch() {
+    if (!AIModule.available() || !UserData.isCloud()) return;
+    const input = document.getElementById("search-input");
+    const query = input.value.trim();
+    if (!query) return;
+    const btn = document.getElementById("nl-search-btn");
+    if (btn) btn.classList.add("busy");
+    try {
+      const regions = [...new Set(state.restaurants.map((r) => r.region))].sort();
+      const f = await AIModule.nlSearch({ query, regions });
+      applyNlFilters(f);
+    } catch (e) {
+      /* keep the literal search; NL is a bonus */
+    }
+    if (btn) btn.classList.remove("busy");
+  }
+
+  function applyNlFilters(f) {
+    if (!f) return;
+    if (Array.isArray(f.categories) && f.categories.length) {
+      document.querySelectorAll("#category-filters .chip").forEach((c) =>
+        c.setAttribute("aria-pressed", String(f.categories.includes(c.dataset.category)))
+      );
+    }
+    if (Array.isArray(f.regions) && f.regions.length) {
+      document.querySelectorAll("#region-filters input").forEach((i) =>
+        (i.checked = f.regions.includes(i.dataset.region))
+      );
+    }
+    if (Array.isArray(f.price) && f.price.length) {
+      document.querySelectorAll("#price-filters input").forEach((i) =>
+        (i.checked = f.price.includes(parseInt(i.dataset.price, 10)))
+      );
+    }
+    if (typeof f.text === "string") document.getElementById("search-input").value = f.text;
+    render();
+  }
+
+  // Summarize the Google reviews already on screen for a restaurant.
+  async function runSummarizeReviews(r, reviews, btn) {
+    const box = document.querySelector("#detail-body [data-ai-reviews]");
+    if (!box) return;
+    if (btn) btn.disabled = true;
+    box.innerHTML = `<div class="ai-loading"><span class="ai-spinner"></span> A resumir avaliações…</div>`;
+    try {
+      const s = await AIModule.summarizeReviews({
+        name: r.name,
+        reviews: reviews.slice(0, 8).map((rv) => ({ stars: rv.rating, text: rv.text })).filter((rv) => rv.text)
+      });
+      const list = (arr) => (arr || []).map((x) => `<li>${esc(x)}</li>`).join("");
+      box.innerHTML = `
+        <div class="ai-summary">
+          <p class="ai-summary-text">${esc(s.summary || "")}</p>
+          <div class="ai-pc">
+            ${s.pros && s.pros.length ? `<div class="ai-pros"><span class="ai-pc-title">Prós</span><ul>${list(s.pros)}</ul></div>` : ""}
+            ${s.cons && s.cons.length ? `<div class="ai-cons"><span class="ai-pc-title">Contras</span><ul>${list(s.cons)}</ul></div>` : ""}
+          </div>
+          ${s.orderTips && s.orderTips.length ? `<div class="ai-tips"><span class="ai-pc-title">${icon("sparkles")} O que pedir</span><ul>${list(s.orderTips)}</ul></div>` : ""}
+          <p class="attribution">Resumo gerado por IA a partir das avaliações do Google</p>
+        </div>`;
+    } catch (e) {
+      box.innerHTML = `<div class="ai-error">${icon("info")} ${esc(e.message)}</div>`;
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  // Draft a personal review from my stars + dishes + a few notes.
+  async function runDraftReview(r, noteEl, btn) {
+    if (!noteEl) return;
+    const rt = UserData.getRating(r.id) || {};
+    if (btn) { btn.disabled = true; btn.classList.add("busy"); }
+    try {
+      const out = await AIModule.draftReview({
+        name: r.name,
+        stars: rt.stars || "",
+        dishes: rt.dishes || [],
+        bullets: noteEl.value.trim()
+      });
+      if (out && out.text) {
+        noteEl.value = out.text;
+        noteEl.dispatchEvent(new Event("input", { bubbles: true })); // trigger autosave
+        noteEl.focus();
+      }
+    } catch (e) {
+      noteEl.placeholder = e.message;
+    }
+    if (btn) { btn.disabled = false; btn.classList.remove("busy"); }
+  }
+
   // ---------- Trip planner ----------
   function wirePlanner() {
     const radius = document.getElementById("planner-radius");
@@ -1330,10 +1560,12 @@ const App = (() => {
         stops.forEach(({ restaurant, distanceKm }) => {
           const li = document.createElement("li");
           li.tabIndex = 0;
+          li.dataset.id = restaurant.id;
           li.setAttribute("role", "button");
           li.innerHTML = `
             <strong>${esc(restaurant.name)}</strong> — ${esc(restaurant.town)}
             <br><span class="dist">${distanceKm.toFixed(1)} km da rota</span>
+            <span class="ai-note" data-ai-note hidden></span>
             <span class="route-summary" data-route-summary>Ver percurso com esta paragem</span>`;
           li.addEventListener("click", () => selectStop(li, restaurant));
           li.addEventListener("keydown", (e) => {
@@ -1345,6 +1577,7 @@ const App = (() => {
           results.appendChild(li);
         });
         selectStop(results.querySelector("li"), stops[0].restaurant);
+        annotateStops(stops);
         // On mobile, close the sidebar so the drawn route is visible.
         if (isMobile()) openSidebar(false);
         else results.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -1356,6 +1589,26 @@ const App = (() => {
       document.getElementById("planner-status").textContent = "";
       document.getElementById("planner-results").innerHTML = "";
     });
+  }
+
+  // Enrich the planner stops with a short personalized note from the AI.
+  async function annotateStops(stops) {
+    if (!AIModule.available() || !UserData.isCloud()) return;
+    try {
+      const payload = stops.map(({ restaurant: r, distanceKm }) => {
+        const rt = UserData.getRating(r.id) || {};
+        return {
+          id: r.id, name: r.name, town: r.town, region: r.region,
+          cat: r.category, specialty: r.notes || "", distanceKm: Math.round(distanceKm * 10) / 10,
+          myStars: rt.stars || 0
+        };
+      });
+      const out = await AIModule.planner({ profile: aiProfile(), stops: payload });
+      (out && out.ordered || []).forEach(({ id, note }) => {
+        const span = document.querySelector(`#planner-results li[data-id="${CSS.escape(id)}"] [data-ai-note]`);
+        if (span && note) { span.textContent = note; span.hidden = false; }
+      });
+    } catch (e) { /* notes are a bonus */ }
   }
 
   // ---------- App-level screens (bottom tab bar + global views) ----------
@@ -1780,6 +2033,26 @@ const App = (() => {
 
   function wireEvents() {
     document.getElementById("search-input").addEventListener("input", render);
+
+    // AI: "Sugere-me" (header) + natural-language search + modal close. The
+    // controls only make sense when the backend is reachable and signed in.
+    const aiBtn = document.getElementById("ai-suggest-btn");
+    if (aiBtn) {
+      if (AIModule.available()) aiBtn.addEventListener("click", runSuggest);
+      else aiBtn.classList.add("hidden");
+    }
+    document.querySelectorAll("[data-close-ai]").forEach((el) => el.addEventListener("click", hideAi));
+    const nlBtn = document.getElementById("nl-search-btn");
+    if (nlBtn) {
+      if (AIModule.available()) {
+        nlBtn.classList.remove("hidden");
+        nlBtn.addEventListener("click", runNlSearch);
+        document.getElementById("search-input").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { e.preventDefault(); runNlSearch(); }
+        });
+      }
+    }
+
     document.getElementById("hide-visited-checkbox").addEventListener("change", render);
     document.querySelectorAll("#price-filters input").forEach((el) => el.addEventListener("change", render));
     document.getElementById("pick-random-btn").addEventListener("click", pickRandom);
@@ -1819,6 +2092,7 @@ const App = (() => {
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         if (viewerOpen()) { hidePhotoViewer(); return; }
+        if (aiOpen()) { hideAi(); return; }
         if (tourOpen()) { hideTour(); return; }
         const pm = document.getElementById("profile-modal");
         if (pm && !pm.classList.contains("hidden")) { hideProfileModal(); return; }

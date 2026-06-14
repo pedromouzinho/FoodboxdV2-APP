@@ -1114,6 +1114,87 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .ios-a2hs .icon { width: 18px; height: 18px; color: var(--primary); flex-shrink: 0; }
 .ios-a2hs .a2hs-x { margin-left: auto; flex-shrink: 0; }
 
+/* ---------- AI layer ---------- */
+.topbar-ai { flex-shrink: 0; gap: var(--sp-2); }
+.topbar-ai .icon { width: 16px; height: 16px; }
+@media (max-width: 560px) { .topbar-ai .ai-btn-label { display: none; } }
+
+/* Natural-language search button inside the search box */
+.nl-search-btn {
+  position: absolute; right: 6px;
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border: none; border-radius: var(--r-pill);
+  background: transparent; color: var(--primary); cursor: pointer;
+}
+.nl-search-btn:hover { background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.nl-search-btn.hidden { display: none; }
+.nl-search-btn .icon { width: 18px; height: 18px; }
+.nl-search-btn.busy { animation: ai-pulse 1s ease-in-out infinite; }
+.search-wrap:has(.nl-search-btn:not(.hidden)) #search-input { padding-right: 46px; }
+
+.ai-card { max-width: 480px; }
+.ai-body { margin-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3); }
+
+.ai-loading { display: flex; align-items: center; gap: var(--sp-2); color: var(--text-muted); font-size: 0.9rem; padding: var(--sp-2) 0; }
+.ai-spinner {
+  width: 16px; height: 16px; flex-shrink: 0;
+  border: 2px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  border-top-color: var(--primary); border-radius: 50%;
+  animation: ai-spin 0.7s linear infinite;
+}
+@keyframes ai-spin { to { transform: rotate(360deg); } }
+@keyframes ai-pulse { 50% { opacity: 0.4; } }
+.ai-error { display: flex; align-items: flex-start; gap: var(--sp-2); color: var(--text-muted); font-size: 0.88rem; }
+.ai-error .icon { width: 18px; height: 18px; flex-shrink: 0; color: var(--primary); }
+
+/* Recommendation pick */
+.ai-pick {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-md);
+  background: var(--surface-2); cursor: pointer; text-align: left;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.ai-pick:hover { border-color: var(--primary); }
+.ai-pick:active { transform: scale(0.99); }
+.ai-pick-cat { width: 5px; align-self: stretch; border-radius: var(--r-pill); flex-shrink: 0; }
+.ai-pick-main { flex: 1; min-width: 0; }
+.ai-pick-name { font-family: var(--font-display); font-weight: 600; font-size: 1.1rem; }
+.ai-pick-loc { color: var(--text-muted); font-size: 0.82rem; margin-top: 2px; }
+.ai-pick-reason { margin-top: 6px; font-size: 0.9rem; line-height: 1.45; }
+.ai-pick > .icon { width: 20px; height: 20px; color: var(--text-faint); flex-shrink: 0; }
+
+.ai-alts-title { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); }
+.ai-alts { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ai-alt {
+  display: flex; flex-direction: column; gap: 2px; text-align: left;
+  padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border);
+  border-radius: var(--r-md); background: var(--surface); cursor: pointer;
+}
+.ai-alt:hover { border-color: var(--primary); }
+.ai-alt-name { font-weight: 600; font-size: 0.92rem; }
+.ai-alt-reason { color: var(--text-muted); font-size: 0.82rem; line-height: 1.4; }
+
+/* Inline AI actions (reviews summary, draft) */
+.ai-action { margin-bottom: var(--sp-2); }
+.ai-action .icon, .ai-draft .icon { width: 15px; height: 15px; }
+.ai-draft { margin-top: 6px; display: inline-flex; align-items: center; gap: 5px; }
+.ai-reviews:not(:empty) { margin-bottom: var(--sp-3); }
+.ai-summary {
+  padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-md);
+  background: var(--surface-2); display: flex; flex-direction: column; gap: var(--sp-2);
+}
+.ai-summary-text { margin: 0; font-size: 0.9rem; line-height: 1.5; }
+.ai-pc { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
+.ai-pc > div { flex: 1; min-width: 130px; }
+.ai-pc-title { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); display: flex; align-items: center; gap: 4px; }
+.ai-pc-title .icon { width: 13px; height: 13px; }
+.ai-summary ul { margin: 4px 0 0; padding-left: 18px; font-size: 0.85rem; line-height: 1.5; }
+.ai-cons .ai-pc-title { color: color-mix(in srgb, #c0392b 70%, var(--text-faint)); }
+
+/* Planner personalized note */
+.ai-note { display: block; margin-top: 4px; font-size: 0.82rem; color: var(--primary); line-height: 1.4; font-style: italic; }
+.ai-note[hidden] { display: none; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

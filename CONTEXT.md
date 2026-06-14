@@ -51,7 +51,17 @@ Sem bundler. `index.html` carrega os scripts por ordem. Cada módulo é um IIFE
   distrito→região (NUTS‑II) via `REGION_BY_DISTRICT` e tem fallback por
   localidade (`regionForTown`) para evitar que falhas de geocoding caiam
   silenciosamente em Alentejo.
-- `js/addRestaurant.js` — formulário "Adicionar restaurante".
+- `js/addRestaurant.js` — formulário "Adicionar restaurante" (+ botão IA
+  "Sugerir tipo e especialidade" → `categorize`).
+- `js/ai.js` — **AIModule**: cliente fino da camada de IA. `call(action, payload)`
+  → `POST /api/ai` com `Authorization: Bearer <Firebase ID token>`. Helpers:
+  `recommend/planner/summarizeReviews/draftReview/nlSearch/categorize` e
+  `available()` (true se o Firebase Auth estiver configurado).
+- `functions/` — **backend de IA** (Cloud Function 2.ª gen `ai`, Node 20,
+  `europe-west1`): `index.js` (auth via `verifyIdToken`, rate-limit por uid em
+  `aiUsage/{uid}`, `AnthropicVertex` → Claude no **Vertex AI**, `tool_use`
+  forçado para JSON + prompt caching do catálogo), `package.json`, `.gitignore`.
+  Ver **`AI_SETUP.md`** para pré-requisitos GCP/IAM e deploy.
 - `js/storage.js` — localStorage helpers (visited, custom restaurants, places
   cache, overrides). `removeCustomRestaurant` existe.
 - `js/planner.js` — planeador de viagem: encontra restaurantes perto da rota
@@ -83,11 +93,14 @@ rm -rf /tmp/fbcred   # apagar SEMPRE a credencial no fim
 ```
 
 - `firebase-tools` instala-se com `npm install -g firebase-tools` (já feito).
-- Targets: `--only hosting`, `--only firestore:rules`, `--only storage` (ou
-  combinados). **Não** fazer deploy de functions (não há).
+- Targets: `--only hosting`, `--only firestore:rules`, `--only storage`,
+  `--only functions` (ou combinados). A função `ai` exige Blaze + Model Garden +
+  IAM — ver `AI_SETUP.md`; a SA `claude-deploy` pode precisar de papéis extra
+  (Functions/Cloud Build/Artifact Registry/Run) — se o deploy falhar por IAM,
+  pedir ao utilizador para os conceder (ou correr o deploy).
 - **Convenção do service worker:** a cada mudança de assets, **bump `CACHE`** em
-  `sw.js` (`foodboxd-vN`). **Atual: `foodboxd-v20`.** (Histórico: restaurantes-v4
-  → … v10 → foodboxd-v11 … v20.)
+  `sw.js` (`foodboxd-vN`). **Atual: `foodboxd-v22`.** (Histórico: restaurantes-v4
+  → … v10 → foodboxd-v11 … v20 → v21 (onboarding cloud) → v22 (camada de IA).)
 - Em PWA instalada, o utilizador pode precisar de **fechar/reabrir 2x** para
   apanhar a versão nova.
 - **NUNCA** commitar a service account (está em `.gitignore`: `*serviceaccount*`,
@@ -182,6 +195,12 @@ all; write se `auth && file começa por uid + imagem + <6MB`; delete se auth.
     "comunidade" só sem correspondência Google** (`verified` no add via
     `PlacesModule.fetchDetails`; badge = comunidade não verificada sem telefone
     Google em cache/detalhe).
+11. **Camada de IA (Claude via Vertex AI)** — backend `functions/` (função `ai`)
+    + `js/ai.js`. 6 ações com modelos tiered: `recommend` (Opus, "Sugere-me" na
+    topbar, considera ratings/pratos/visitas + "perto de mim"), `planner` (Sonnet,
+    notas nas paragens), `summarizeReviews`/`draftReview`/`nlSearch`/`categorize`
+    (Haiku). Auth por Firebase ID token, rate-limit por uid, `tool_use` para JSON,
+    prompt caching do catálogo. Setup/IAM/deploy em `AI_SETUP.md`. (sw v22.)
 
 ## 8. Convenções / decisões
 
