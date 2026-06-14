@@ -1,0 +1,11 @@
+# Firebase CLI local cache (deploy state, not source)
+.firebase/
+firebase-debug.log
+firestore-debug.log
+
+# Node
+node_modules/
+
+# Service account keys must never be committed
+*serviceaccount*.json
+sa.json
