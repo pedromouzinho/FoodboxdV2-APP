@@ -14,6 +14,6 @@ const CONFIG = {
   //    saved only in the person's own browser.
   //    Both values are safe to publish (the API key just identifies the
   //    project; access is controlled by Firestore security rules — see README).
-  FIREBASE_PROJECT_ID: "",
-  FIREBASE_API_KEY: ""
+  FIREBASE_PROJECT_ID: "app-restaurantes-499400",
+  FIREBASE_API_KEY: "AIzaSyC0jNIN7D7g5gTpMWZYC8pk36fvJXuUrnc"
 };
