@@ -1103,6 +1103,104 @@ const App = (() => {
     });
   }
 
+  // ---------- Native-feel gestures ----------
+  // Swipe the detail bottom sheet down to dismiss (mobile only).
+  function wireDetailSwipe() {
+    const card = document.querySelector("#detail-panel .detail-card");
+    if (!card) return;
+    let startY = 0, dy = 0, dragging = false, allow = false, startT = 0;
+    card.addEventListener("touchstart", (e) => {
+      if (!isMobile() || e.touches.length !== 1) { allow = false; return; }
+      startY = e.touches[0].clientY;
+      startT = Date.now();
+      dy = 0; dragging = false;
+      allow = card.scrollTop <= 0; // only when content is at the top
+    }, { passive: true });
+    card.addEventListener("touchmove", (e) => {
+      if (!allow) return;
+      const delta = e.touches[0].clientY - startY;
+      if (delta > 0) {
+        if (!dragging && delta > 6) { dragging = true; card.classList.add("dragging"); }
+        if (dragging) { dy = delta; e.preventDefault(); card.style.transform = `translateY(${dy}px)`; }
+      }
+    }, { passive: false });
+    const end = () => {
+      if (!dragging) return;
+      card.classList.remove("dragging");
+      const fast = dy > 50 && Date.now() - startT < 250;
+      if (dy > 120 || fast) {
+        card.style.transform = "";
+        closeDetail();
+      } else {
+        card.style.transform = "translateY(0)";
+        setTimeout(() => { card.style.transform = ""; }, 250);
+      }
+      dragging = false; allow = false; dy = 0;
+    };
+    card.addEventListener("touchend", end);
+    card.addEventListener("touchcancel", end);
+  }
+
+  // Pull-to-refresh on the data screens.
+  function wirePullToRefresh() {
+    document.querySelectorAll(".screen-data").forEach((sc) => {
+      const ptr = document.createElement("div");
+      ptr.className = "ptr";
+      ptr.innerHTML = `<div class="ptr-spinner"></div>`;
+      sc.insertBefore(ptr, sc.firstChild);
+      let startY = 0, pulling = false, dist = 0, refreshing = false;
+      sc.addEventListener("touchstart", (e) => {
+        if (refreshing || e.touches.length !== 1) { pulling = false; return; }
+        pulling = sc.scrollTop <= 0;
+        if (pulling) { startY = e.touches[0].clientY; dist = 0; ptr.classList.remove("settle"); }
+      }, { passive: true });
+      sc.addEventListener("touchmove", (e) => {
+        if (!pulling || refreshing) return;
+        dist = e.touches[0].clientY - startY;
+        if (dist > 0) {
+          ptr.style.height = Math.min(dist * 0.5, 70) + "px";
+          if (dist > 12) e.preventDefault();
+        }
+      }, { passive: false });
+      const end = async () => {
+        if (!pulling || refreshing) return;
+        pulling = false;
+        ptr.classList.add("settle");
+        if (dist > 90) {
+          refreshing = true;
+          ptr.style.height = "44px";
+          ptr.classList.add("spin");
+          try { await reloadData(); } catch (e) {}
+          ptr.classList.remove("spin");
+          ptr.style.height = "0px";
+          refreshing = false;
+        } else {
+          ptr.style.height = "0px";
+        }
+        dist = 0;
+      };
+      sc.addEventListener("touchend", end);
+      sc.addEventListener("touchcancel", end);
+    });
+  }
+
+  // iOS "Add to Home Screen" hint (Safari doesn't fire beforeinstallprompt).
+  function maybeShowA2HS() {
+    const el = document.getElementById("ios-a2hs");
+    if (!el) return;
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent || "");
+    const standalone = window.navigator.standalone === true ||
+      window.matchMedia("(display-mode: standalone)").matches;
+    let dismissed = false;
+    try { dismissed = localStorage.getItem("portugalRestaurants.a2hsDismissed") === "1"; } catch (e) {}
+    if (isIOS && !standalone && !dismissed) el.classList.remove("hidden");
+  }
+  function hideA2HS() {
+    const el = document.getElementById("ios-a2hs");
+    if (el) el.classList.add("hidden");
+    try { localStorage.setItem("portugalRestaurants.a2hsDismissed", "1"); } catch (e) {}
+  }
+
   // ---------- Trip planner ----------
   function wirePlanner() {
     const radius = document.getElementById("planner-radius");
@@ -1626,6 +1724,9 @@ const App = (() => {
     document.querySelectorAll("#criticas-tabs .seg-btn").forEach((b) =>
       b.addEventListener("click", () => { state.criticasTab = b.dataset.ctab; renderCriticasScreen(); })
     );
+    document.querySelectorAll("[data-a2hs-close]").forEach((el) => el.addEventListener("click", hideA2HS));
+    wireDetailSwipe();
+    wirePullToRefresh();
     wirePlanner();
   }
 
@@ -1675,6 +1776,7 @@ const App = (() => {
     AuthModule.init({ onUser: onAuthChange });
 
     const curated = await (await fetch("data/restaurants.json")).json();
+    state.curated = curated; // kept for pull-to-refresh rebuilds
     const community = await DB.fetchAll();
     state.restaurants = mergeRestaurants(curated, community, Storage.getCustomRestaurants());
 
@@ -1689,6 +1791,21 @@ const App = (() => {
     wireEvents();
     render();
     showScreen(screenFromHash());
+    maybeShowA2HS();
+  }
+
+  // Re-fetch community restaurants, overrides and friends' data (pull-to-refresh).
+  async function reloadData() {
+    const [community] = await Promise.all([
+      DB.fetchAll().catch(() => []),
+      UserData.isCloud() ? UserData.reloadGroup().catch(() => {}) : Promise.resolve()
+    ]);
+    state.restaurants = mergeRestaurants(state.curated || [], community, Storage.getCustomRestaurants());
+    const overrides = DB.isAvailable() ? await DB.fetchOverrides().catch(() => ({})) : Storage.getOverrides();
+    state.restaurants.forEach((r) => { if (overrides[r.id]) r.category = overrides[r.id]; });
+    buildRegionFilters();
+    render();
+    refreshActiveDataScreen();
   }
 
   return { init, onRestaurantAdded, onAuthChange };
