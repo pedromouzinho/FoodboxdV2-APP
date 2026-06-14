@@ -44,20 +44,32 @@ const MapModule = (() => {
     return available;
   }
 
+  const PIN_PATH = "M12 0C7 0 3 4 3 9c0 6.6 9 15 9 15s9-8.4 9-15c0-5-4-9-9-9z";
+
   function getMarkerIcon(category, visited) {
-    const color = (CATEGORIES[category] && CATEGORIES[category].color) || "#555555";
+    const color = (CATEGORIES[category] && CATEGORIES[category].hex) || "#555555";
     return {
-      path: google.maps.SymbolPath.CIRCLE,
+      path: PIN_PATH,
       fillColor: color,
-      fillOpacity: visited ? 0.35 : 1,
+      fillOpacity: visited ? 0.45 : 1,
       strokeColor: "#ffffff",
       strokeWeight: 2,
-      scale: 9
+      scale: 1.5,
+      anchor: new google.maps.Point(12, 24),
+      labelOrigin: new google.maps.Point(12, 9)
     };
   }
 
   function getMarkerLabel(visited) {
-    return visited ? { text: "✓", color: "#ffffff", fontSize: "11px", fontWeight: "bold" } : null;
+    return visited ? { text: "✓", color: "#ffffff", fontSize: "12px", fontWeight: "700" } : null;
+  }
+
+  function highlightMarker(id) {
+    if (!available) return;
+    const marker = markers.get(id);
+    if (!marker) return;
+    marker.setAnimation(google.maps.Animation.BOUNCE);
+    setTimeout(() => marker.setAnimation(null), 700);
   }
 
   function renderMarkers(restaurants, onClick) {
@@ -140,6 +152,7 @@ const MapModule = (() => {
     init,
     isAvailable,
     getMap,
+    highlightMarker,
     renderMarkers,
     setMarkerVisited,
     openInfoWindow,

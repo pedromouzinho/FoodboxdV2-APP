@@ -4,140 +4,204 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Restaurantes Portugal</title>
+  <meta name="description" content="Mapa interativo de restaurantes em Portugal para visitar." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <!-- SVG icon sprite (Lucide-style, no emoji used as structural icons) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <symbol id="i-menu" viewBox="0 0 24 24"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+    <symbol id="i-map" viewBox="0 0 24 24"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-navigation" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+    <symbol id="i-utensils" viewBox="0 0 24 24"><path d="M3 2v7c0 1.1.9 2 2 2h0a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></symbol>
+  </svg>
+
   <header class="topbar">
-    <button id="sidebar-toggle" class="icon-btn" aria-label="Abrir lista">☰</button>
-    <h1>🍽️ Restaurantes Portugal</h1>
-    <div id="visited-counter" class="visited-counter">0 / 0 visitados</div>
+    <button id="sidebar-toggle" class="icon-btn topbar-menu" aria-label="Abrir lista">
+      <svg class="icon"><use href="#i-menu"/></svg>
+    </button>
+    <div class="brand">
+      <svg class="icon brand-icon"><use href="#i-utensils"/></svg>
+      <h1>Restaurantes Portugal</h1>
+    </div>
+    <div class="topbar-progress" id="topbar-progress" title="Visitados">
+      <span id="visited-counter">0 / 0</span>
+    </div>
   </header>
 
   <div class="layout">
     <aside id="sidebar" class="sidebar">
-      <div class="sidebar-section">
-        <input id="search-input" type="search" placeholder="Procurar nome, localidade ou prato..." />
+      <div class="sidebar-inner">
+        <div class="search-wrap">
+          <svg class="icon search-icon"><use href="#i-search"/></svg>
+          <input id="search-input" type="search" placeholder="Procurar nome, localidade ou prato…" aria-label="Procurar" />
+        </div>
+
+        <div class="progress-block">
+          <div class="progress-head">
+            <span id="progress-label">0 de 0 visitados</span>
+          </div>
+          <div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+        </div>
+
+        <div class="quick-actions">
+          <button id="pick-random-btn" class="btn btn-primary">
+            <svg class="icon"><use href="#i-sparkles"/></svg> Surpreende-me
+          </button>
+          <button id="add-restaurant-btn" class="btn btn-ghost">
+            <svg class="icon"><use href="#i-plus"/></svg> Adicionar
+          </button>
+        </div>
+
+        <div class="chip-row" id="category-filters" role="group" aria-label="Filtrar por tipo"></div>
+
+        <details class="panel" id="more-filters">
+          <summary class="panel-summary">
+            <svg class="icon"><use href="#i-sliders"/></svg> Mais filtros
+            <svg class="icon chev"><use href="#i-chevron-down"/></svg>
+          </summary>
+          <div class="panel-body">
+            <h3 class="field-label">Região</h3>
+            <div id="region-filters" class="check-list"></div>
+            <label class="switch-row">
+              <input type="checkbox" id="hide-visited-checkbox" />
+              <span>Esconder já visitados</span>
+            </label>
+          </div>
+        </details>
+
+        <details class="panel" id="planner-panel">
+          <summary class="panel-summary">
+            <svg class="icon"><use href="#i-map"/></svg> Planear uma viagem
+            <svg class="icon chev"><use href="#i-chevron-down"/></svg>
+          </summary>
+          <div class="panel-body">
+            <p class="hint">De onde partes e para onde vais — mostramos restaurantes perto do caminho.</p>
+            <div class="field">
+              <label for="planner-from">De</label>
+              <input id="planner-from" type="text" placeholder="ex: Lisboa" />
+            </div>
+            <div class="field">
+              <label for="planner-to">Para</label>
+              <input id="planner-to" type="text" placeholder="ex: Évora" />
+            </div>
+            <div class="field">
+              <label for="planner-radius">Distância à rota: <strong id="planner-radius-value">25</strong> km</label>
+              <input id="planner-radius" type="range" min="5" max="60" step="5" value="25" />
+            </div>
+            <div class="planner-actions">
+              <button id="planner-find-btn" class="btn btn-primary btn-sm">Encontrar paragens</button>
+              <button id="planner-clear-btn" class="btn btn-ghost btn-sm">Limpar</button>
+            </div>
+            <p id="planner-status" class="planner-status" aria-live="polite"></p>
+            <ul id="planner-results" class="planner-results"></ul>
+          </div>
+        </details>
+
+        <div class="list-head"><span id="list-count">0 restaurantes</span></div>
+        <div id="restaurant-list" class="restaurant-list"></div>
       </div>
-
-      <div class="sidebar-section actions-row">
-        <button id="pick-random-btn" class="action-btn">🎲 Escolher por mim</button>
-        <button id="add-restaurant-btn" class="action-btn">➕ Adicionar restaurante</button>
-      </div>
-
-      <details class="sidebar-section filters-section">
-        <summary>Filtros</summary>
-        <div class="filter-group">
-          <h3>Região</h3>
-          <div id="region-filters" class="filter-list"></div>
-        </div>
-        <div class="filter-group">
-          <h3>Categoria</h3>
-          <div id="category-filters" class="filter-list"></div>
-        </div>
-        <div class="filter-group">
-          <label class="checkbox-row">
-            <input type="checkbox" id="hide-visited-checkbox" />
-            Esconder visitados
-          </label>
-        </div>
-      </details>
-
-      <details class="sidebar-section planner-section">
-        <summary>🚗 Planeador de viagem</summary>
-        <p class="planner-hint">Indica de onde partes e para onde vais — mostramos restaurantes perto do caminho.</p>
-        <div class="planner-field">
-          <label for="planner-from">De</label>
-          <input id="planner-from" type="text" placeholder="ex: Lisboa" />
-        </div>
-        <div class="planner-field">
-          <label for="planner-to">Para</label>
-          <input id="planner-to" type="text" placeholder="ex: Évora" />
-        </div>
-        <div class="planner-field">
-          <label for="planner-radius">Distância máx. à rota: <span id="planner-radius-value">25</span> km</label>
-          <input id="planner-radius" type="range" min="5" max="60" step="5" value="25" />
-        </div>
-        <div class="planner-buttons">
-          <button id="planner-find-btn" class="action-btn">Encontrar paragens</button>
-          <button id="planner-clear-btn" class="action-btn secondary">Limpar rota</button>
-        </div>
-        <div id="planner-status" class="planner-status"></div>
-        <ul id="planner-results" class="planner-results"></ul>
-      </details>
-
-      <div id="restaurant-list" class="restaurant-list"></div>
     </aside>
 
     <main class="map-area">
       <div id="map"></div>
       <div id="map-banner" class="map-banner hidden">
-        <div class="map-banner-content">
-          <h2>Mapa do Google Maps por ativar</h2>
-          <p>
-            Para mostrar o mapa interativo, as rotas e a informação do Google (avaliações, fotos, horários),
-            adiciona a tua chave da API do Google Maps em <code>js/config.js</code>.
-          </p>
-          <p>A lista de restaurantes, filtros, pesquisa e os links "Abrir no Google Maps" funcionam sem chave.</p>
-          <p>Vê o <code>README.md</code> para o passo a passo.</p>
+        <div class="map-banner-card">
+          <svg class="icon map-banner-icon"><use href="#i-pin"/></svg>
+          <h2>Mapa por ativar</h2>
+          <p>Adiciona a tua chave da Google Maps em <code>js/config.js</code> para ver o mapa, as rotas e as avaliações/fotos do Google.</p>
+          <p class="muted">A lista, filtros, pesquisa e detalhes básicos funcionam sem chave.</p>
         </div>
       </div>
     </main>
   </div>
 
+  <!-- Restaurant detail drawer -->
+  <section id="detail-panel" class="detail-panel" aria-hidden="true">
+    <div class="detail-scrim" data-close-detail></div>
+    <div class="detail-card" role="dialog" aria-modal="true" aria-label="Detalhes do restaurante">
+      <button class="icon-btn detail-close" data-close-detail aria-label="Fechar">
+        <svg class="icon"><use href="#i-x"/></svg>
+      </button>
+      <div id="detail-hero" class="detail-hero"></div>
+      <div id="detail-body" class="detail-body"></div>
+    </div>
+  </section>
+
   <!-- Add restaurant modal -->
   <div id="add-restaurant-modal" class="modal hidden">
-    <div class="modal-content">
-      <button id="add-modal-close" class="icon-btn modal-close" aria-label="Fechar">✕</button>
-      <h2>Adicionar restaurante</h2>
-      <p class="modal-intro">Diz-nos só o nome, a localidade e o tipo. Tratamos do resto. 🙂</p>
+    <div class="modal-scrim" data-close-modal></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Adicionar restaurante">
+      <button id="add-modal-close" class="icon-btn modal-close" data-close-modal aria-label="Fechar">
+        <svg class="icon"><use href="#i-x"/></svg>
+      </button>
+      <h2 class="modal-title">Adicionar restaurante</h2>
+      <p class="modal-intro">Diz-nos só o nome, a localidade e o tipo. Tratamos do resto.</p>
       <form id="add-restaurant-form">
-        <label for="form-name">Nome do restaurante</label>
-        <input id="form-name" type="text" placeholder="ex: O Ricardo" required />
-
-        <label for="form-town">Localidade / cidade</label>
-        <input id="form-town" type="text" placeholder="ex: Évora" required />
-
-        <label for="form-category">Tipo de sítio</label>
-        <select id="form-category">
-          <option value="tradicional">Tradicional / Tasca</option>
-          <option value="petiscos">Petiscos</option>
-          <option value="pastelaria">Pastelaria / Doces</option>
-          <option value="fine-dining">Fine Dining</option>
-        </select>
-
-        <label for="form-notes">O que provar? (opcional)</label>
-        <input id="form-notes" type="text" placeholder="ex: cozido de grão" />
-
-        <div class="form-buttons">
-          <button type="submit" class="action-btn primary" id="form-submit-btn">Adicionar ao mapa</button>
+        <div class="field">
+          <label for="form-name">Nome do restaurante</label>
+          <input id="form-name" type="text" placeholder="ex: O Ricardo" required />
         </div>
-        <p id="form-status" class="form-status"></p>
+        <div class="field">
+          <label for="form-town">Localidade / cidade</label>
+          <input id="form-town" type="text" placeholder="ex: Évora" required />
+        </div>
+        <div class="field">
+          <label for="form-category">Tipo de sítio</label>
+          <select id="form-category">
+            <option value="tradicional">Tradicional / Tasca</option>
+            <option value="petiscos">Petiscos</option>
+            <option value="pastelaria">Pastelaria / Doces</option>
+            <option value="fine-dining">Fine Dining</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="form-notes">O que provar? (opcional)</label>
+          <input id="form-notes" type="text" placeholder="ex: cozido de grão" />
+        </div>
 
-        <details class="advanced-section">
-          <summary>Opções avançadas</summary>
-          <label for="form-region">Região</label>
-          <input id="form-region" type="text" value="Alentejo" />
+        <button type="submit" class="btn btn-primary btn-block" id="form-submit-btn">Adicionar ao mapa</button>
+        <p id="form-status" class="form-status" aria-live="polite"></p>
 
-          <div class="form-row">
-            <button type="button" id="form-locate-btn" class="action-btn secondary">📍 Encontrar localização</button>
-            <span id="form-locate-status"></span>
-          </div>
-
-          <div class="form-row coords-row">
-            <div>
-              <label for="form-lat">Latitude</label>
-              <input id="form-lat" type="number" step="any" />
+        <details class="panel advanced">
+          <summary class="panel-summary">Opções avançadas <svg class="icon chev"><use href="#i-chevron-down"/></svg></summary>
+          <div class="panel-body">
+            <div class="field">
+              <label for="form-region">Região</label>
+              <input id="form-region" type="text" value="Alentejo" />
             </div>
-            <div>
-              <label for="form-lng">Longitude</label>
-              <input id="form-lng" type="number" step="any" />
+            <div class="row">
+              <button type="button" id="form-locate-btn" class="btn btn-ghost btn-sm">
+                <svg class="icon"><use href="#i-target"/></svg> Encontrar localização
+              </button>
+              <span id="form-locate-status" class="muted"></span>
             </div>
+            <div class="coords-row">
+              <div class="field"><label for="form-lat">Latitude</label><input id="form-lat" type="number" step="any" /></div>
+              <div class="field"><label for="form-lng">Longitude</label><input id="form-lng" type="number" step="any" /></div>
+            </div>
+            <p class="hint">As coordenadas são automáticas. Só mexe aqui se a localização ficar errada.
+              <button type="button" id="form-copy-json-btn" class="linklike">Copiar como JSON</button> para juntar à mão em <code>data/restaurants.json</code>.</p>
           </div>
-          <p class="form-hint">
-            As coordenadas são preenchidas automaticamente. Só precisas de mexer aqui se a localização
-            ficar errada. <button type="button" id="form-copy-json-btn" class="linklike">Copiar como JSON</button>
-            para adicionar à mão em <code>data/restaurants.json</code>.
-          </p>
         </details>
       </form>
     </div>
@@ -156,7 +220,6 @@
     window.initApp = function () {
       App.init({ googleMapsLoaded: true });
     };
-
     (function loadGoogleMaps() {
       if (!CONFIG.GOOGLE_MAPS_API_KEY) {
         App.init({ googleMapsLoaded: false });
@@ -168,9 +231,7 @@
         encodeURIComponent(CONFIG.GOOGLE_MAPS_API_KEY) +
         '&libraries=places,geometry&v=weekly&callback=initApp';
       script.async = true;
-      script.onerror = function () {
-        App.init({ googleMapsLoaded: false });
-      };
+      script.onerror = function () { App.init({ googleMapsLoaded: false }); };
       document.head.appendChild(script);
     })();
   </script>
