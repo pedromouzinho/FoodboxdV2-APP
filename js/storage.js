@@ -4,6 +4,7 @@ const Storage = {
   VISITED_KEY: "portugalRestaurants.visited",
   CUSTOM_KEY: "portugalRestaurants.custom",
   PLACES_CACHE_KEY: "portugalRestaurants.placesCache",
+  OVERRIDES_KEY: "portugalRestaurants.overrides",
 
   getVisited() {
     return new Set(JSON.parse(localStorage.getItem(this.VISITED_KEY) || "[]"));
@@ -36,6 +37,17 @@ const Storage = {
   removeCustomRestaurant(id) {
     const list = this.getCustomRestaurants().filter((r) => r.id !== id);
     localStorage.setItem(this.CUSTOM_KEY, JSON.stringify(list));
+  },
+
+  // Category overrides (local fallback when Firebase isn't configured).
+  getOverrides() {
+    return JSON.parse(localStorage.getItem(this.OVERRIDES_KEY) || "{}");
+  },
+
+  setOverride(id, category) {
+    const overrides = this.getOverrides();
+    overrides[id] = category;
+    localStorage.setItem(this.OVERRIDES_KEY, JSON.stringify(overrides));
   },
 
   getPlacesCache() {

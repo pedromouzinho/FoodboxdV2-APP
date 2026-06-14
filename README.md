@@ -96,9 +96,16 @@ service cloud.firestore {
       allow create: if true;
       allow update, delete: if false;
     }
+    match /overrides/{doc} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if false;
+    }
   }
 }
 ```
+
+The `overrides` collection stores shared edits (like changing a restaurant's category from inside the app) so corrections show up for everyone.
 
 ### 3. Get your config values
 

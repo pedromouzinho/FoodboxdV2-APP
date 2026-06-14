@@ -228,10 +228,15 @@ const App = (() => {
         <div class="stat"><span class="label">Avaliação</span><span class="value"><span class="skeleton sk-line" style="width:60px"></span></span></div>
       </div>
       ${r.notes ? `<div class="detail-note">${icon("sparkles")} <strong>Provar:</strong> ${esc(r.notes)}</div>` : ""}
-      <div class="detail-actions">
+      <div class="detail-actions" data-actions>
         <a class="btn btn-ghost" href="${directionsUrl(r)}" target="_blank" rel="noopener">${icon("navigation")} Direções</a>
         <a class="btn btn-ghost" href="${googleMapsUrl(r)}" target="_blank" rel="noopener">${icon("external")} Google</a>
+        <button class="btn btn-ghost btn-block" data-share>${icon("share")} Partilhar</button>
         <button class="btn btn-block" data-visit-toggle="${esc(r.id)}"></button>
+      </div>
+      <div class="cat-edit">
+        <span class="detail-section-title">Tipo de sítio${DB.isAvailable() ? "" : " (só neste navegador)"}</span>
+        <div class="chip-row" data-cat-edit></div>
       </div>
       <div data-gallery></div>
       <div data-hours></div>
@@ -245,8 +250,57 @@ const App = (() => {
       syncDetailVisitBtn(visitBtn, now);
     });
 
+    body.querySelector("[data-share]").addEventListener("click", () => shareRestaurant(r));
+
+    const catEdit = body.querySelector("[data-cat-edit]");
+    Object.entries(CATEGORIES).forEach(([key, c]) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.dataset.cat = key;
+      chip.setAttribute("aria-pressed", String(key === r.category));
+      chip.innerHTML = `${dot(c)} ${c.label}`;
+      chip.addEventListener("click", () => changeCategory(r, key));
+      catEdit.appendChild(chip);
+    });
+
     panel.setAttribute("aria-hidden", "false");
     fillDetailFromPlaces(r);
+  }
+
+  function shareRestaurant(r) {
+    const url = googleMapsUrl(r);
+    const text = `${r.name} — ${r.town}, ${r.region}`;
+    if (navigator.share) {
+      navigator.share({ title: r.name, text, url }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(`${text}\n${url}`).catch(() => {});
+    }
+  }
+
+  // Change a restaurant's category and persist it — shared via Firebase when
+  // configured, otherwise saved in this browser.
+  function changeCategory(r, key) {
+    if (r.category === key) return;
+    r.category = key;
+    Storage.setOverride(r.id, key);
+    if (DB.isAvailable()) DB.setOverride(r.id, key).catch(() => {});
+
+    render();
+    highlightCard(r.id);
+
+    const cat = catFor(r);
+    const body = document.getElementById("detail-body");
+    const headChip = body.querySelector(".detail-sub .cat-chip");
+    if (headChip) {
+      headChip.style.color = `var(${cat.varName})`;
+      headChip.innerHTML = `${dot(cat)} ${cat.label}`;
+    }
+    const ph = document.querySelector("#detail-hero .placeholder-icon");
+    if (ph) ph.style.color = `var(${cat.varName})`;
+    body.querySelectorAll("[data-cat-edit] .chip").forEach((c) =>
+      c.setAttribute("aria-pressed", String(c.dataset.cat === key))
+    );
   }
 
   async function fillDetailFromPlaces(r) {
@@ -274,6 +328,27 @@ const App = (() => {
     // hero photo
     if (data.photos && data.photos[0]) {
       document.getElementById("detail-hero").innerHTML = `<img src="${esc(data.photos[0])}" alt="${esc(r.name)}" />`;
+    }
+
+    // Call / Website CTAs (number + site come from Google)
+    const actions = body.querySelector("[data-actions]");
+    if (actions && data.phone && !actions.querySelector("[data-call]")) {
+      const tel = document.createElement("a");
+      tel.className = "btn btn-primary btn-block";
+      tel.dataset.call = "1";
+      tel.href = "tel:" + String(data.phone).replace(/\s+/g, "");
+      tel.innerHTML = `${icon("phone")} Ligar · ${esc(data.phone)}`;
+      actions.prepend(tel);
+    }
+    if (actions && data.website && !actions.querySelector("[data-web]")) {
+      const w = document.createElement("a");
+      w.className = "btn btn-ghost btn-block";
+      w.dataset.web = "1";
+      w.href = data.website;
+      w.target = "_blank";
+      w.rel = "noopener";
+      w.innerHTML = `${icon("globe")} Website`;
+      actions.insertBefore(w, actions.querySelector("[data-share]"));
     }
 
     // stats
@@ -414,6 +489,12 @@ const App = (() => {
     const curated = await (await fetch("data/restaurants.json")).json();
     const community = await DB.fetchAll();
     state.restaurants = mergeRestaurants(curated, community, Storage.getCustomRestaurants());
+
+    // Apply shared category edits (Firebase) or local ones as a fallback.
+    const overrides = DB.isAvailable() ? await DB.fetchOverrides() : Storage.getOverrides();
+    state.restaurants.forEach((r) => {
+      if (overrides[r.id]) r.category = overrides[r.id];
+    });
 
     buildCategoryFilters();
     buildRegionFilters();
