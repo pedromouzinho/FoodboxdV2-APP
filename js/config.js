@@ -6,7 +6,7 @@
 const CONFIG = {
   // 1) Google Maps key — enables the interactive map, trip planner and live
   //    ratings/photos/hours. Without it you still get the list + Maps links.
-  GOOGLE_MAPS_API_KEY: "",
+  GOOGLE_MAPS_API_KEY: "AIzaSyBscGcE9vFGaKYmV554-ZtfqtGsOLXU3T8",
 
   // 2) Firebase / Firestore — lets anyone add a restaurant from the form and
   //    have it appear for EVERYONE instantly (a shared cloud list). Same
