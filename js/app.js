@@ -1,303 +1,367 @@
-// Main app: loads data, renders the sidebar list + map markers, and wires
-// up search, filters, visited tracking, "pick for me" and the trip planner.
+// Main app: data loading, sidebar list, filters, search, visited tracking,
+// "surprise me", trip planner, and the rich restaurant detail drawer.
 
 const CATEGORIES = {
-  tradicional: { label: "Tradicional / Tasca", color: "#a0522d" },
-  petiscos: { label: "Petiscos", color: "#d62828" },
-  pastelaria: { label: "Pastelaria / Doces", color: "#d6336c" },
-  "fine-dining": { label: "Fine Dining", color: "#2d6a4f" }
+  tradicional: { label: "Tradicional", varName: "--c-tradicional", hex: "#b06a36" },
+  petiscos: { label: "Petiscos", varName: "--c-petiscos", hex: "#c14b34" },
+  pastelaria: { label: "Doces", varName: "--c-pastelaria", hex: "#c25b86" },
+  "fine-dining": { label: "Fine Dining", varName: "--c-fine-dining", hex: "#5d7b4a" }
 };
 
 const App = (() => {
-  const state = {
-    restaurants: []
-  };
+  const state = { restaurants: [] };
 
-  function googleMapsUrl(restaurant) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(restaurant.mapsQuery)}`;
+  function esc(str) {
+    return String(str == null ? "" : str).replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+    );
+  }
+  function icon(name, cls) {
+    return `<svg class="icon${cls ? " " + cls : ""}"><use href="#i-${name}"/></svg>`;
+  }
+  function catFor(r) {
+    return CATEGORIES[r.category] || { label: r.category, varName: "--text-muted", hex: "#888" };
+  }
+  function dot(cat) {
+    return `<span class="dot" style="background:var(${cat.varName})"></span>`;
+  }
+  function googleMapsUrl(r) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.mapsQuery)}`;
+  }
+  function directionsUrl(r) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(r.mapsQuery)}`;
   }
 
-  function directionsUrl(restaurant) {
-    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(restaurant.mapsQuery)}`;
+  // ---------- Filters ----------
+  function buildCategoryFilters() {
+    const wrap = document.getElementById("category-filters");
+    wrap.innerHTML = "";
+    Object.entries(CATEGORIES).forEach(([key, cat]) => {
+      const chip = document.createElement("button");
+      chip.className = "chip";
+      chip.type = "button";
+      chip.dataset.category = key;
+      chip.setAttribute("aria-pressed", "true");
+      chip.innerHTML = `${dot(cat)} ${cat.label}`;
+      chip.addEventListener("click", () => {
+        chip.setAttribute("aria-pressed", chip.getAttribute("aria-pressed") === "true" ? "false" : "true");
+        render();
+      });
+      wrap.appendChild(chip);
+    });
   }
-
-  function categoryFor(restaurant) {
-    return CATEGORIES[restaurant.category] || { label: restaurant.category, color: "#999999" };
-  }
-
-  // ---- Filters ----
 
   function buildRegionFilters() {
-    const regions = [...new Set(state.restaurants.map((r) => r.region))].sort();
-    const container = document.getElementById("region-filters");
-    const existing = new Set([...container.querySelectorAll("input")].map((cb) => cb.dataset.region));
-
-    regions.forEach((region) => {
+    const wrap = document.getElementById("region-filters");
+    const existing = new Set([...wrap.querySelectorAll("input")].map((i) => i.dataset.region));
+    [...new Set(state.restaurants.map((r) => r.region))].sort().forEach((region) => {
       if (existing.has(region)) return;
       const label = document.createElement("label");
-      label.className = "checkbox-row";
-      label.innerHTML = `<input type="checkbox" checked data-region="${region}"> ${region}`;
-      container.appendChild(label);
+      label.innerHTML = `<input type="checkbox" checked data-region="${esc(region)}"> ${esc(region)}`;
       label.querySelector("input").addEventListener("change", render);
+      wrap.appendChild(label);
     });
   }
 
-  function buildCategoryFilters() {
-    const container = document.getElementById("category-filters");
-    Object.entries(CATEGORIES).forEach(([key, cat]) => {
-      const label = document.createElement("label");
-      label.className = "checkbox-row";
-      label.innerHTML = `<input type="checkbox" checked data-category="${key}"> <span class="color-dot" style="background:${cat.color}"></span> ${cat.label}`;
-      container.appendChild(label);
-      label.querySelector("input").addEventListener("change", render);
-    });
+  function selectedCategories() {
+    return [...document.querySelectorAll('#category-filters .chip[aria-pressed="true"]')].map((c) => c.dataset.category);
+  }
+  function selectedRegions() {
+    return [...document.querySelectorAll("#region-filters input:checked")].map((i) => i.dataset.region);
   }
 
-  function getSelectedValues(containerId, dataAttr) {
-    return [...document.querySelectorAll(`#${containerId} input:checked`)].map((cb) => cb.dataset[dataAttr]);
-  }
-
-  function getFilteredRestaurants() {
-    const regions = getSelectedValues("region-filters", "region");
-    const categories = getSelectedValues("category-filters", "category");
-    const search = document.getElementById("search-input").value.trim().toLowerCase();
+  function getFiltered() {
+    const cats = selectedCategories();
+    const regions = selectedRegions();
+    const q = document.getElementById("search-input").value.trim().toLowerCase();
     const hideVisited = document.getElementById("hide-visited-checkbox").checked;
-
     return state.restaurants.filter((r) => {
-      if (!regions.includes(r.region)) return false;
-      if (!categories.includes(r.category)) return false;
+      if (!cats.includes(r.category)) return false;
+      if (regions.length && !regions.includes(r.region)) return false;
       if (hideVisited && Storage.isVisited(r.id)) return false;
-      if (search) {
-        const haystack = [r.name, r.town, r.notes, ...(r.tags || [])].join(" ").toLowerCase();
-        if (!haystack.includes(search)) return false;
+      if (q) {
+        const hay = [r.name, r.town, r.notes, ...(r.tags || [])].join(" ").toLowerCase();
+        if (!hay.includes(q)) return false;
       }
       return true;
     });
   }
 
-  // ---- Rendering ----
-
+  // ---------- Render ----------
   function render() {
-    const filtered = getFilteredRestaurants();
-    renderList(filtered);
-    MapModule.renderMarkers(filtered, onSelectRestaurant);
-    updateVisitedCounter();
+    const list = getFiltered();
+    renderList(list);
+    MapModule.renderMarkers(list, onSelect);
+    updateProgress();
+    document.getElementById("list-count").textContent =
+      `${list.length} restaurante${list.length === 1 ? "" : "s"}`;
   }
 
   function renderList(restaurants) {
     const container = document.getElementById("restaurant-list");
     container.innerHTML = "";
-
-    if (restaurants.length === 0) {
-      const empty = document.createElement("p");
-      empty.style.padding = "1rem";
-      empty.style.color = "var(--text-muted)";
-      empty.textContent = "Nenhum restaurante encontrado.";
-      container.appendChild(empty);
+    if (!restaurants.length) {
+      container.innerHTML = `<p class="empty">Nenhum restaurante encontrado.<br>Tenta limpar os filtros.</p>`;
       return;
     }
-
     const grouped = {};
-    restaurants.forEach((r) => {
-      grouped[r.region] = grouped[r.region] || [];
-      grouped[r.region].push(r);
+    restaurants.forEach((r) => (grouped[r.region] = grouped[r.region] || []).push(r));
+    Object.keys(grouped).sort().forEach((region) => {
+      const h = document.createElement("div");
+      h.className = "region-heading";
+      h.textContent = `${region} · ${grouped[region].length}`;
+      container.appendChild(h);
+      grouped[region].forEach((r) => container.appendChild(buildCard(r)));
     });
-
-    Object.keys(grouped)
-      .sort()
-      .forEach((region) => {
-        const heading = document.createElement("div");
-        heading.className = "region-heading";
-        heading.textContent = `${region} (${grouped[region].length})`;
-        container.appendChild(heading);
-        grouped[region].forEach((r) => container.appendChild(buildCard(r)));
-      });
   }
 
-  function buildCard(restaurant) {
-    const visited = Storage.isVisited(restaurant.id);
-    const cat = categoryFor(restaurant);
-
+  function buildCard(r) {
+    const visited = Storage.isVisited(r.id);
+    const cat = catFor(r);
     const card = document.createElement("div");
-    card.className = "restaurant-card" + (visited ? " visited" : "");
-    card.dataset.id = restaurant.id;
+    card.className = "card" + (visited ? " visited" : "");
+    card.dataset.id = r.id;
     card.innerHTML = `
-      <span class="card-marker color-dot" style="background:${cat.color}"></span>
-      <div class="card-body">
-        <div class="card-title">${restaurant.name} <span class="card-badge">${cat.label}</span>${
-      restaurant.source === "community" ? ' <span class="card-badge community">comunidade</span>' : ""
-    }</div>
-        <div class="card-town">${restaurant.town} · ${restaurant.region}</div>
-        ${restaurant.notes ? `<div class="card-notes">${restaurant.notes}</div>` : ""}
-        <div class="places-info"></div>
-        <div class="card-links">
-          <a href="${googleMapsUrl(restaurant)}" target="_blank" rel="noopener">Abrir no Google Maps</a>
-          <label class="visited-checkbox">
-            <input type="checkbox" ${visited ? "checked" : ""} data-visited-id="${restaurant.id}"> Visitado
-          </label>
+      <span class="card-accent" style="background:var(${cat.varName})"></span>
+      <div class="card-main">
+        <div class="card-title-row">
+          <span class="card-title">${esc(r.name)}</span>
+          ${r.source === "community" ? '<span class="badge community">comunidade</span>' : ""}
         </div>
+        <div class="card-town">${esc(r.town)} · ${esc(r.region)}</div>
+        ${r.notes ? `<div class="card-notes">${esc(r.notes)}</div>` : ""}
+        <div class="card-meta" data-meta></div>
       </div>
-    `;
+      <button class="card-visit${visited ? " on" : ""}" data-visit aria-label="Marcar como visitado" aria-pressed="${visited}">
+        ${icon("check")}
+      </button>`;
 
     card.addEventListener("click", (e) => {
-      if (e.target.closest("a") || e.target.closest("label")) return;
-      onSelectRestaurant(restaurant);
+      if (e.target.closest("[data-visit]")) return;
+      onSelect(r);
     });
-
-    card.querySelector("[data-visited-id]").addEventListener("change", (e) => {
-      setVisited(restaurant.id, e.target.checked);
+    card.querySelector("[data-visit]").addEventListener("click", (e) => {
+      e.stopPropagation();
+      setVisited(r.id, !Storage.isVisited(r.id));
     });
-
-    if (PlacesModule.isAvailable()) {
-      PlacesModule.enrich(restaurant, card.querySelector(".places-info"));
-    }
-
+    if (PlacesModule.isAvailable()) PlacesModule.enrichCard(r, card.querySelector("[data-meta]"));
     return card;
   }
 
-  function buildInfoWindowContent(restaurant) {
-    const visited = Storage.isVisited(restaurant.id);
-    const cat = categoryFor(restaurant);
-
-    return `
-      <div style="max-width:220px;font-family:inherit;">
-        <strong>${restaurant.name}</strong><br/>
-        <span style="color:#756f65;font-size:0.85em;">${restaurant.town} · ${cat.label}</span>
-        ${restaurant.notes ? `<p style="margin:0.4em 0;font-size:0.9em;">${restaurant.notes}</p>` : ""}
-        <div class="places-info"></div>
-        <div style="margin-top:0.5em;display:flex;flex-direction:column;gap:0.3em;">
-          <a href="${googleMapsUrl(restaurant)}" target="_blank" rel="noopener">Abrir no Google Maps</a>
-          <a href="${directionsUrl(restaurant)}" target="_blank" rel="noopener">Direções</a>
-          <label style="font-size:0.85em;">
-            <input type="checkbox" data-visited-id="${restaurant.id}" ${visited ? "checked" : ""}> Visitado
-          </label>
-        </div>
-      </div>
-    `;
-  }
-
   function highlightCard(id) {
-    document.querySelectorAll(".restaurant-card").forEach((card) => {
-      card.classList.toggle("highlighted", card.dataset.id === id);
-    });
-    const card = document.querySelector(`.restaurant-card[data-id="${id}"]`);
-    if (card) card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    document.querySelectorAll(".card").forEach((c) => c.classList.toggle("highlighted", c.dataset.id === id));
+    const c = document.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+    if (c) c.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
-  function onSelectRestaurant(restaurant) {
-    MapModule.focusRestaurant(restaurant);
-
-    const content = buildInfoWindowContent(restaurant);
-    MapModule.openInfoWindow(restaurant, content, (containerEl) => {
-      const checkbox = containerEl.querySelector("[data-visited-id]");
-      if (checkbox) {
-        checkbox.addEventListener("change", (e) => setVisited(restaurant.id, e.target.checked));
-      }
-      if (PlacesModule.isAvailable()) {
-        PlacesModule.enrich(restaurant, containerEl.querySelector(".places-info"));
-      }
-    });
-
-    highlightCard(restaurant.id);
-  }
-
+  // ---------- Visited ----------
   function setVisited(id, visited) {
     Storage.setVisited(id, visited);
-    const restaurant = state.restaurants.find((r) => r.id === id);
-
-    if (document.getElementById("hide-visited-checkbox").checked) {
-      render();
-      return;
-    }
-
-    if (restaurant) MapModule.setMarkerVisited(id, restaurant.category, visited);
-
-    const card = document.querySelector(`.restaurant-card[data-id="${id}"]`);
+    const r = state.restaurants.find((x) => x.id === id);
+    if (document.getElementById("hide-visited-checkbox").checked) { render(); return; }
+    if (r) MapModule.setMarkerVisited(id, r.category, visited);
+    const card = document.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
     if (card) {
       card.classList.toggle("visited", visited);
-      const cb = card.querySelector("[data-visited-id]");
-      if (cb) cb.checked = visited;
+      const btn = card.querySelector("[data-visit]");
+      btn.classList.toggle("on", visited);
+      btn.setAttribute("aria-pressed", String(visited));
     }
-
-    updateVisitedCounter();
+    const detailBtn = document.querySelector(`#detail-body [data-visit-toggle="${CSS.escape(id)}"]`);
+    if (detailBtn) syncDetailVisitBtn(detailBtn, visited);
+    updateProgress();
   }
 
-  function updateVisitedCounter() {
+  function updateProgress() {
     const total = state.restaurants.length;
     const visited = state.restaurants.filter((r) => Storage.isVisited(r.id)).length;
-    document.getElementById("visited-counter").textContent = `${visited} / ${total} visitados`;
+    const pct = total ? Math.round((visited / total) * 100) : 0;
+    document.getElementById("visited-counter").textContent = `${visited} / ${total}`;
+    document.getElementById("progress-label").textContent = `${visited} de ${total} visitados`;
+    document.getElementById("progress-fill").style.width = pct + "%";
   }
 
+  // ---------- Surprise me ----------
   function pickRandom() {
-    const filtered = getFilteredRestaurants();
-    const unvisited = filtered.filter((r) => !Storage.isVisited(r.id));
-    const pool = unvisited.length > 0 ? unvisited : filtered;
+    const pool = getFiltered().filter((r) => !Storage.isVisited(r.id));
+    const choices = pool.length ? pool : getFiltered();
+    if (!choices.length) return;
+    onSelect(choices[Math.floor(Math.random() * choices.length)]);
+  }
 
-    if (pool.length === 0) {
-      document.getElementById("planner-status").textContent =
-        "Nenhum restaurante corresponde aos filtros atuais.";
+  // ---------- Select + detail drawer ----------
+  function onSelect(r) {
+    MapModule.focusRestaurant(r);
+    MapModule.highlightMarker(r.id);
+    highlightCard(r.id);
+    if (window.matchMedia("(max-width: 860px)").matches) {
+      document.getElementById("sidebar").classList.remove("open");
+    }
+    openDetail(r);
+  }
+
+  function syncDetailVisitBtn(btn, visited) {
+    btn.classList.toggle("btn-primary", visited);
+    btn.classList.toggle("btn-ghost", !visited);
+    btn.innerHTML = visited
+      ? `${icon("check-circle")} Visitado`
+      : `${icon("check")} Marcar como visitado`;
+  }
+
+  function openDetail(r) {
+    const cat = catFor(r);
+    const visited = Storage.isVisited(r.id);
+    const panel = document.getElementById("detail-panel");
+    const hero = document.getElementById("detail-hero");
+    const body = document.getElementById("detail-body");
+
+    hero.innerHTML = `<svg class="icon placeholder-icon" style="color:var(${cat.varName})"><use href="#i-utensils"/></svg>`;
+    body.innerHTML = `
+      <div class="detail-head">
+        <h2>${esc(r.name)}</h2>
+        <div class="detail-sub">
+          <span class="cat-chip" style="color:var(${cat.varName})">${dot(cat)} ${cat.label}</span>
+          <span>· ${esc(r.town)}, ${esc(r.region)}</span>
+        </div>
+      </div>
+      <div class="detail-stats" data-stats>
+        <div class="stat"><span class="label">Avaliação</span><span class="value"><span class="skeleton sk-line" style="width:60px"></span></span></div>
+      </div>
+      ${r.notes ? `<div class="detail-note">${icon("sparkles")} <strong>Provar:</strong> ${esc(r.notes)}</div>` : ""}
+      <div class="detail-actions">
+        <a class="btn btn-ghost" href="${directionsUrl(r)}" target="_blank" rel="noopener">${icon("navigation")} Direções</a>
+        <a class="btn btn-ghost" href="${googleMapsUrl(r)}" target="_blank" rel="noopener">${icon("external")} Google</a>
+        <button class="btn btn-block" data-visit-toggle="${esc(r.id)}"></button>
+      </div>
+      <div data-gallery></div>
+      <div data-hours></div>
+      <div data-reviews></div>`;
+
+    const visitBtn = body.querySelector("[data-visit-toggle]");
+    syncDetailVisitBtn(visitBtn, visited);
+    visitBtn.addEventListener("click", () => {
+      const now = !Storage.isVisited(r.id);
+      setVisited(r.id, now);
+      syncDetailVisitBtn(visitBtn, now);
+    });
+
+    panel.setAttribute("aria-hidden", "false");
+    fillDetailFromPlaces(r);
+  }
+
+  async function fillDetailFromPlaces(r) {
+    const body = document.getElementById("detail-body");
+    const statsEl = body.querySelector("[data-stats]");
+    const galleryEl = body.querySelector("[data-gallery]");
+    const hoursEl = body.querySelector("[data-hours]");
+    const reviewsEl = body.querySelector("[data-reviews]");
+
+    if (!PlacesModule.isAvailable()) {
+      statsEl.innerHTML = `<p class="hint">Ativa a Google Maps API para ver avaliações, fotos e horários aqui.</p>`;
+      return;
+    }
+    // skeletons
+    statsEl.innerHTML = `<div class="stat"><span class="label">Avaliação</span><span class="value"><span class="skeleton sk-line" style="width:54px"></span></span></div>`;
+    reviewsEl.innerHTML = `<div class="skeleton sk-line" style="width:40%"></div><div class="skeleton" style="height:54px;margin-top:8px"></div>`;
+
+    const data = await PlacesModule.fetchDetails(r);
+    if (!data) {
+      statsEl.innerHTML = `<p class="hint">Sem dados do Google para este sítio ainda.</p>`;
+      reviewsEl.innerHTML = "";
       return;
     }
 
-    const choice = pool[Math.floor(Math.random() * pool.length)];
-    onSelectRestaurant(choice);
+    // hero photo
+    if (data.photos && data.photos[0]) {
+      document.getElementById("detail-hero").innerHTML = `<img src="${esc(data.photos[0])}" alt="${esc(r.name)}" />`;
+    }
+
+    // stats
+    const stats = [];
+    if (typeof data.rating === "number") {
+      stats.push(`<div class="stat"><span class="label">Avaliação</span><span class="value">${icon("star")} ${data.rating.toFixed(1)} <span class="muted" style="font-weight:400">(${data.userRatingsTotal || 0})</span></span></div>`);
+    }
+    if (typeof data.openNow === "boolean") {
+      stats.push(`<div class="stat"><span class="label">Agora</span><span class="value"><span class="open-now ${data.openNow ? "open" : "closed"}">${data.openNow ? "Aberto" : "Fechado"}</span></span></div>`);
+    }
+    if (data.priceLevel) stats.push(`<div class="stat"><span class="label">Preço</span><span class="value">${data.priceLevel}</span></div>`);
+    if (data.phone) stats.push(`<div class="stat"><span class="label">Telefone</span><span class="value" style="font-weight:500">${esc(data.phone)}</span></div>`);
+    statsEl.innerHTML = stats.join("") || `<p class="hint">Sem detalhes adicionais.</p>`;
+
+    // gallery
+    if (data.photos && data.photos.length > 1) {
+      galleryEl.innerHTML =
+        `<div class="detail-section-title" style="margin-bottom:8px">Fotos</div>` +
+        `<div class="gallery">${data.photos.slice(1, 6).map((p) => `<img src="${esc(p)}" alt="" loading="lazy">`).join("")}</div>`;
+    }
+
+    // hours
+    if (data.weekdayText && data.weekdayText.length) {
+      const todayIdx = (new Date().getDay() + 6) % 7; // Google weekday_text starts Monday
+      hoursEl.innerHTML =
+        `<div class="detail-section-title" style="margin-bottom:8px">${icon("clock")} Horário</div>` +
+        `<div class="hours-list">${data.weekdayText
+          .map((t, i) => `<span class="${i === todayIdx ? "today" : ""}">${esc(t)}</span>`)
+          .join("")}</div>`;
+    }
+
+    // reviews
+    if (data.reviews && data.reviews.length) {
+      reviewsEl.innerHTML =
+        `<div class="detail-section-title" style="margin-bottom:10px">Avaliações</div>` +
+        `<div class="reviews">${data.reviews.map(renderReview).join("")}</div>` +
+        `<p class="attribution">Avaliações via Google</p>`;
+    } else {
+      reviewsEl.innerHTML = "";
+    }
   }
 
-  // ---- Trip planner ----
+  function renderReview(rv) {
+    const stars = [1, 2, 3, 4, 5]
+      .map((n) => `<svg class="icon${n <= rv.rating ? "" : " empty"}"><use href="#i-star"/></svg>`)
+      .join("");
+    const avatar = rv.photo
+      ? `<img class="review-avatar" src="${esc(rv.photo)}" alt="" loading="lazy">`
+      : `<span class="review-avatar">${esc((rv.author || "?").charAt(0))}</span>`;
+    return `<div class="review">
+      <div class="review-head">
+        ${avatar}
+        <span class="review-who"><span class="name">${esc(rv.author)}</span><span class="when">${esc(rv.when)}</span></span>
+        <span class="review-stars">${stars}</span>
+      </div>
+      ${rv.text ? `<p class="review-text">${esc(rv.text)}</p>` : ""}
+    </div>`;
+  }
 
+  function closeDetail() {
+    document.getElementById("detail-panel").setAttribute("aria-hidden", "true");
+  }
+
+  // ---------- Trip planner ----------
   function wirePlanner() {
-    const radiusInput = document.getElementById("planner-radius");
-    const radiusValue = document.getElementById("planner-radius-value");
-    radiusInput.addEventListener("input", () => {
-      radiusValue.textContent = radiusInput.value;
-    });
+    const radius = document.getElementById("planner-radius");
+    radius.addEventListener("input", () => (document.getElementById("planner-radius-value").textContent = radius.value));
 
     document.getElementById("planner-find-btn").addEventListener("click", async () => {
       const from = document.getElementById("planner-from").value.trim();
       const to = document.getElementById("planner-to").value.trim();
       const status = document.getElementById("planner-status");
-      const resultsList = document.getElementById("planner-results");
-
-      resultsList.innerHTML = "";
-
-      if (!from || !to) {
-        status.textContent = "Indica o ponto de partida e o destino.";
-        return;
-      }
-
-      if (!PlannerModule.isAvailable()) {
-        status.textContent = "O planeador precisa do Google Maps ativo (ver mapa).";
-        return;
-      }
-
-      status.textContent = "A calcular rota...";
-
+      const results = document.getElementById("planner-results");
+      results.innerHTML = "";
+      if (!from || !to) { status.textContent = "Indica o ponto de partida e o destino."; return; }
+      if (!PlannerModule.isAvailable()) { status.textContent = "O planeador precisa da Google Maps ativa."; return; }
+      status.textContent = "A calcular rota…";
       try {
-        const radiusKm = parseInt(radiusInput.value, 10);
-        const { stops } = await PlannerModule.findStops({
-          from,
-          to,
-          radiusKm,
-          restaurants: state.restaurants
-        });
-
-        if (stops.length === 0) {
-          status.textContent = "Nenhum restaurante perto desta rota.";
-          return;
-        }
-
-        status.textContent = `${stops.length} restaurante(s) perto da rota:`;
+        const { stops } = await PlannerModule.findStops({ from, to, radiusKm: parseInt(radius.value, 10), restaurants: state.restaurants });
+        if (!stops.length) { status.textContent = "Nenhum restaurante perto desta rota."; return; }
+        status.textContent = `${stops.length} paragem(ns) perto da rota:`;
         stops.forEach(({ restaurant, distanceKm }) => {
           const li = document.createElement("li");
-          li.innerHTML = `<strong>${restaurant.name}</strong> — ${restaurant.town}<br/><span class="planner-distance">${distanceKm.toFixed(
-            1
-          )} km da rota</span>`;
-          li.addEventListener("click", () => onSelectRestaurant(restaurant));
-          resultsList.appendChild(li);
+          li.innerHTML = `<strong>${esc(restaurant.name)}</strong> — ${esc(restaurant.town)}<br><span class="dist">${distanceKm.toFixed(1)} km da rota</span>`;
+          li.addEventListener("click", () => onSelect(restaurant));
+          results.appendChild(li);
         });
-      } catch (err) {
-        status.textContent = err.message;
-      }
+      } catch (err) { status.textContent = err.message; }
     });
 
     document.getElementById("planner-clear-btn").addEventListener("click", () => {
@@ -307,38 +371,36 @@ const App = (() => {
     });
   }
 
-  // ---- Misc wiring ----
-
+  // ---------- Wiring ----------
   function wireEvents() {
     document.getElementById("search-input").addEventListener("input", render);
     document.getElementById("hide-visited-checkbox").addEventListener("change", render);
     document.getElementById("pick-random-btn").addEventListener("click", pickRandom);
-
-    document.getElementById("sidebar-toggle").addEventListener("click", () => {
-      document.getElementById("sidebar").classList.toggle("open");
+    document.getElementById("sidebar-toggle").addEventListener("click", () =>
+      document.getElementById("sidebar").classList.toggle("open")
+    );
+    document.querySelectorAll("[data-close-detail]").forEach((el) => el.addEventListener("click", closeDetail));
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeDetail();
     });
-
     wirePlanner();
   }
 
-  // Merge several lists of restaurants, dropping duplicates (same name+town).
-  // Earlier lists win, so curated entries take priority over community/local.
   function mergeRestaurants(...lists) {
     const seen = new Map();
-    for (const list of lists) {
+    for (const list of lists)
       for (const r of list) {
         const key = `${(r.name || "").toLowerCase().trim()}|${(r.town || "").toLowerCase().trim()}`;
         if (!seen.has(key)) seen.set(key, r);
       }
-    }
     return [...seen.values()];
   }
 
-  function onRestaurantAdded(restaurant) {
-    state.restaurants = mergeRestaurants(state.restaurants, [restaurant]);
+  function onRestaurantAdded(r) {
+    state.restaurants = mergeRestaurants(state.restaurants, [r]);
     buildRegionFilters();
     render();
-    onSelectRestaurant(restaurant);
+    onSelect(r);
   }
 
   async function init(options) {
@@ -349,15 +411,12 @@ const App = (() => {
     PlannerModule.init();
     AddRestaurantModule.init();
 
-    const response = await fetch("data/restaurants.json");
-    const curated = await response.json();
-
-    // Curated (git) + shared cloud list (Firestore) + this browser's additions.
+    const curated = await (await fetch("data/restaurants.json")).json();
     const community = await DB.fetchAll();
     state.restaurants = mergeRestaurants(curated, community, Storage.getCustomRestaurants());
 
-    buildRegionFilters();
     buildCategoryFilters();
+    buildRegionFilters();
     wireEvents();
     render();
   }

@@ -38,10 +38,7 @@ const AddRestaurantModule = (() => {
     lngInput = document.getElementById("form-lng");
 
     document.getElementById("add-restaurant-btn").addEventListener("click", open);
-    closeBtn.addEventListener("click", close);
-    modal.addEventListener("click", (e) => {
-      if (e.target === modal) close();
-    });
+    modal.querySelectorAll("[data-close-modal]").forEach((el) => el.addEventListener("click", close));
 
     locateBtn.addEventListener("click", manualLocate);
     copyJsonBtn.addEventListener("click", copyAsJson);

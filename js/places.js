@@ -1,6 +1,5 @@
-// Optional Google Places enrichment: rating, review count, photo, opening
-// hours and price level shown inline next to each restaurant. Only runs
-// when the Google Maps JS API (with the "places" library) is available.
+// Google Places enrichment: rating, photos, opening hours, price, phone and
+// reviews — shown inside the app (detail drawer) and as mini-stats on cards.
 // Results are cached in localStorage for a week to limit API calls.
 
 const PlacesModule = (() => {
@@ -15,83 +14,84 @@ const PlacesModule = (() => {
     return !!service;
   }
 
-  function priceLevelLabel(level) {
-    if (typeof level !== "number") return "";
-    return "€".repeat(Math.max(1, level));
+  function priceLabel(level) {
+    return typeof level === "number" ? "€".repeat(Math.max(1, level)) : "";
   }
 
-  function renderInto(container, data) {
-    if (!container) return;
-    if (!data) {
-      container.innerHTML = "";
-      return;
-    }
+  // Resolve full details for a restaurant (cached). Resolves to data or null.
+  function fetchDetails(restaurant) {
+    return new Promise((resolve) => {
+      const cached = Storage.getCachedPlace(restaurant.id);
+      if (cached) return resolve(cached);
+      if (!service) return resolve(null);
 
+      service.findPlaceFromQuery(
+        { query: restaurant.mapsQuery, fields: ["place_id"] },
+        (results, status) => {
+          if (status !== google.maps.places.PlacesServiceStatus.OK || !results || !results[0]) {
+            return resolve(null);
+          }
+          service.getDetails(
+            {
+              placeId: results[0].place_id,
+              fields: [
+                "rating",
+                "user_ratings_total",
+                "price_level",
+                "opening_hours",
+                "photos",
+                "reviews",
+                "formatted_phone_number",
+                "website",
+                "url"
+              ]
+            },
+            (place, st) => {
+              if (st !== google.maps.places.PlacesServiceStatus.OK || !place) return resolve(null);
+              const data = {
+                rating: place.rating,
+                userRatingsTotal: place.user_ratings_total,
+                priceLevel: priceLabel(place.price_level),
+                openNow: place.opening_hours ? place.opening_hours.isOpen() : undefined,
+                weekdayText: place.opening_hours ? place.opening_hours.weekday_text || null : null,
+                phone: place.formatted_phone_number || null,
+                website: place.website || null,
+                googleUrl: place.url || null,
+                photos: (place.photos || []).slice(0, 6).map((p) => p.getUrl({ maxWidth: 800 })),
+                reviews: (place.reviews || []).slice(0, 4).map((r) => ({
+                  author: r.author_name,
+                  rating: r.rating,
+                  text: r.text,
+                  when: r.relative_time_description,
+                  photo: r.profile_photo_url || null
+                }))
+              };
+              Storage.setCachedPlace(restaurant.id, data);
+              resolve(data);
+            }
+          );
+        }
+      );
+    });
+  }
+
+  // Inline rating + open-now for a sidebar card meta element.
+  async function enrichCard(restaurant, metaEl) {
+    if (!metaEl) return;
+    const data = await fetchDetails(restaurant);
+    if (!data) return;
     const parts = [];
-    if (data.photoUrl) {
-      parts.push(`<img src="${data.photoUrl}" alt="" />`);
-    }
     if (typeof data.rating === "number") {
-      const reviews = data.userRatingsTotal ? ` (${data.userRatingsTotal})` : "";
-      parts.push(`<span>⭐ ${data.rating}${reviews}</span>`);
+      parts.push(
+        `<span class="rating"><svg class="icon"><use href="#i-star"/></svg>${data.rating.toFixed(1)} <span class="count">(${data.userRatingsTotal || 0})</span></span>`
+      );
     }
     if (typeof data.openNow === "boolean") {
-      parts.push(`<span>${data.openNow ? "🟢 Aberto agora" : "🔴 Fechado agora"}</span>`);
+      parts.push(`<span class="open-now ${data.openNow ? "open" : "closed"}">${data.openNow ? "Aberto" : "Fechado"}</span>`);
     }
-    if (data.priceLevel) {
-      parts.push(`<span>${data.priceLevel}</span>`);
-    }
-
-    container.innerHTML = parts.join("");
+    if (data.priceLevel) parts.push(`<span class="muted" style="font-size:0.82rem">${data.priceLevel}</span>`);
+    metaEl.innerHTML = parts.join("");
   }
 
-  function enrich(restaurant, container) {
-    const cached = Storage.getCachedPlace(restaurant.id);
-    if (cached) {
-      renderInto(container, cached);
-      return;
-    }
-
-    if (!service) return;
-
-    service.findPlaceFromQuery(
-      {
-        query: restaurant.mapsQuery,
-        fields: ["place_id"]
-      },
-      (results, status) => {
-        if (status !== google.maps.places.PlacesServiceStatus.OK || !results || !results[0]) {
-          return;
-        }
-
-        service.getDetails(
-          {
-            placeId: results[0].place_id,
-            fields: ["rating", "user_ratings_total", "opening_hours", "photos", "price_level"]
-          },
-          (place, detailsStatus) => {
-            if (detailsStatus !== google.maps.places.PlacesServiceStatus.OK || !place) {
-              return;
-            }
-
-            const data = {
-              rating: place.rating,
-              userRatingsTotal: place.user_ratings_total,
-              openNow: place.opening_hours ? place.opening_hours.isOpen() : undefined,
-              priceLevel: priceLevelLabel(place.price_level),
-              photoUrl:
-                place.photos && place.photos[0]
-                  ? place.photos[0].getUrl({ maxWidth: 80, maxHeight: 80 })
-                  : null
-            };
-
-            Storage.setCachedPlace(restaurant.id, data);
-            renderInto(container, data);
-          }
-        );
-      }
-    );
-  }
-
-  return { init, isAvailable, enrich };
+  return { init, isAvailable, fetchDetails, enrichCard };
 })();
