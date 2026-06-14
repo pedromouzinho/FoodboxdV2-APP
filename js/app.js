@@ -124,7 +124,9 @@ const App = (() => {
     card.innerHTML = `
       <span class="card-marker color-dot" style="background:${cat.color}"></span>
       <div class="card-body">
-        <div class="card-title">${restaurant.name} <span class="card-badge">${cat.label}</span></div>
+        <div class="card-title">${restaurant.name} <span class="card-badge">${cat.label}</span>${
+      restaurant.source === "community" ? ' <span class="card-badge community">comunidade</span>' : ""
+    }</div>
         <div class="card-town">${restaurant.town} · ${restaurant.region}</div>
         ${restaurant.notes ? `<div class="card-notes">${restaurant.notes}</div>` : ""}
         <div class="places-info"></div>
@@ -319,21 +321,40 @@ const App = (() => {
     wirePlanner();
   }
 
-  function onCustomRestaurantAdded(restaurant) {
-    state.restaurants.push(restaurant);
+  // Merge several lists of restaurants, dropping duplicates (same name+town).
+  // Earlier lists win, so curated entries take priority over community/local.
+  function mergeRestaurants(...lists) {
+    const seen = new Map();
+    for (const list of lists) {
+      for (const r of list) {
+        const key = `${(r.name || "").toLowerCase().trim()}|${(r.town || "").toLowerCase().trim()}`;
+        if (!seen.has(key)) seen.set(key, r);
+      }
+    }
+    return [...seen.values()];
+  }
+
+  function onRestaurantAdded(restaurant) {
+    state.restaurants = mergeRestaurants(state.restaurants, [restaurant]);
     buildRegionFilters();
     render();
+    onSelectRestaurant(restaurant);
   }
 
   async function init(options) {
     MapModule.init(options);
+    DB.init();
+    Geocode.init();
     PlacesModule.init();
     PlannerModule.init();
     AddRestaurantModule.init();
 
     const response = await fetch("data/restaurants.json");
-    const data = await response.json();
-    state.restaurants = [...data, ...Storage.getCustomRestaurants()];
+    const curated = await response.json();
+
+    // Curated (git) + shared cloud list (Firestore) + this browser's additions.
+    const community = await DB.fetchAll();
+    state.restaurants = mergeRestaurants(curated, community, Storage.getCustomRestaurants());
 
     buildRegionFilters();
     buildCategoryFilters();
@@ -341,5 +362,5 @@ const App = (() => {
     render();
   }
 
-  return { init, onCustomRestaurantAdded };
+  return { init, onRestaurantAdded };
 })();

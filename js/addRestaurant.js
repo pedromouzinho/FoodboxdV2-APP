@@ -1,11 +1,12 @@
-// "Add restaurant" modal: lets the user add a place to their own browser
-// (via localStorage) and/or generate a JSON snippet to add it permanently
-// to data/restaurants.json.
+// "Add restaurant" modal. Designed so a non-technical person can add a place
+// in seconds: type name + town + type, hit one button. We geocode in the
+// background and save to the shared cloud list (Supabase) when it's set up,
+// otherwise to the person's own browser. Coordinates/JSON live under
+// "Opções avançadas" for the rare case the auto-location is off.
 
 const AddRestaurantModule = (() => {
-  let modal, form, closeBtn, locateBtn, locateStatus, copyJsonBtn;
+  let modal, form, closeBtn, locateBtn, locateStatus, copyJsonBtn, submitBtn, statusEl;
   let nameInput, townInput, regionInput, categorySelect, notesInput, latInput, lngInput;
-  let geocoder = null;
 
   function slugify(text) {
     return text
@@ -25,6 +26,8 @@ const AddRestaurantModule = (() => {
     locateBtn = document.getElementById("form-locate-btn");
     locateStatus = document.getElementById("form-locate-status");
     copyJsonBtn = document.getElementById("form-copy-json-btn");
+    submitBtn = document.getElementById("form-submit-btn");
+    statusEl = document.getElementById("form-status");
 
     nameInput = document.getElementById("form-name");
     townInput = document.getElementById("form-town");
@@ -34,23 +37,22 @@ const AddRestaurantModule = (() => {
     latInput = document.getElementById("form-lat");
     lngInput = document.getElementById("form-lng");
 
-    if (MapModule.isAvailable()) {
-      geocoder = new google.maps.Geocoder();
-    }
-
     document.getElementById("add-restaurant-btn").addEventListener("click", open);
     closeBtn.addEventListener("click", close);
     modal.addEventListener("click", (e) => {
       if (e.target === modal) close();
     });
 
-    locateBtn.addEventListener("click", locate);
+    locateBtn.addEventListener("click", manualLocate);
     copyJsonBtn.addEventListener("click", copyAsJson);
     form.addEventListener("submit", onSubmit);
   }
 
   function open() {
     modal.classList.remove("hidden");
+    statusEl.textContent = "";
+    statusEl.className = "form-status";
+    nameInput.focus();
   }
 
   function close() {
@@ -58,40 +60,41 @@ const AddRestaurantModule = (() => {
     form.reset();
     regionInput.value = "Alentejo";
     locateStatus.textContent = "";
+    statusEl.textContent = "";
+    statusEl.className = "form-status";
   }
 
-  function locate() {
-    const query = `${nameInput.value}, ${townInput.value}, Portugal`.trim();
+  function setStatus(message, type) {
+    statusEl.textContent = message;
+    statusEl.className = "form-status" + (type ? " " + type : "");
+  }
+
+  // Advanced "Encontrar localização" button — fills the coord fields so the
+  // user can see/adjust them before saving.
+  async function manualLocate() {
     if (!nameInput.value || !townInput.value) {
       locateStatus.textContent = "Indica o nome e a localidade primeiro.";
       return;
     }
-    if (!geocoder) {
-      locateStatus.textContent = "Localização automática precisa do Google Maps ativo. Preenche manualmente.";
-      return;
-    }
-
     locateStatus.textContent = "A procurar...";
-    geocoder.geocode({ address: query }, (results, status) => {
-      if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
-        const loc = results[0].geometry.location;
-        latInput.value = loc.lat().toFixed(5);
-        lngInput.value = loc.lng().toFixed(5);
-        locateStatus.textContent = "Localização encontrada ✓";
-      } else {
-        locateStatus.textContent = "Não encontrado. Preenche as coordenadas manualmente.";
-      }
-    });
+    const coords = await Geocode.locate(nameInput.value.trim(), townInput.value.trim());
+    if (coords) {
+      latInput.value = coords.lat.toFixed(5);
+      lngInput.value = coords.lng.toFixed(5);
+      locateStatus.textContent = "Localização encontrada ✓";
+    } else {
+      locateStatus.textContent = "Não encontrado. Preenche as coordenadas manualmente.";
+    }
   }
 
-  function buildRestaurantFromForm() {
+  function buildRestaurantFromForm(coords) {
     const name = nameInput.value.trim();
     const town = townInput.value.trim();
-    const region = regionInput.value.trim() || "Alentejo";
+    const region = (regionInput.value || "Alentejo").trim();
     const category = categorySelect.value;
     const notes = notesInput.value.trim();
-    const lat = parseFloat(latInput.value);
-    const lng = parseFloat(lngInput.value);
+    const lat = coords ? coords.lat : parseFloat(latInput.value);
+    const lng = coords ? coords.lng : parseFloat(lngInput.value);
 
     return {
       id: `${slugify(name)}-${slugify(town)}`,
@@ -107,22 +110,66 @@ const AddRestaurantModule = (() => {
     };
   }
 
-  function onSubmit(e) {
+  async function onSubmit(e) {
     e.preventDefault();
-    const restaurant = buildRestaurantFromForm();
-
-    if (restaurant.lat === null || restaurant.lng === null) {
-      locateStatus.textContent = 'Sem coordenadas: clica em "Encontrar localização" ou preenche manualmente.';
+    if (!nameInput.value.trim() || !townInput.value.trim()) {
+      setStatus("Indica o nome e a localidade.", "error");
       return;
     }
 
-    Storage.addCustomRestaurant(restaurant);
-    App.onCustomRestaurantAdded(restaurant);
-    close();
+    submitBtn.disabled = true;
+
+    try {
+      // Use the coordinates if the user already filled them in (advanced),
+      // otherwise look them up automatically.
+      let coords = null;
+      const lat = parseFloat(latInput.value);
+      const lng = parseFloat(lngInput.value);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        coords = { lat, lng };
+      } else {
+        setStatus("A localizar no mapa...", "info");
+        coords = await Geocode.locate(nameInput.value.trim(), townInput.value.trim());
+      }
+
+      if (!coords) {
+        setStatus(
+          "Não consegui encontrar essa localização. Tenta uma cidade mais específica, ou abre \"Opções avançadas\".",
+          "error"
+        );
+        submitBtn.disabled = false;
+        return;
+      }
+
+      const restaurant = buildRestaurantFromForm(coords);
+
+      if (DB.isAvailable()) {
+        setStatus("A guardar para todos...", "info");
+        const saved = await DB.add(restaurant);
+        App.onRestaurantAdded(saved);
+        setStatus("Adicionado para todos! 🎉", "success");
+      } else {
+        Storage.addCustomRestaurant(restaurant);
+        App.onRestaurantAdded(restaurant);
+        setStatus("Adicionado (guardado só neste navegador).", "success");
+      }
+
+      setTimeout(close, 900);
+    } catch (err) {
+      setStatus("Algo correu mal: " + err.message, "error");
+      submitBtn.disabled = false;
+      return;
+    }
+
+    submitBtn.disabled = false;
   }
 
   function copyAsJson() {
     const restaurant = buildRestaurantFromForm();
+    if (restaurant.lat === null || restaurant.lng === null) {
+      locateStatus.textContent = 'Clica em "Encontrar localização" primeiro.';
+      return;
+    }
     const { id, name, town, region, category, lat, lng, notes, tags, mapsQuery } = restaurant;
     const json = JSON.stringify(
       { id, name, town, region, category, lat, lng, notes, tags, mapsQuery },
@@ -136,7 +183,6 @@ const AddRestaurantModule = (() => {
         locateStatus.textContent = "JSON copiado! Cola em data/restaurants.json.";
       })
       .catch(() => {
-        locateStatus.textContent = "Não foi possível copiar automaticamente.";
         window.prompt("Copia este JSON:", json);
       });
   }

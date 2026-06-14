@@ -11,7 +11,7 @@ First batch: 10 spots in the **Alentejo**, taken from a personal wishlist.
 - ✅ "Visited" tracker — check off places you've been, saved in your browser
 - 🎲 "Escolher por mim" — randomly picks an unvisited restaurant for your next trip
 - 🚗 Trip planner — enter a "from" and "to", and it suggests restaurants near your driving route
-- ➕ "Adicionar restaurante" — add new places via a form (saved locally, or copy as JSON to add permanently)
+- ➕ "Adicionar restaurante" — add new places with a dead-simple form (just name + town + type). The location is found automatically; with Firebase set up, additions are shared with everyone instantly
 - ⭐ Optional live Google ratings, photos, opening hours via the Places API
 
 ## Publishing on GitHub Pages
@@ -59,25 +59,71 @@ Commit and push. Because the key is restricted to your GitHub Pages domain, it's
 ```
 index.html              – page structure
 css/style.css           – styling
-js/config.js            – Google Maps API key (optional)
+js/config.js            – Google Maps key + Firebase config (optional)
 js/app.js                – main app: state, filters, rendering
 js/map.js                – Google Maps setup, markers, info windows
+js/db.js                 – shared cloud list (Firebase Firestore REST)
+js/geocode.js            – auto-locate a place from its name + town
 js/storage.js            – localStorage helpers (visited, custom restaurants, Places cache)
 js/planner.js            – trip planner (route + nearby restaurants)
 js/addRestaurant.js      – "Add restaurant" form
 js/places.js             – optional Places API enrichment
-data/restaurants.json    – the restaurant data
+data/restaurants.json    – the curated restaurant data (in git)
 ```
 
-## Adding restaurants
+## Optional: shared "add a restaurant" via Firebase (recommended)
 
-### Quick way (your browser only)
+By default, when someone uses the **"➕ Adicionar restaurante"** form, the place is saved **only in their own browser**. To let anyone (e.g. friends) add a restaurant and have it appear for **everyone**, connect a free **Firebase Firestore** database. This uses the **same Google account** as your Maps key.
 
-Click **"➕ Adicionar restaurante"**, fill in the form, and use **"📍 Encontrar localização"** to auto-fill coordinates (requires the Google Maps API key). Click **"Guardar"** — the restaurant appears on your map/list immediately, stored in your browser's `localStorage`. This is per-browser and won't show up for other people.
+Once set up, the form needs nothing technical from your friends: they type a name, a town and a type, hit one button, and it's geocoded and saved for everyone automatically — no GitHub, no accounts, no coordinates.
 
-### Permanent way (for everyone)
+### 1. Create the database
 
-In the same form, click **"Copiar como JSON"** to copy a ready-made entry, then paste it into the array in `data/restaurants.json`, e.g.:
+1. Go to the [Firebase console](https://console.firebase.google.com/) and click **Add project**. You can pick the **same Google Cloud project** you used for the Maps key.
+2. In the left menu, open **Build → Firestore Database → Create database**.
+3. Choose a location (e.g. `eur3` / Europe) and start in **production mode**.
+
+### 2. Allow reading and adding (security rules)
+
+In **Firestore → Rules**, paste the following and **Publish**. This lets anyone read the list and add a restaurant, but not edit or delete existing ones (you stay in control — you can delete anything from the Firebase console). The same rules are saved in `firebase/firestore.rules`.
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /restaurants/{doc} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if false;
+    }
+  }
+}
+```
+
+### 3. Get your config values
+
+1. In the Firebase console, open **Project settings** (gear icon) → **General**.
+2. Under "Your apps", click the **Web** icon (`</>`) to register a web app (any nickname; you don't need Hosting).
+3. From the shown `firebaseConfig`, copy the **`projectId`** and the **`apiKey`**.
+4. Paste them into `js/config.js`:
+
+```js
+const CONFIG = {
+  GOOGLE_MAPS_API_KEY: "...",
+  FIREBASE_PROJECT_ID: "your-project-id",
+  FIREBASE_API_KEY: "your-web-api-key"
+};
+```
+
+These two values are safe to publish — the API key only identifies the project, and the security rules above are what actually control access.
+
+Commit and push. From now on, restaurants added via the form are shared with everyone and tagged **"comunidade"** in the list. Curated places in `data/restaurants.json` always take priority and stay version-controlled.
+
+> Tip: to lock additions down later (e.g. stop spam), tighten the `create` rule or add [Firebase App Check](https://firebase.google.com/docs/app-check).
+
+## Adding restaurants by hand (permanent, in git)
+
+You can also add your own curated entries directly to `data/restaurants.json`. Use **"Opções avançadas → Copiar como JSON"** in the form to get a ready-made entry, then paste it into the array, e.g.:
 
 ```json
 {
