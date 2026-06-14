@@ -47,6 +47,7 @@
     <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
     <symbol id="i-message" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
     <symbol id="i-log-in" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
   </svg>
 
   <header class="topbar">
@@ -319,13 +320,17 @@
       getAuth, GoogleAuthProvider, signInWithPopup, signOut,
       onAuthStateChanged, setPersistence, browserLocalPersistence
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import {
+      getStorage, ref as storageRef, uploadBytes, getDownloadURL
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
 
     if (window.CONFIG && CONFIG.FIREBASE_PROJECT_ID && CONFIG.FIREBASE_API_KEY) {
       try {
         const app = initializeApp({
           apiKey: CONFIG.FIREBASE_API_KEY,
           authDomain: CONFIG.FIREBASE_PROJECT_ID + ".firebaseapp.com",
-          projectId: CONFIG.FIREBASE_PROJECT_ID
+          projectId: CONFIG.FIREBASE_PROJECT_ID,
+          storageBucket: CONFIG.FIREBASE_PROJECT_ID + ".firebasestorage.app"
         });
         const auth = getAuth(app);
         setPersistence(auth, browserLocalPersistence).catch(function () {});
@@ -339,9 +344,22 @@
           getToken: function () { return auth.currentUser ? auth.currentUser.getIdToken() : Promise.resolve(null); },
           current: function () { return auth.currentUser; }
         };
+
+        // Cloud Storage for user-uploaded photos. upload() returns the public
+        // download URL. Errors bubble up (e.g. if Storage isn't enabled yet).
+        const storage = getStorage(app);
+        window.FirebaseStorage = {
+          configured: true,
+          upload: async function (path, file) {
+            const r = storageRef(storage, path);
+            await uploadBytes(r, file, { contentType: file.type });
+            return await getDownloadURL(r);
+          }
+        };
+
         document.dispatchEvent(new Event("firebase-auth-ready"));
       } catch (e) {
-        console.warn("Firebase Auth init failed:", e && e.message);
+        console.warn("Firebase init failed:", e && e.message);
       }
     }
   </script>

@@ -302,6 +302,77 @@ const DB = (() => {
     };
   }
 
+  // ---- Photos (photos/{autoId}) — metadata only; file lives in Storage ----
+  async function fetchPhotos(restaurantId) {
+    if (!ready) return [];
+    try {
+      const body = {
+        structuredQuery: {
+          from: [{ collectionId: "photos" }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath: "restaurantId" },
+              op: "EQUAL",
+              value: { stringValue: restaurantId }
+            }
+          },
+          limit: 100
+        }
+      };
+      const res = await fetch(`${docsBase}:runQuery?${keyQ()}`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) return [];
+      const rows = await res.json();
+      return (rows || [])
+        .filter((row) => row.document)
+        .map((row) => {
+          const f = decodeFields(row.document);
+          return {
+            id: row.document.name.split("/").pop(),
+            uid: f.uid || "",
+            author: f.author || "",
+            url: f.url || "",
+            path: f.path || "",
+            createdAt: f.createdAt || ""
+          };
+        })
+        .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+    } catch (e) {
+      return [];
+    }
+  }
+
+  async function addPhoto(photo, token) {
+    if (!ready) throw new Error("Cloud database not configured.");
+    const fields = encodeFields({
+      restaurantId: photo.restaurantId,
+      uid: photo.uid,
+      author: photo.author || "",
+      url: photo.url,
+      path: photo.path || ""
+    });
+    fields.createdAt = { timestampValue: new Date().toISOString() };
+    const res = await fetch(`${docsBase}/photos?${keyQ()}`, {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify({ fields })
+    });
+    if (!res.ok) throw new Error(`Could not save photo (${res.status}).`);
+    const doc = await res.json();
+    const f = decodeFields(doc);
+    return {
+      id: doc.name.split("/").pop(),
+      uid: f.uid,
+      author: f.author || "",
+      url: f.url,
+      path: f.path || "",
+      createdAt: f.createdAt || new Date().toISOString()
+    };
+  }
+
   return {
     init,
     isAvailable,
@@ -313,6 +384,8 @@ const DB = (() => {
     saveUserDoc,
     fetchAllUsers,
     fetchComments,
-    addComment
+    addComment,
+    fetchPhotos,
+    addPhoto
   };
 })();

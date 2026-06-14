@@ -31,5 +31,16 @@ service cloud.firestore {
       allow update, delete: if request.auth != null
                     && request.auth.uid == resource.data.uid;
     }
+    // Photo metadata per restaurant (the file itself lives in Cloud Storage).
+    // Anyone can read; only signed-in users can add, and only the uploader can
+    // remove their own.
+    match /photos/{doc} {
+      allow read: if true;
+      allow create: if request.auth != null
+                    && request.auth.uid == request.resource.data.uid;
+      allow update: if false;
+      allow delete: if request.auth != null
+                    && request.auth.uid == resource.data.uid;
+    }
   }
 }

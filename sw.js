@@ -3,7 +3,7 @@
 // stale-while-revalidate so the app opens offline. All cross-origin traffic
 // (Google Maps/Places/Directions, Firebase) is left to the network.
 
-const CACHE = "restaurantes-v1";
+const CACHE = "restaurantes-v3";
 const ASSETS = [
   "./",
   "index.html",
@@ -11,6 +11,8 @@ const ASSETS = [
   "js/config.js",
   "js/storage.js",
   "js/db.js",
+  "js/userdata.js",
+  "js/auth.js",
   "js/map.js",
   "js/geocode.js",
   "js/places.js",

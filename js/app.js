@@ -291,6 +291,7 @@ const App = (() => {
         <div class="cat-suggest" data-cat-suggest hidden></div>
       </div>
       <div data-gallery></div>
+      <div class="photos" data-photos></div>
       <div data-hours></div>
       <div data-reviews></div>
       <div class="amigos" data-amigos></div>
@@ -322,6 +323,7 @@ const App = (() => {
 
     renderMyMarks(r);
     renderAmigos(r);
+    renderPhotos(r);
     renderComments(r);
 
     panel.setAttribute("aria-hidden", "false");
@@ -529,6 +531,77 @@ const App = (() => {
         <p>${esc(c.text)}</p>
       </div>
     </div>`;
+  }
+
+  // ---------- User-uploaded photos (Cloud Storage) ----------
+  function slugifyId(text) {
+    return String(text || "").normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  }
+
+  async function renderPhotos(r) {
+    const el = document.querySelector("#detail-body [data-photos]");
+    if (!el) return;
+    if (!DB.isAvailable()) { el.innerHTML = ""; return; }
+
+    const canUpload = UserData.isCloud() && window.FirebaseStorage && window.FirebaseStorage.configured;
+    el.innerHTML = `
+      <div class="photos-head">
+        <span class="detail-section-title">${icon("camera")} Fotos da malta</span>
+        ${canUpload ? `<button class="btn btn-ghost btn-sm" data-add-photo>${icon("camera")} Adicionar</button>
+          <input type="file" accept="image/*" data-photo-input hidden />` : ""}
+      </div>
+      <div class="photo-grid" data-photo-grid><div class="skeleton" style="height:70px"></div></div>
+      <p class="photo-status muted" data-photo-status></p>`;
+
+    const grid = el.querySelector("[data-photo-grid]");
+    const photos = await DB.fetchPhotos(r.id);
+    if (state.currentDetail !== r) return;
+    paintPhotoGrid(grid, photos);
+
+    if (canUpload) {
+      const input = el.querySelector("[data-photo-input]");
+      const statusEl = el.querySelector("[data-photo-status]");
+      el.querySelector("[data-add-photo]").addEventListener("click", () => input.click());
+      input.addEventListener("change", async () => {
+        const file = input.files && input.files[0];
+        input.value = "";
+        if (!file) return;
+        if (!/^image\//.test(file.type)) { statusEl.textContent = "Escolhe uma imagem."; return; }
+        if (file.size > 6 * 1024 * 1024) { statusEl.textContent = "Imagem demasiado grande (máx 6 MB)."; return; }
+        statusEl.textContent = "A enviar foto…";
+        try {
+          const me = UserData.me();
+          const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+          const path = `restaurants/${slugifyId(r.id)}/${me.uid}-${Date.now()}.${ext}`;
+          const url = await window.FirebaseStorage.upload(path, file);
+          const fb = window.FirebaseAuth;
+          const token = fb ? await fb.getToken() : null;
+          const saved = await DB.addPhoto({ restaurantId: r.id, uid: me.uid, author: me.displayName, url, path }, token);
+          if (state.currentDetail !== r) return;
+          const empty = grid.querySelector(".photo-empty");
+          if (empty) grid.innerHTML = "";
+          grid.insertAdjacentHTML("beforeend", photoTile(saved));
+          statusEl.textContent = "Foto adicionada! 🎉";
+        } catch (e) {
+          statusEl.textContent = "Não consegui enviar. As fotos já estão ativadas no Firebase?";
+        }
+      });
+    }
+  }
+
+  function paintPhotoGrid(grid, photos) {
+    if (!photos.length) {
+      grid.innerHTML = `<p class="photo-empty muted">Ainda sem fotos da malta.</p>`;
+      return;
+    }
+    grid.innerHTML = photos.map(photoTile).join("");
+  }
+
+  function photoTile(p) {
+    return `<a class="photo-tile" href="${esc(p.url)}" target="_blank" rel="noopener" title="${esc(p.author || "")}">
+      <img src="${esc(p.url)}" alt="" loading="lazy" />
+    </a>`;
   }
 
   function shareRestaurant(r) {
