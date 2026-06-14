@@ -1,9 +1,12 @@
 // Service worker for the Restaurantes Portugal PWA.
-// Strategy: cache the static shell (same-origin app files) and serve it
-// stale-while-revalidate so the app opens offline. All cross-origin traffic
-// (Google Maps/Places/Directions, Firebase) is left to the network.
+// Strategy:
+//   - HTML navigations  -> network-first (so a freshly deployed shell, e.g. a
+//     new sign-in button, shows up immediately when online; cache is the
+//     offline fallback only).
+//   - Other static files -> stale-while-revalidate (fast, self-healing).
+//   - Cross-origin (Google Maps/Places/Directions, Firebase) -> network only.
 
-const CACHE = "restaurantes-v3";
+const CACHE = "restaurantes-v4";
 const ASSETS = [
   "./",
   "index.html",
@@ -40,6 +43,14 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+function cachePut(req, res) {
+  if (res && res.status === 200 && res.type === "basic") {
+    const copy = res.clone();
+    caches.open(CACHE).then((c) => c.put(req, copy));
+  }
+  return res;
+}
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
@@ -47,16 +58,26 @@ self.addEventListener("fetch", (event) => {
   // Only manage same-origin requests; everything else goes straight to network.
   if (url.origin !== self.location.origin) return;
 
+  // HTML navigations (and index.html itself): network-first so newly deployed
+  // markup always wins online; fall back to cache when offline.
+  const isHTML =
+    req.mode === "navigate" ||
+    (req.headers.get("accept") || "").includes("text/html");
+
+  if (isHTML) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => cachePut(req, res))
+        .catch(() => caches.match(req).then((c) => c || caches.match("index.html")))
+    );
+    return;
+  }
+
+  // Everything else: stale-while-revalidate.
   event.respondWith(
     caches.match(req).then((cached) => {
       const network = fetch(req)
-        .then((res) => {
-          if (res && res.status === 200) {
-            const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put(req, copy));
-          }
-          return res;
-        })
+        .then((res) => cachePut(req, res))
         .catch(() => cached);
       return cached || network;
     })

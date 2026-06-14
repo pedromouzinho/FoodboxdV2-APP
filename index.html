@@ -280,6 +280,16 @@
 
     // PWA: register the service worker (relative scope for GitHub Pages subpath).
     if ("serviceWorker" in navigator) {
+      // When a newly deployed SW takes control, reload once so the fresh shell
+      // (e.g. new UI) shows immediately. Skip on the very first install (when
+      // there was no controller yet) to avoid an unnecessary reload.
+      var hadController = !!navigator.serviceWorker.controller;
+      var reloading = false;
+      navigator.serviceWorker.addEventListener("controllerchange", function () {
+        if (reloading || !hadController) return;
+        reloading = true;
+        window.location.reload();
+      });
       window.addEventListener("load", function () {
         navigator.serviceWorker.register("sw.js").catch(function () {});
       });
