@@ -32,6 +32,21 @@ const App = (() => {
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(r.mapsQuery)}`;
   }
 
+  // Suggest one of our categories from Google place types + price level.
+  // Returns null when there isn't enough signal to suggest anything.
+  function suggestCategory(types, priceLevelNum) {
+    const t = types || [];
+    const has = (x) => t.includes(x);
+    if (has("bakery")) return "pastelaria";
+    if (has("bar") || has("meal_takeaway") || has("meal_delivery")) return "petiscos";
+    if (has("cafe") && !has("restaurant")) return "pastelaria";
+    if (has("restaurant") || has("food")) {
+      if (typeof priceLevelNum === "number" && priceLevelNum >= 4) return "fine-dining";
+      return "tradicional";
+    }
+    return null;
+  }
+
   // ---------- Filters ----------
   function buildCategoryFilters() {
     const wrap = document.getElementById("category-filters");
@@ -69,15 +84,26 @@ const App = (() => {
   function selectedRegions() {
     return [...document.querySelectorAll("#region-filters input:checked")].map((i) => i.dataset.region);
   }
+  function selectedPrices() {
+    return [...document.querySelectorAll("#price-filters input:checked")].map((i) => parseInt(i.dataset.price, 10));
+  }
 
   function getFiltered() {
     const cats = selectedCategories();
     const regions = selectedRegions();
+    const prices = selectedPrices();
     const q = document.getElementById("search-input").value.trim().toLowerCase();
     const hideVisited = document.getElementById("hide-visited-checkbox").checked;
     return state.restaurants.filter((r) => {
       if (!cats.includes(r.category)) return false;
       if (regions.length && !regions.includes(r.region)) return false;
+      // Price comes from Google (cached). Unknown price always passes; filter
+      // only kicks in when not every bucket is selected.
+      if (prices.length && prices.length < 4) {
+        const cached = Storage.getCachedPlace(r.id);
+        const lvl = cached && typeof cached.priceLevelNum === "number" ? cached.priceLevelNum : null;
+        if (lvl !== null && !prices.includes(Math.max(1, Math.min(4, lvl)))) return false;
+      }
       if (hideVisited && Storage.isVisited(r.id)) return false;
       if (q) {
         const hay = [r.name, r.town, r.notes, ...(r.tags || [])].join(" ").toLowerCase();
@@ -194,9 +220,7 @@ const App = (() => {
     MapModule.focusRestaurant(r);
     MapModule.highlightMarker(r.id);
     highlightCard(r.id);
-    if (window.matchMedia("(max-width: 860px)").matches) {
-      document.getElementById("sidebar").classList.remove("open");
-    }
+    if (isMobile()) openSidebar(false);
     openDetail(r);
   }
 
@@ -237,6 +261,7 @@ const App = (() => {
       <div class="cat-edit">
         <span class="detail-section-title">Tipo de sítio${DB.isAvailable() ? "" : " (só neste navegador)"}</span>
         <div class="chip-row" data-cat-edit></div>
+        <div class="cat-suggest" data-cat-suggest hidden></div>
       </div>
       <div data-gallery></div>
       <div data-hours></div>
@@ -351,6 +376,20 @@ const App = (() => {
       actions.insertBefore(w, actions.querySelector("[data-share]"));
     }
 
+    // category suggestion from Google types/price
+    const sug = suggestCategory(data.types, data.priceLevelNum);
+    const sugEl = body.querySelector("[data-cat-suggest]");
+    if (sugEl && sug && sug !== r.category && CATEGORIES[sug]) {
+      sugEl.hidden = false;
+      sugEl.innerHTML =
+        `<span class="hint">Sugestão do Google: <strong>${esc(CATEGORIES[sug].label)}</strong></span> ` +
+        `<button type="button" class="linklike" data-apply-sug>Aplicar</button>`;
+      sugEl.querySelector("[data-apply-sug]").addEventListener("click", () => {
+        changeCategory(r, sug);
+        sugEl.hidden = true;
+      });
+    }
+
     // stats
     const stats = [];
     if (typeof data.rating === "number") {
@@ -436,6 +475,8 @@ const App = (() => {
           li.addEventListener("click", () => onSelect(restaurant));
           results.appendChild(li);
         });
+        // Bring the freshly-found stops into view (esp. on mobile).
+        results.scrollIntoView({ behavior: "smooth", block: "nearest" });
       } catch (err) { status.textContent = err.message; }
     });
 
@@ -447,16 +488,31 @@ const App = (() => {
   }
 
   // ---------- Wiring ----------
+  function openSidebar(open) {
+    const sb = document.getElementById("sidebar");
+    sb.classList.toggle("open", open);
+    const scrim = document.getElementById("sidebar-scrim");
+    if (scrim) scrim.classList.toggle("show", open);
+  }
+  function isMobile() {
+    return window.matchMedia("(max-width: 860px)").matches;
+  }
+
   function wireEvents() {
     document.getElementById("search-input").addEventListener("input", render);
     document.getElementById("hide-visited-checkbox").addEventListener("change", render);
+    document.querySelectorAll("#price-filters input").forEach((el) => el.addEventListener("change", render));
     document.getElementById("pick-random-btn").addEventListener("click", pickRandom);
     document.getElementById("sidebar-toggle").addEventListener("click", () =>
-      document.getElementById("sidebar").classList.toggle("open")
+      openSidebar(!document.getElementById("sidebar").classList.contains("open"))
     );
+    const scrim = document.getElementById("sidebar-scrim");
+    if (scrim) scrim.addEventListener("click", () => openSidebar(false));
+    const sbClose = document.getElementById("sidebar-close");
+    if (sbClose) sbClose.addEventListener("click", () => openSidebar(false));
     document.querySelectorAll("[data-close-detail]").forEach((el) => el.addEventListener("click", closeDetail));
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") closeDetail();
+      if (e.key === "Escape") { closeDetail(); openSidebar(false); }
     });
     wirePlanner();
   }

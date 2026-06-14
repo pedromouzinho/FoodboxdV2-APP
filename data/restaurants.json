@@ -76,11 +76,11 @@
     "name": "O Forjador",
     "town": "Arraiolos",
     "region": "Alentejo",
-    "category": "pastelaria",
+    "category": "tradicional",
     "lat": 38.7247,
     "lng": -7.9833,
-    "notes": "Queijadas",
-    "tags": ["queijadas", "doces", "pastelaria"],
+    "notes": "Cozinha alentejana; famoso pelas queijadas",
+    "tags": ["tradicional", "queijadas", "doces"],
     "mapsQuery": "Restaurante O Forjador, Arraiolos, Portugal"
   },
   {
@@ -112,11 +112,11 @@
     "name": "Quarta-Feira",
     "town": "Évora",
     "region": "Alentejo",
-    "category": "fine-dining",
+    "category": "tradicional",
     "lat": 38.5742,
     "lng": -7.9096,
-    "notes": "Menu de degustação sem ementa fixa",
-    "tags": ["fine-dining", "degustação"],
+    "notes": "Taberna típica; menu de degustação sem ementa fixa",
+    "tags": ["tradicional", "taberna", "degustação"],
     "mapsQuery": "Taberna Típica Quarta-Feira, Évora, Portugal"
   }
 ]

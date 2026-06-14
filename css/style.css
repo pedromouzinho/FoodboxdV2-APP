@@ -143,6 +143,12 @@ button { font-family: inherit; }
   border-radius: var(--r-pill);
 }
 
+.topbar-install { flex-shrink: 0; }
+@media (max-width: 480px) {
+  /* Collapse to an icon-only button on tight screens (text node hidden). */
+  .topbar-install { padding: 0 var(--sp-2); font-size: 0; gap: 0; }
+}
+
 .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -172,6 +178,7 @@ button { font-family: inherit; }
   overscroll-behavior: contain;
 }
 .sidebar-inner { padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4); }
+.sidebar-close { display: none; }
 
 /* ---------- Search ---------- */
 .search-wrap { position: relative; display: flex; align-items: center; }
@@ -248,7 +255,9 @@ button { font-family: inherit; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent); }
 
-.quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.quick-actions { display: grid; grid-template-columns: 1fr; gap: var(--sp-2); }
+.quick-actions .btn { width: 100%; }
+.hidden { display: none !important; }
 
 .linklike {
   background: none; border: none; padding: 0;
@@ -329,6 +338,22 @@ input[type="checkbox"] { width: 18px; height: 18px; }
 
 .hint { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin: 0; }
 
+/* Price filter chips (checkbox inside a chip-like label) */
+.price-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 34px; padding: 0 var(--sp-3);
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.85rem; font-weight: 600;
+  cursor: pointer; user-select: none;
+  transition: all 0.15s var(--ease);
+}
+.price-chip input { position: absolute; opacity: 0; width: 0; height: 0; }
+.price-chip:has(input:checked) { color: var(--text); border-color: currentColor; background: var(--surface-2); }
+.price-chip:has(input:focus-visible) { box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent); }
+
 /* ---------- Trip planner ---------- */
 .planner-actions { display: flex; gap: var(--sp-2); }
 .planner-actions .btn { flex: 1; }
@@ -346,7 +371,9 @@ input[type="checkbox"] { width: 18px; height: 18px; }
 .planner-results .dist { color: var(--text-muted); font-size: 0.78rem; }
 
 /* ---------- Restaurant list ---------- */
-.list-head { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); font-weight: 600; }
+.list-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+#list-count { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); font-weight: 600; }
+.list-add-btn { min-height: 32px; padding: 0 var(--sp-2); font-size: 0.8rem; }
 .restaurant-list { display: flex; flex-direction: column; gap: var(--sp-2); }
 .region-heading {
   font-family: var(--font-display);
@@ -506,6 +533,13 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .detail-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
 .detail-actions .btn-block { grid-column: 1 / -1; }
 .cat-edit { display: flex; flex-direction: column; gap: var(--sp-2); }
+.cat-suggest {
+  display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-sm);
+}
 
 .gallery { display: flex; gap: var(--sp-2); overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
 .gallery img { width: 116px; height: 86px; object-fit: cover; border-radius: var(--r-sm); flex-shrink: 0; }
@@ -563,6 +597,9 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .form-status.success { color: var(--success); font-weight: 600; }
 .form-status.error { color: var(--danger); font-weight: 600; }
 
+/* Backdrop behind the mobile sidebar drawer (no-op on desktop). */
+.sidebar-scrim { display: none; }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 860px) {
   .topbar-menu { display: inline-flex; }
@@ -576,6 +613,23 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
     box-shadow: var(--shadow-lg);
   }
   .sidebar.open { transform: translateX(0); }
+  .sidebar-close {
+    display: inline-flex;
+    align-self: flex-end;
+    margin: calc(-1 * var(--sp-2)) calc(-1 * var(--sp-2)) calc(-1 * var(--sp-3)) 0;
+    color: var(--text-muted);
+  }
+
+  .sidebar-scrim {
+    display: block;
+    position: fixed;
+    top: var(--topbar-h); left: 0; right: 0; bottom: 0;
+    z-index: 45;
+    background: rgba(30, 22, 12, 0.45);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s var(--ease);
+  }
+  .sidebar-scrim.show { opacity: 1; pointer-events: auto; }
 
   .detail-card {
     top: auto; bottom: 0; left: 0; right: 0;
@@ -583,8 +637,18 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
     height: 88dvh;
     border-radius: var(--r-lg) var(--r-lg) 0 0;
     transform: translateY(100%);
+    padding-bottom: env(safe-area-inset-bottom);
   }
   .detail-panel[aria-hidden="false"] .detail-card { transform: translateY(0); }
+
+  /* Drag-affordance handle on the bottom sheet. */
+  .detail-card::before {
+    content: "";
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    width: 40px; height: 4px; border-radius: var(--r-pill);
+    background: var(--border-strong);
+    z-index: 2;
+  }
 }
 
 @media (max-width: 420px) {
