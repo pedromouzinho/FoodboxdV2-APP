@@ -140,9 +140,20 @@ const AddRestaurantModule = (() => {
 
       const restaurant = buildRestaurantFromForm(coords);
 
+      // Stamp "quem recomendou" when the person is signed in.
+      let token = null;
+      if (typeof UserData !== "undefined" && UserData.isCloud()) {
+        const me = UserData.me();
+        restaurant.addedByUid = me.uid;
+        restaurant.addedByName = me.displayName;
+        if (window.FirebaseAuth) {
+          try { token = await window.FirebaseAuth.getToken(); } catch (e) { token = null; }
+        }
+      }
+
       if (DB.isAvailable()) {
         setStatus("A guardar para todos...", "info");
-        const saved = await DB.add(restaurant);
+        const saved = await DB.add(restaurant, token);
         App.onRestaurantAdded(saved);
         setStatus("Adicionado para todos! 🎉", "success");
       } else {

@@ -600,6 +600,105 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 /* Backdrop behind the mobile sidebar drawer (no-op on desktop). */
 .sidebar-scrim { display: none; }
 
+/* ---------- Auth (topbar) ---------- */
+.topbar-signin { flex-shrink: 0; }
+.avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  object-fit: cover; background: var(--surface-3);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 600; font-size: 0.8rem; color: var(--text-muted);
+  flex-shrink: 0;
+}
+.user-chip {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  padding: 3px 4px 3px 6px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--r-pill); flex-shrink: 0;
+}
+.user-chip.hidden, .topbar-signin.hidden { display: none; }
+.user-chip-name {
+  font-size: 0.85rem; font-weight: 600; max-width: 120px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.user-chip-out { width: 28px; height: 28px; color: var(--text-faint); }
+.user-chip-out:hover { color: var(--danger); }
+@media (max-width: 520px) { .user-chip-name { display: none; } }
+
+/* ---------- Card badges (priority / visited-by) ---------- */
+.badge { display: inline-flex; align-items: center; gap: 3px; }
+.badge .icon { width: 11px; height: 11px; }
+.badge.priority { color: var(--primary); background: color-mix(in srgb, var(--primary) 15%, transparent); }
+.badge.visited-by { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+
+/* ---------- Detail: "sugerido por" ---------- */
+.added-by { font-size: 0.82rem; color: var(--text-muted); margin-top: var(--sp-2); display: inline-flex; align-items: center; gap: 5px; }
+.added-by .icon { width: 14px; height: 14px; color: var(--accent); }
+.added-by strong { color: var(--text); }
+
+/* ---------- Detail: personal marks ---------- */
+.my-marks { display: flex; flex-direction: column; gap: var(--sp-3); }
+.my-marks:empty { display: none; }
+.signin-invite {
+  display: flex; gap: var(--sp-2); align-items: flex-start;
+  font-size: 0.85rem; color: var(--text-muted); line-height: 1.45;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: var(--sp-3);
+}
+.signin-invite .icon { width: 18px; height: 18px; color: var(--primary); flex-shrink: 0; margin-top: 1px; }
+
+.priority-toggle.on { background: var(--primary); color: var(--primary-ink); border-color: var(--primary); }
+.priority-toggle .icon { color: currentColor; }
+
+.rate-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.rate-label { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
+.stars-input { display: inline-flex; gap: 2px; }
+.star-btn {
+  background: none; border: none; cursor: pointer; padding: 2px;
+  color: var(--border-strong); line-height: 0;
+}
+.star-btn .icon { width: 24px; height: 24px; }
+.star-btn.on { color: var(--star); }
+.star-btn.on .icon { fill: var(--star); stroke: var(--star); }
+.star-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--star) 30%, transparent); border-radius: var(--r-sm); }
+
+.note-input {
+  width: 100%; resize: vertical; font: inherit; font-size: 0.9rem;
+  padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border);
+  border-radius: var(--r-md); background: var(--surface); color: var(--text);
+}
+.note-input:focus-visible { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent); }
+
+.visit-history { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.history-summary { font-size: 0.8rem; }
+
+/* ---------- Detail: friends (group view) ---------- */
+.amigos { display: flex; flex-direction: column; gap: var(--sp-2); }
+.amigos:empty { display: none; }
+.amigos-avg { display: inline-flex; align-items: center; gap: 6px; font-size: 0.95rem; }
+.amigos-avg .icon { width: 16px; height: 16px; color: var(--star); fill: var(--star); stroke: var(--star); }
+.amigos-row { display: flex; align-items: center; gap: var(--sp-2); }
+.amigos-label { font-size: 0.82rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; }
+.amigos-label .icon { width: 13px; height: 13px; color: var(--primary); }
+.amigos-avatars { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+.amigos-notes { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-1); }
+.amigos-note { display: flex; gap: var(--sp-2); align-items: flex-start; }
+.amigos-note > div { flex: 1; }
+.amigos-note .who { font-size: 0.8rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+.amigos-note .who .icon { width: 12px; height: 12px; color: var(--star); fill: var(--star); stroke: var(--star); }
+.amigos-note p { font-size: 0.88rem; color: var(--text); margin: 2px 0 0; line-height: 1.45; }
+
+/* ---------- Detail: comments ---------- */
+.comments { display: flex; flex-direction: column; gap: var(--sp-3); }
+.comments-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+.comment { display: flex; gap: var(--sp-2); align-items: flex-start; }
+.comment-body { flex: 1; }
+.comment-who { display: flex; align-items: baseline; gap: var(--sp-2); }
+.comment-who .name { font-size: 0.85rem; font-weight: 600; }
+.comment-who .when { font-size: 0.72rem; color: var(--text-faint); }
+.comment-body p { font-size: 0.9rem; color: var(--text); margin: 2px 0 0; line-height: 1.45; }
+.comment-form { display: flex; flex-direction: column; gap: var(--sp-2); }
+.comment-form .btn { align-self: flex-end; }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 860px) {
   .topbar-menu { display: inline-flex; }

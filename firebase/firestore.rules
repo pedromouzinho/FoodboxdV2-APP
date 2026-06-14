@@ -15,5 +15,21 @@ service cloud.firestore {
       allow create, update: if true;
       allow delete: if false;
     }
+    // Per-person marks (visited / priority / ratings / notes / history).
+    // Signed-in friends can read each other's (the group view); you can only
+    // write your own document.
+    match /userData/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    // Shared comments per restaurant. Anyone can read; only signed-in users
+    // can post, and only the author can edit or delete their own.
+    match /comments/{doc} {
+      allow read: if true;
+      allow create: if request.auth != null
+                    && request.auth.uid == request.resource.data.uid;
+      allow update, delete: if request.auth != null
+                    && request.auth.uid == resource.data.uid;
+    }
   }
 }

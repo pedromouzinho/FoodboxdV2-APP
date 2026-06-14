@@ -1,5 +1,7 @@
 // Main app: data loading, sidebar list, filters, search, visited tracking,
-// "surprise me", trip planner, and the rich restaurant detail drawer.
+// "surprise me", trip planner, the rich restaurant detail drawer, and (when
+// signed in) per-person priority/ratings/notes/history, the group view and
+// shared comments.
 
 const CATEGORIES = {
   tradicional: { label: "Tradicional", varName: "--c-tradicional", hex: "#b06a36" },
@@ -9,7 +11,7 @@ const CATEGORIES = {
 };
 
 const App = (() => {
-  const state = { restaurants: [] };
+  const state = { restaurants: [], currentDetail: null };
 
   function esc(str) {
     return String(str == null ? "" : str).replace(/[&<>"']/g, (c) =>
@@ -30,6 +32,18 @@ const App = (() => {
   }
   function directionsUrl(r) {
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(r.mapsQuery)}`;
+  }
+  // Small round avatar: photo when available, else a coloured initial.
+  function avatar(name, photoURL, cls) {
+    const c = "avatar" + (cls ? " " + cls : "");
+    if (photoURL) return `<img class="${c}" src="${esc(photoURL)}" alt="" loading="lazy">`;
+    return `<span class="${c}">${esc((name || "?").trim().charAt(0).toUpperCase())}</span>`;
+  }
+  function fmtDate(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d)) return "";
+    return d.toLocaleDateString("pt-PT", { day: "2-digit", month: "short", year: "numeric" });
   }
 
   // Suggest one of our categories from Google place types + price level.
@@ -104,7 +118,7 @@ const App = (() => {
         const lvl = cached && typeof cached.priceLevelNum === "number" ? cached.priceLevelNum : null;
         if (lvl !== null && !prices.includes(Math.max(1, Math.min(4, lvl)))) return false;
       }
-      if (hideVisited && Storage.isVisited(r.id)) return false;
+      if (hideVisited && UserData.isVisited(r.id)) return false;
       if (q) {
         const hay = [r.name, r.town, r.notes, ...(r.tags || [])].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
@@ -142,17 +156,27 @@ const App = (() => {
   }
 
   function buildCard(r) {
-    const visited = Storage.isVisited(r.id);
+    const visited = UserData.isVisited(r.id);
     const cat = catFor(r);
     const card = document.createElement("div");
     card.className = "card" + (visited ? " visited" : "");
     card.dataset.id = r.id;
+
+    // group/personal badges
+    const badges = [];
+    if (r.source === "community") badges.push('<span class="badge community">comunidade</span>');
+    if (UserData.isPriority(r.id)) badges.push(`<span class="badge priority" title="Quero ir já">${icon("flame")} já</span>`);
+    if (UserData.isCloud()) {
+      const n = UserData.visitedBy(r.id).length;
+      if (n) badges.push(`<span class="badge visited-by" title="Visitado por ${n}">${icon("users")} ${n}</span>`);
+    }
+
     card.innerHTML = `
       <span class="card-accent" style="background:var(${cat.varName})"></span>
       <div class="card-main">
         <div class="card-title-row">
           <span class="card-title">${esc(r.name)}</span>
-          ${r.source === "community" ? '<span class="badge community">comunidade</span>' : ""}
+          ${badges.join(" ")}
         </div>
         <div class="card-town">${esc(r.town)} · ${esc(r.region)}</div>
         ${r.notes ? `<div class="card-notes">${esc(r.notes)}</div>` : ""}
@@ -168,7 +192,7 @@ const App = (() => {
     });
     card.querySelector("[data-visit]").addEventListener("click", (e) => {
       e.stopPropagation();
-      setVisited(r.id, !Storage.isVisited(r.id));
+      setVisited(r.id, !UserData.isVisited(r.id));
     });
     if (PlacesModule.isAvailable()) PlacesModule.enrichCard(r, card.querySelector("[data-meta]"));
     return card;
@@ -182,7 +206,7 @@ const App = (() => {
 
   // ---------- Visited ----------
   function setVisited(id, visited) {
-    Storage.setVisited(id, visited);
+    UserData.setVisited(id, visited);
     const r = state.restaurants.find((x) => x.id === id);
     if (document.getElementById("hide-visited-checkbox").checked) { render(); return; }
     if (r) MapModule.setMarkerVisited(id, r.category, visited);
@@ -200,7 +224,7 @@ const App = (() => {
 
   function updateProgress() {
     const total = state.restaurants.length;
-    const visited = state.restaurants.filter((r) => Storage.isVisited(r.id)).length;
+    const visited = state.restaurants.filter((r) => UserData.isVisited(r.id)).length;
     const pct = total ? Math.round((visited / total) * 100) : 0;
     document.getElementById("visited-counter").textContent = `${visited} / ${total}`;
     document.getElementById("progress-label").textContent = `${visited} de ${total} visitados`;
@@ -209,7 +233,7 @@ const App = (() => {
 
   // ---------- Surprise me ----------
   function pickRandom() {
-    const pool = getFiltered().filter((r) => !Storage.isVisited(r.id));
+    const pool = getFiltered().filter((r) => !UserData.isVisited(r.id));
     const choices = pool.length ? pool : getFiltered();
     if (!choices.length) return;
     onSelect(choices[Math.floor(Math.random() * choices.length)]);
@@ -233,8 +257,9 @@ const App = (() => {
   }
 
   function openDetail(r) {
+    state.currentDetail = r;
     const cat = catFor(r);
-    const visited = Storage.isVisited(r.id);
+    const visited = UserData.isVisited(r.id);
     const panel = document.getElementById("detail-panel");
     const hero = document.getElementById("detail-hero");
     const body = document.getElementById("detail-body");
@@ -247,6 +272,7 @@ const App = (() => {
           <span class="cat-chip" style="color:var(${cat.varName})">${dot(cat)} ${cat.label}</span>
           <span>· ${esc(r.town)}, ${esc(r.region)}</span>
         </div>
+        ${r.addedByName ? `<div class="added-by">${icon("sparkles")} Sugerido por <strong>${esc(r.addedByName)}</strong></div>` : ""}
       </div>
       <div class="detail-stats" data-stats>
         <div class="stat"><span class="label">Avaliação</span><span class="value"><span class="skeleton sk-line" style="width:60px"></span></span></div>
@@ -258,6 +284,7 @@ const App = (() => {
         <button class="btn btn-ghost btn-block" data-share>${icon("share")} Partilhar</button>
         <button class="btn btn-block" data-visit-toggle="${esc(r.id)}"></button>
       </div>
+      <div class="my-marks" data-my-marks></div>
       <div class="cat-edit">
         <span class="detail-section-title">Tipo de sítio${DB.isAvailable() ? "" : " (só neste navegador)"}</span>
         <div class="chip-row" data-cat-edit></div>
@@ -265,14 +292,18 @@ const App = (() => {
       </div>
       <div data-gallery></div>
       <div data-hours></div>
-      <div data-reviews></div>`;
+      <div data-reviews></div>
+      <div class="amigos" data-amigos></div>
+      <div class="comments" data-comments></div>`;
 
     const visitBtn = body.querySelector("[data-visit-toggle]");
     syncDetailVisitBtn(visitBtn, visited);
     visitBtn.addEventListener("click", () => {
-      const now = !Storage.isVisited(r.id);
+      const now = !UserData.isVisited(r.id);
       setVisited(r.id, now);
       syncDetailVisitBtn(visitBtn, now);
+      renderMyMarks(r);
+      renderAmigos(r);
     });
 
     body.querySelector("[data-share]").addEventListener("click", () => shareRestaurant(r));
@@ -289,8 +320,215 @@ const App = (() => {
       catEdit.appendChild(chip);
     });
 
+    renderMyMarks(r);
+    renderAmigos(r);
+    renderComments(r);
+
     panel.setAttribute("aria-hidden", "false");
     fillDetailFromPlaces(r);
+  }
+
+  // Re-render the open drawer (e.g. after sign-in changes what's available).
+  function refreshOpenDetail() {
+    const r = state.currentDetail;
+    const panel = document.getElementById("detail-panel");
+    if (r && panel.getAttribute("aria-hidden") === "false") openDetail(r);
+  }
+
+  // ---------- Personal marks (priority / rating / note / visit history) ----------
+  function renderMyMarks(r) {
+    const el = document.querySelector("#detail-body [data-my-marks]");
+    if (!el) return;
+
+    if (!UserData.isCloud()) {
+      if (DB.isAvailable()) {
+        el.innerHTML =
+          `<div class="signin-invite">${icon("log-in")} <span>Inicia sessão com a Google para marcar prioridade, avaliar e guardar notas — e ver as dos amigos.</span></div>`;
+      } else {
+        el.innerHTML = "";
+      }
+      return;
+    }
+
+    const priority = UserData.isPriority(r.id);
+    const rating = UserData.getRating(r.id) || { stars: 0, note: "" };
+    const last = UserData.lastVisit(r.id);
+    const visits = UserData.getHistory(r.id).length;
+
+    el.innerHTML = `
+      <div class="detail-section-title">A minha marcação</div>
+      <button class="btn btn-block priority-toggle${priority ? " on" : ""}" data-priority aria-pressed="${priority}">
+        ${icon("flame")} ${priority ? "Na lista “quero ir já”" : "Quero ir já"}
+      </button>
+      <div class="rate-row">
+        <span class="rate-label">A minha nota</span>
+        <div class="stars-input" data-stars>${[1, 2, 3, 4, 5]
+          .map((n) => `<button type="button" class="star-btn${n <= rating.stars ? " on" : ""}" data-star="${n}" aria-label="${n} estrelas">${icon("star")}</button>`)
+          .join("")}</div>
+      </div>
+      <textarea class="note-input" data-note placeholder="Nota pessoal (ex: pedir a sobremesa)…" rows="2">${esc(rating.note || "")}</textarea>
+      <div class="visit-history">
+        <button class="btn btn-ghost btn-sm" data-add-visit>${icon("check-circle")} Marcar visita de hoje</button>
+        <span class="muted history-summary">${
+          last ? `Última visita: ${fmtDate(last)}${visits > 1 ? ` · ${visits} visitas` : ""}` : "Sem visitas registadas"
+        }</span>
+      </div>`;
+
+    el.querySelector("[data-priority]").addEventListener("click", () => {
+      const now = !UserData.isPriority(r.id);
+      UserData.setPriority(r.id, now);
+      renderMyMarks(r);
+      render(); // refresh the "quero ir já" badge on the cards
+    });
+
+    el.querySelectorAll("[data-stars] .star-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        let stars = parseInt(btn.dataset.star, 10);
+        const cur = UserData.getRating(r.id) || { stars: 0, note: "" };
+        if (cur.stars === stars) stars = 0; // click same star again to clear
+        UserData.setRating(r.id, stars, el.querySelector("[data-note]").value.trim());
+        renderMyMarks(r);
+        renderAmigos(r);
+      });
+    });
+
+    let noteTimer = null;
+    el.querySelector("[data-note]").addEventListener("input", (e) => {
+      clearTimeout(noteTimer);
+      const val = e.target.value.trim();
+      noteTimer = setTimeout(() => {
+        const cur = UserData.getRating(r.id) || { stars: 0, note: "" };
+        UserData.setRating(r.id, cur.stars, val);
+        renderAmigos(r);
+      }, 600);
+    });
+
+    el.querySelector("[data-add-visit]").addEventListener("click", () => {
+      UserData.addVisit(r.id, new Date().toISOString());
+      setVisited(r.id, true);
+      renderMyMarks(r);
+      renderAmigos(r);
+    });
+  }
+
+  // ---------- Group view ("Amigos") ----------
+  function renderAmigos(r) {
+    const el = document.querySelector("#detail-body [data-amigos]");
+    if (!el) return;
+    if (!UserData.isCloud()) { el.innerHTML = ""; return; }
+
+    const visitedBy = UserData.visitedBy(r.id);
+    const priorityBy = UserData.priorityBy(r.id);
+    const ratings = UserData.ratingsFor(r.id);
+    const avg = UserData.avgRating(r.id);
+
+    if (!visitedBy.length && !priorityBy.length && !ratings.length) {
+      el.innerHTML = "";
+      return;
+    }
+
+    const blocks = [`<div class="detail-section-title">${icon("users")} Amigos</div>`];
+
+    if (typeof avg === "number") {
+      blocks.push(
+        `<div class="amigos-avg">${icon("star")} <strong>${avg.toFixed(1)}</strong> <span class="muted">média do grupo (${ratings.filter((x) => x.stars > 0).length})</span></div>`
+      );
+    }
+    if (visitedBy.length) {
+      blocks.push(
+        `<div class="amigos-row"><span class="amigos-label">Visitaram</span><span class="amigos-avatars">${visitedBy
+          .map((g) => avatar(g.displayName, g.photoURL))
+          .join("")}</span></div>`
+      );
+    }
+    if (priorityBy.length) {
+      blocks.push(
+        `<div class="amigos-row"><span class="amigos-label">${icon("flame")} Querem ir</span><span class="amigos-avatars">${priorityBy
+          .map((g) => avatar(g.displayName, g.photoURL))
+          .join("")}</span></div>`
+      );
+    }
+    const withNotes = ratings.filter((x) => x.note);
+    if (withNotes.length) {
+      blocks.push(
+        `<div class="amigos-notes">${withNotes
+          .map(
+            (x) => `<div class="amigos-note">${avatar(x.name, x.photoURL)}<div><span class="who">${esc(x.name)}${
+              x.stars ? ` · ${icon("star")} ${x.stars}` : ""
+            }</span><p>${esc(x.note)}</p></div></div>`
+          )
+          .join("")}</div>`
+      );
+    }
+    el.innerHTML = blocks.join("");
+  }
+
+  // ---------- Shared comments ----------
+  async function renderComments(r) {
+    const el = document.querySelector("#detail-body [data-comments]");
+    if (!el) return;
+    if (!DB.isAvailable()) { el.innerHTML = ""; return; }
+
+    const signedIn = UserData.isCloud();
+    el.innerHTML = `
+      <div class="detail-section-title">${icon("message")} Comentários</div>
+      <div class="comments-list" data-comments-list>
+        <div class="skeleton sk-line" style="width:50%"></div>
+      </div>
+      ${
+        signedIn
+          ? `<div class="comment-form">
+               <textarea class="note-input" data-comment-text placeholder="Escreve um comentário para o grupo…" rows="2"></textarea>
+               <button class="btn btn-primary btn-sm" data-comment-send>Comentar</button>
+             </div>`
+          : DB.isAvailable()
+          ? `<p class="hint">${icon("log-in")} Inicia sessão para comentar.</p>`
+          : ""
+      }`;
+
+    const listEl = el.querySelector("[data-comments-list]");
+    const comments = await DB.fetchComments(r.id);
+    // guard against the user navigating to another restaurant meanwhile
+    if (state.currentDetail !== r) return;
+    listEl.innerHTML = comments.length
+      ? comments.map(renderComment).join("")
+      : `<p class="muted">Ainda sem comentários. Sê o primeiro!</p>`;
+
+    if (signedIn) {
+      const textEl = el.querySelector("[data-comment-text]");
+      const sendBtn = el.querySelector("[data-comment-send]");
+      sendBtn.addEventListener("click", async () => {
+        const text = textEl.value.trim();
+        if (!text) return;
+        sendBtn.disabled = true;
+        try {
+          const me = UserData.me();
+          const fb = window.FirebaseAuth;
+          const token = fb ? await fb.getToken() : null;
+          const saved = await DB.addComment(
+            { restaurantId: r.id, uid: me.uid, author: me.displayName, photoURL: me.photoURL, text },
+            token
+          );
+          if (listEl.querySelector(".muted")) listEl.innerHTML = "";
+          listEl.insertAdjacentHTML("beforeend", renderComment(saved));
+          textEl.value = "";
+        } catch (e) {
+          // surface a minimal error inline
+          textEl.placeholder = "Não consegui publicar. Tenta de novo.";
+        }
+        sendBtn.disabled = false;
+      });
+    }
+  }
+
+  function renderComment(c) {
+    return `<div class="comment">
+      ${avatar(c.author, c.photoURL)}
+      <div class="comment-body">
+        <span class="comment-who"><span class="name">${esc(c.author)}</span><span class="when">${esc(fmtDate(c.createdAt))}</span></span>
+        <p>${esc(c.text)}</p>
+      </div>
+    </div>`;
   }
 
   function shareRestaurant(r) {
@@ -344,6 +582,7 @@ const App = (() => {
     reviewsEl.innerHTML = `<div class="skeleton sk-line" style="width:40%"></div><div class="skeleton" style="height:54px;margin-top:8px"></div>`;
 
     const data = await PlacesModule.fetchDetails(r);
+    if (state.currentDetail !== r) return;
     if (!data) {
       statsEl.innerHTML = `<p class="hint">Sem dados do Google para este sítio ainda.</p>`;
       reviewsEl.innerHTML = "";
@@ -434,12 +673,12 @@ const App = (() => {
     const stars = [1, 2, 3, 4, 5]
       .map((n) => `<svg class="icon${n <= rv.rating ? "" : " empty"}"><use href="#i-star"/></svg>`)
       .join("");
-    const avatar = rv.photo
+    const av = rv.photo
       ? `<img class="review-avatar" src="${esc(rv.photo)}" alt="" loading="lazy">`
       : `<span class="review-avatar">${esc((rv.author || "?").charAt(0))}</span>`;
     return `<div class="review">
       <div class="review-head">
-        ${avatar}
+        ${av}
         <span class="review-who"><span class="name">${esc(rv.author)}</span><span class="when">${esc(rv.when)}</span></span>
         <span class="review-stars">${stars}</span>
       </div>
@@ -449,6 +688,7 @@ const App = (() => {
 
   function closeDetail() {
     document.getElementById("detail-panel").setAttribute("aria-hidden", "true");
+    state.currentDetail = null;
   }
 
   // ---------- Trip planner ----------
@@ -475,8 +715,9 @@ const App = (() => {
           li.addEventListener("click", () => onSelect(restaurant));
           results.appendChild(li);
         });
-        // Bring the freshly-found stops into view (esp. on mobile).
-        results.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        // On mobile, close the sidebar so the drawn route is visible.
+        if (isMobile()) openSidebar(false);
+        else results.scrollIntoView({ behavior: "smooth", block: "nearest" });
       } catch (err) { status.textContent = err.message; }
     });
 
@@ -534,6 +775,15 @@ const App = (() => {
     onSelect(r);
   }
 
+  // Called by AuthModule when the signed-in user changes.
+  function onAuthChange(user, getToken) {
+    if (user) {
+      UserData.setUser(user, getToken); // async; UserData.onChange triggers re-render
+    } else {
+      UserData.clearUser();
+    }
+  }
+
   async function init(options) {
     MapModule.init(options);
     DB.init();
@@ -541,6 +791,13 @@ const App = (() => {
     PlacesModule.init();
     PlannerModule.init();
     AddRestaurantModule.init();
+    UserData.init({
+      onChange: () => {
+        render();
+        refreshOpenDetail();
+      }
+    });
+    AuthModule.init({ onUser: onAuthChange });
 
     const curated = await (await fetch("data/restaurants.json")).json();
     const community = await DB.fetchAll();
@@ -558,5 +815,5 @@ const App = (() => {
     render();
   }
 
-  return { init, onRestaurantAdded };
+  return { init, onRestaurantAdded, onAuthChange };
 })();

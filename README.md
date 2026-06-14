@@ -8,7 +8,8 @@ First batch: 10 spots in the **Alentejo**, taken from a personal wishlist.
 
 - 🗺️ Interactive map (Google Maps) with color-coded pins by category
 - 📋 Sidebar list grouped by region, with search and filters (region, category, dish tags, **price**)
-- ✅ "Visited" tracker — check off places you've been, saved in your browser
+- 👥 Sign in with Google to make it a **group app** — your own visited list, "quero ir já" priorities, star ratings, personal notes and visit history, all synced and **visible to your friends** (with a group average and a "sugerido por" credit), plus **shared comments** per place
+- ✅ "Visited" tracker — check off places you've been (saved in your browser when signed out, in your cloud profile when signed in)
 - 🎲 "Surpreende-me" — randomly picks an unvisited restaurant for your next trip
 - 🚗 Trip planner — enter a "from" and "to", and it suggests restaurants near your driving route
 - ➕ "Adicionar restaurante" — add new places with a dead-simple form (just name + town + type). The location is found automatically; with Firebase set up, additions are shared with everyone instantly
@@ -79,7 +80,9 @@ css/style.css           – styling
 js/config.js            – Google Maps key + Firebase config (optional)
 js/app.js                – main app: state, filters, rendering
 js/map.js                – Google Maps setup, markers, info windows
-js/db.js                 – shared cloud list (Firebase Firestore REST)
+js/db.js                 – shared cloud data (Firebase Firestore REST): restaurants, overrides, userData, comments
+js/auth.js               – Google Sign-In UI glue (topbar button / avatar)
+js/userdata.js           – per-person marks + group view (cloud when signed in, localStorage otherwise)
 js/geocode.js            – auto-locate a place from its name + town
 js/storage.js            – localStorage helpers (visited, custom restaurants, Places cache)
 js/planner.js            – trip planner (route + nearby restaurants)
@@ -118,11 +121,26 @@ service cloud.firestore {
       allow create, update: if true;
       allow delete: if false;
     }
+    match /userData/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    match /comments/{doc} {
+      allow read: if true;
+      allow create: if request.auth != null
+                    && request.auth.uid == request.resource.data.uid;
+      allow update, delete: if request.auth != null
+                    && request.auth.uid == resource.data.uid;
+    }
   }
 }
 ```
 
-The `overrides` collection stores shared edits (like changing a restaurant's category from inside the app) so corrections show up for everyone.
+What each collection is for:
+
+- `overrides` — shared edits (like changing a restaurant's category from inside the app) so corrections show up for everyone.
+- `userData/{uid}` — **one document per signed-in person**: their visited list, "quero ir já" priorities, star ratings, personal notes and visit history. Signed-in friends can read each other's (the group view in the detail drawer); you can only write your own.
+- `comments` — shared comments per restaurant. Anyone can read; only signed-in people can post (and only edit/delete their own).
 
 ### 3. Get your config values
 
@@ -144,6 +162,31 @@ These two values are safe to publish — the API key only identifies the project
 Commit and push. From now on, restaurants added via the form are shared with everyone and tagged **"comunidade"** in the list. Curated places in `data/restaurants.json` always take priority and stay version-controlled.
 
 > Tip: to lock additions down later (e.g. stop spam), tighten the `create` rule or add [Firebase App Check](https://firebase.google.com/docs/app-check).
+
+### 4. Enable Google Sign-In (for the group features)
+
+Signing in turns the map into a small social app for your group of friends: each
+person gets their own **visited list, "quero ir já" priorities, star ratings,
+personal notes and visit history** — all synced to the cloud and **visible to the
+others** in each restaurant's detail drawer, alongside **shared comments** and a
+"sugerido por" credit on community-added places. Signed-out visitors still get the
+full map, search, filters and a local (per-browser) visited tracker.
+
+To switch it on:
+
+1. Firebase console → **Build → Authentication → Get started**.
+2. **Sign-in method → Add new provider → Google → Enable**, pick a support email, **Save**.
+3. **Authentication → Settings → Authorized domains** → add the domain you serve from
+   (e.g. `your-project.web.app`, `your-project.firebaseapp.com`, and/or
+   `<your-username>.github.io`). The two `*.web.app`/`*.firebaseapp.com` domains are
+   usually added automatically with Firebase Hosting.
+
+No code changes are needed — the app loads Firebase Auth from the CDN and shows an
+**"Entrar"** button in the top bar once the provider is on. Marks made before signing
+in (your local "visited") are merged into your cloud profile on first login.
+
+> If you serve the app from a custom domain (incl. GitHub Pages), also add that domain
+> to your **Google Maps API key** referrer allowlist, or the map won't render there.
 
 ## Adding restaurants by hand (permanent, in git)
 

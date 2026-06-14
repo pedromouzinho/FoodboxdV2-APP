@@ -43,6 +43,10 @@
     <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
     <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></symbol>
     <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></symbol>
+    <symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-message" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+    <symbol id="i-log-in" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></symbol>
   </svg>
 
   <header class="topbar">
@@ -56,6 +60,16 @@
     <button id="install-btn" class="btn btn-ghost btn-sm topbar-install hidden">
       <svg class="icon"><use href="#i-download"/></svg> Instalar
     </button>
+    <button id="signin-btn" class="btn btn-ghost btn-sm topbar-signin hidden">
+      <svg class="icon"><use href="#i-log-in"/></svg> Entrar
+    </button>
+    <div id="user-chip" class="user-chip hidden">
+      <img id="user-chip-img" class="avatar" alt="" />
+      <span id="user-chip-name" class="user-chip-name"></span>
+      <button id="signout-btn" class="icon-btn user-chip-out" aria-label="Terminar sessão">
+        <svg class="icon"><use href="#i-x"/></svg>
+      </button>
+    </div>
     <div class="topbar-progress" id="topbar-progress" title="Visitados">
       <span id="visited-counter">0 / 0</span>
     </div>
@@ -236,6 +250,8 @@
   <script src="js/config.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/db.js"></script>
+  <script src="js/userdata.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/map.js"></script>
   <script src="js/geocode.js"></script>
   <script src="js/places.js"></script>
@@ -291,6 +307,43 @@
         if (btn) btn.classList.add("hidden");
       });
     })();
+  </script>
+
+  <!-- Firebase Auth (Google Sign-In), loaded as an ES module. Exposes
+       window.FirebaseAuth and fires "firebase-auth-ready" when ready. The rest
+       of the app (js/auth.js) is classic and hooks into that event. No-ops if
+       Firebase isn't configured or the CDN can't be reached. -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import {
+      getAuth, GoogleAuthProvider, signInWithPopup, signOut,
+      onAuthStateChanged, setPersistence, browserLocalPersistence
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
+    if (window.CONFIG && CONFIG.FIREBASE_PROJECT_ID && CONFIG.FIREBASE_API_KEY) {
+      try {
+        const app = initializeApp({
+          apiKey: CONFIG.FIREBASE_API_KEY,
+          authDomain: CONFIG.FIREBASE_PROJECT_ID + ".firebaseapp.com",
+          projectId: CONFIG.FIREBASE_PROJECT_ID
+        });
+        const auth = getAuth(app);
+        setPersistence(auth, browserLocalPersistence).catch(function () {});
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: "select_account" });
+        window.FirebaseAuth = {
+          configured: true,
+          signIn: function () { return signInWithPopup(auth, provider); },
+          signOut: function () { return signOut(auth); },
+          onChange: function (cb) { return onAuthStateChanged(auth, cb); },
+          getToken: function () { return auth.currentUser ? auth.currentUser.getIdToken() : Promise.resolve(null); },
+          current: function () { return auth.currentUser; }
+        };
+        document.dispatchEvent(new Event("firebase-auth-ready"));
+      } catch (e) {
+        console.warn("Firebase Auth init failed:", e && e.message);
+      }
+    }
   </script>
 </body>
 </html>
