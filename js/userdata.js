@@ -16,6 +16,7 @@ const UserData = (() => {
   let displayName = "";
   let photoURL = "";
   let getToken = null; // async () => idToken
+  let onboarded = false; // has this account already seen the onboarding tour?
 
   // my marks (used in cloud mode)
   let mine = { visited: new Set(), priority: new Set(), ratings: {}, history: {} };
@@ -58,6 +59,9 @@ const UserData = (() => {
       // Prefer a custom profile photo saved in the cloud over Google's, so it
       // survives the next sign-in.
       if (doc.photoURL) photoURL = doc.photoURL;
+      // Onboarding is once-per-account (cloud), so the tour can't reappear on a
+      // new device / the installed PWA's separate storage.
+      onboarded = doc.onboarded === true;
       // First sign-in: fold in whatever was marked locally before logging in.
       if (firstTime) {
         Storage.getVisited().forEach((id) => mine.visited.add(id));
@@ -75,6 +79,7 @@ const UserData = (() => {
     cloud = false;
     uid = displayName = photoURL = "";
     getToken = null;
+    onboarded = false;
     mine = { visited: new Set(), priority: new Set(), ratings: {}, history: {} };
     group = [];
     if (onChange) onChange();
@@ -140,11 +145,20 @@ const UserData = (() => {
         visited: [...mine.visited],
         priority: [...mine.priority],
         ratings: mine.ratings,
-        history: mine.history
+        history: mine.history,
+        onboarded
       },
       token
     );
     syncMineToGroup();
+  }
+
+  // ---- onboarding (tour shown once per account) ----
+  function isOnboarded() { return cloud && onboarded; }
+  function markOnboarded() {
+    if (!cloud || onboarded) return;
+    onboarded = true;
+    scheduleSave();
   }
 
   // ---- visited (works in both modes) ----
@@ -252,6 +266,8 @@ const UserData = (() => {
     me,
     setUser,
     setPhotoURL,
+    isOnboarded,
+    markOnboarded,
     clearUser,
     reloadGroup,
     isVisited,

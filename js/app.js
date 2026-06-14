@@ -1881,11 +1881,18 @@ const App = (() => {
   }
 
   // Called by AuthModule when the signed-in user changes.
-  function onAuthChange(user, getToken) {
+  async function onAuthChange(user, getToken) {
     if (user) {
       hideSigninModal(true); // signed in — close and don't auto-prompt again this session
-      UserData.setUser(user, getToken); // async; UserData.onChange triggers re-render
-      if (!tourDone()) showTour(); // first login → guided tour (dismissible)
+      await UserData.setUser(user, getToken); // async; UserData.onChange triggers re-render
+      // Tutorial only on the account's FIRST-ever sign-in. The flag lives in the
+      // cloud profile, so it can't reappear on a new device or the installed
+      // PWA's separate storage. (Fallback to localStorage when not cloud.)
+      if (UserData.isCloud()) {
+        if (!UserData.isOnboarded()) { showTour(); UserData.markOnboarded(); }
+      } else if (!tourDone()) {
+        showTour();
+      }
     } else {
       UserData.clearUser();
       maybePromptSignin();

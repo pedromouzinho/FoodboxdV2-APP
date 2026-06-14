@@ -206,6 +206,7 @@ const DB = (() => {
       priority: data.priority || [],
       ratings: data.ratings || {},
       history: data.history || {},
+      onboarded: data.onboarded === true,
       updatedAt: new Date().toISOString()
     });
     const res = await fetch(`${docsBase}/userData/${encodeURIComponent(uid)}?${keyQ()}`, {
