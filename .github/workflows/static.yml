@@ -2,9 +2,9 @@
 name: Deploy static content to Pages
 
 on:
-  # Runs on pushes targeting the app's working branch
+  # Runs on pushes to the Pages deploy branch or the app's working branch
   push:
-    branches: ["claude/portugal-restaurant-map-kuz2w2"]
+    branches: ["claude/relaxed-allen-iX6K5", "claude/portugal-restaurant-map-kuz2w2"]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
