@@ -17,3 +17,9 @@ const CONFIG = {
   FIREBASE_PROJECT_ID: "app-restaurantes-499400",
   FIREBASE_API_KEY: "AIzaSyC0jNIN7D7g5gTpMWZYC8pk36fvJXuUrnc"
 };
+
+// Expose on window so ES modules (e.g. the Firebase Auth bootstrap in
+// index.html) can read it. A top-level `const` is a lexical global and does
+// NOT become a property of window, so module scripts can't see bare CONFIG —
+// without this, window.CONFIG is undefined and Firebase never initialises.
+window.CONFIG = CONFIG;
