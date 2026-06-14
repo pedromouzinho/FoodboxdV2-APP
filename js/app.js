@@ -226,7 +226,8 @@ const App = (() => {
     const total = state.restaurants.length;
     const visited = state.restaurants.filter((r) => UserData.isVisited(r.id)).length;
     const pct = total ? Math.round((visited / total) * 100) : 0;
-    document.getElementById("visited-counter").textContent = `${visited} / ${total}`;
+    const vc = document.getElementById("visited-counter");
+    if (vc) vc.textContent = `${visited} / ${total}`;
     document.getElementById("progress-label").textContent = `${visited} de ${total} visitados`;
     document.getElementById("progress-fill").style.width = pct + "%";
   }
@@ -1687,7 +1688,7 @@ const App = (() => {
     const tourPrev = document.getElementById("tour-prev");
     if (tourPrev) tourPrev.addEventListener("click", () => { if (tourIdx > 0) { tourIdx--; paintTourSlide(); } });
     const tourReplay = document.getElementById("tour-replay-btn");
-    if (tourReplay) { tourReplay.classList.remove("hidden"); tourReplay.addEventListener("click", showTour); }
+    if (tourReplay) tourReplay.addEventListener("click", () => { hideProfileModal(); showTour(); });
 
     // Success + profile modals
     document.querySelectorAll("[data-close-success]").forEach((el) => el.addEventListener("click", hideSuccess));

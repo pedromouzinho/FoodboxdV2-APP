@@ -73,18 +73,12 @@
     <button id="signin-btn" class="btn btn-ghost btn-sm topbar-signin hidden">
       <svg class="icon"><use href="#i-log-in"/></svg> Entrar
     </button>
-    <button id="tour-replay-btn" class="icon-btn hidden" aria-label="Rever tutorial">
-      <svg class="icon"><use href="#i-sparkles"/></svg>
-    </button>
     <div id="user-chip" class="user-chip hidden">
       <img id="user-chip-img" class="avatar" alt="" />
       <span id="user-chip-name" class="user-chip-name"></span>
       <button id="signout-btn" class="icon-btn user-chip-out" aria-label="Terminar sessão">
         <svg class="icon"><use href="#i-x"/></svg>
       </button>
-    </div>
-    <div class="topbar-progress" id="topbar-progress" title="Visitados">
-      <span id="visited-counter">0 / 0</span>
     </div>
   </header>
 
@@ -391,6 +385,9 @@
         <input type="file" accept="image/*" data-profile-input hidden />
       </label>
       <p class="photo-status muted" data-profile-status></p>
+      <button class="btn btn-ghost btn-block" id="tour-replay-btn">
+        <svg class="icon"><use href="#i-sparkles"/></svg> Rever tutorial
+      </button>
       <button class="btn btn-ghost btn-block" data-close-profile>Fechar</button>
     </div>
   </div>

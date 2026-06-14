@@ -1066,7 +1066,7 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 }
 .ptr.spin .ptr-spinner { animation: ptr-rot 0.7s linear infinite; }
 @keyframes ptr-rot { to { transform: rotate(360deg); } }
-.screen-data { position: relative; }
+/* (.screen-data is already position:fixed, which is the containing block for .ptr) */
 
 /* ---------- iOS "Add to Home Screen" hint ---------- */
 .ios-a2hs {
