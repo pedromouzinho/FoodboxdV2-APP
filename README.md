@@ -1,6 +1,6 @@
-# Restaurantes Portugal 🍽️
+# Foodboxd 🍽️
 
-An interactive map of restaurants in Portugal you want to visit — built as a static site for GitHub Pages. Each restaurant links straight to Google Maps for reviews, photos, hours and directions.
+Foodboxd is a "Letterboxd for restaurants" — an interactive map plus a social diary where you rate places, log the dishes you had, keep memories, and see your friends' activity and leaderboards. Built as a static PWA (Firebase Hosting) with an optional native iOS shell via Capacitor (see `SETUP_IOS.md`).
 
 First batch: 10 spots in the **Alentejo**, taken from a personal wishlist.
 

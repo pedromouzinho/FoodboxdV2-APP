@@ -1,7 +1,7 @@
 {
-  "name": "Restaurantes Portugal",
-  "short_name": "Restaurantes",
-  "description": "Mapa interativo de restaurantes em Portugal para visitar.",
+  "name": "Foodboxd",
+  "short_name": "Foodboxd",
+  "description": "Foodboxd — o teu diário de restaurantes: avalia, regista e descobre com os amigos.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",

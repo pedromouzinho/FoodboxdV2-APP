@@ -1,4 +1,4 @@
-// Service worker for the Restaurantes Portugal PWA.
+// Service worker for the Foodboxd PWA.
 // Strategy:
 //   - HTML navigations  -> network-first (so a freshly deployed shell, e.g. a
 //     new sign-in button, shows up immediately when online; cache is the
@@ -6,7 +6,7 @@
 //   - Other static files -> stale-while-revalidate (fast, self-healing).
 //   - Cross-origin (Google Maps/Places/Directions, Firebase) -> network only.
 
-const CACHE = "restaurantes-v10";
+const CACHE = "foodboxd-v11";
 const ASSETS = [
   "./",
   "index.html",

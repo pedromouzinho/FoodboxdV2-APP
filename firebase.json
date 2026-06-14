@@ -15,7 +15,14 @@
       ".github/**",
       ".agents/**",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "www/**",
+      "ios/**",
+      "scripts/**",
+      "package.json",
+      "package-lock.json",
+      "capacitor.config.json",
+      "SETUP_IOS.md"
     ],
     "headers": [
       {

@@ -6,6 +6,12 @@ firestore-debug.log
 # Node
 node_modules/
 
+# Capacitor: build output (generated from web source by scripts/build-www.js)
+www/
+
+# macOS
+.DS_Store
+
 # Service account keys must never be committed
 *serviceaccount*.json
 sa.json
