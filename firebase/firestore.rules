@@ -2,12 +2,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // Shared restaurant list. Anyone can read the map and add a new place,
-    // but existing entries cannot be edited or deleted from the browser.
-    // (You can still delete anything from the Firebase console.)
+    // but existing entries cannot be deleted from the browser.
     match /restaurants/{doc} {
       allow read: if true;
       allow create: if true;
       allow update, delete: if false;
+    }
+    // Shared edits (e.g. category changes) keyed by restaurant id. Anyone can
+    // read and set them so corrections show up for everyone.
+    match /overrides/{doc} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if false;
     }
   }
 }
