@@ -7,12 +7,29 @@ First batch: 10 spots in the **Alentejo**, taken from a personal wishlist.
 ## Features
 
 - 🗺️ Interactive map (Google Maps) with color-coded pins by category
-- 📋 Sidebar list grouped by region, with search and filters (region, category, dish tags)
+- 📋 Sidebar list grouped by region, with search and filters (region, category, dish tags, **price**)
 - ✅ "Visited" tracker — check off places you've been, saved in your browser
-- 🎲 "Escolher por mim" — randomly picks an unvisited restaurant for your next trip
+- 🎲 "Surpreende-me" — randomly picks an unvisited restaurant for your next trip
 - 🚗 Trip planner — enter a "from" and "to", and it suggests restaurants near your driving route
 - ➕ "Adicionar restaurante" — add new places with a dead-simple form (just name + town + type). The location is found automatically; with Firebase set up, additions are shared with everyone instantly
-- ⭐ Optional live Google ratings, photos, opening hours via the Places API
+- ⭐ Optional live Google ratings, photos, opening hours, phone (Call CTA) via the Places API
+- 🏷️ In-app category editing (shared via Firebase) plus an automatic **category suggestion** from Google's place types
+- 📱 Installable as a PWA (Add to Home Screen) and works offline for the base list
+
+## Category criteria
+
+Categories describe **what the place is**, not just one dish:
+
+| Category | When to use |
+| --- | --- |
+| **Tradicional** | Full sit-down regional / home cooking (default for a tasca / restaurante típico) |
+| **Petiscos / Tasca** | Small plates, snacks, beer, casual (snack-bar, cervejaria) |
+| **Doces / Pastelaria** | Main draw is pastry / sweets / coffee |
+| **Fine Dining** | Chef-driven, tasting menu, reservation-led, higher price |
+
+The colour of each pin follows the category. You can change a restaurant's category from
+inside the detail drawer (shared with everyone when Firebase is configured), and when live
+Google data is available the app may suggest a better category to apply with one tap.
 
 ## Publishing on GitHub Pages
 
