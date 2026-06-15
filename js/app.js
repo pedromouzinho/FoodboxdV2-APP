@@ -1621,16 +1621,22 @@ const App = (() => {
             status.textContent = err.message;
           }
         }
-        stops.forEach(({ restaurant, distanceKm }) => {
+        stops.forEach(({ restaurant, distanceKm }, idx) => {
           const li = document.createElement("li");
           li.tabIndex = 0;
           li.dataset.id = restaurant.id;
+          li.dataset.cat = restaurant.category;
+          li.className = "stop";
           li.setAttribute("role", "button");
           li.innerHTML = `
-            <strong>${esc(restaurant.name)}</strong> — ${esc(restaurant.town)}
-            <br><span class="dist">${distanceKm.toFixed(1)} km da rota</span>
-            <span class="ai-note" data-ai-note hidden></span>
-            <span class="route-summary" data-route-summary>Ver percurso com esta paragem</span>`;
+            <div class="rcard-thumb" style="width:56px;height:56px"><div class="ph" data-label="foto"></div></div>
+            <div class="stop-body">
+              <span class="stop-num">PARAGEM ${idx + 1}</span>
+              <span class="rcard-name" style="font-size:var(--fs-base)">${esc(restaurant.name)}</span>
+              <span class="rcard-loc">${icon("pin")} ${esc(restaurant.town)} · ${distanceKm.toFixed(1)} km da rota</span>
+              <span class="ai-note" data-ai-note hidden></span>
+              <span class="route-summary" data-route-summary>Ver percurso com esta paragem</span>
+            </div>`;
           li.addEventListener("click", () => selectStop(li, restaurant));
           li.addEventListener("keydown", (e) => {
             if (e.key === "Enter" || e.key === " ") {
@@ -2024,24 +2030,36 @@ const App = (() => {
   }
 
   function feedRow(it) {
-    const who = `<strong>${esc(it.g.displayName || "Amigo")}</strong>`;
-    const rest = `<strong>${esc(it.r.name)}</strong>`;
-    let line, ic;
-    if (it.type === "rating") { ic = "star"; line = `${who} avaliou ${rest}${it.stars ? ` · ${it.stars}★` : ""}`; }
-    else if (it.type === "visit") { ic = "check-circle"; line = `${who} visitou ${rest}`; }
-    else if (it.type === "upload") { ic = "camera"; line = `${who} partilhou ${it.photos.length > 1 ? `${it.photos.length} fotos` : "uma foto"} em ${rest}`; }
-    else { ic = "flame"; line = `${who} quer ir a ${rest}`; }
-    const when = it.when ? `<span class="feed-when">${esc(fmtDate(it.when))}</span>` : "";
-    const note = it.type === "rating" && it.note ? `<p class="feed-note">${esc(it.note)}</p>` : "";
-    const photos = it.type === "upload"
-      ? `<div class="feed-photos">${it.photos.slice(0, 4)
-          .map((p) => `<img class="feed-photo" src="${esc(p.url)}" alt="" loading="lazy">`)
-          .join("")}</div>`
-      : "";
-    return `<button type="button" class="feed-item${it.type === "upload" ? " feed-upload" : ""}" data-feed-rest="${esc(it.r.id)}">
+    const cat = catFor(it.r);
+    const who = esc(it.g.displayName || "Amigo");
+    let verb;
+    if (it.type === "rating") verb = "avaliou";
+    else if (it.type === "visit") verb = "visitou";
+    else if (it.type === "upload") verb = it.photos.length > 1 ? `partilhou ${it.photos.length} fotos em` : "partilhou uma foto em";
+    else verb = "quer ir a";
+    const stars = it.type === "rating" && it.stars ? starsDisplay(it.stars) : "";
+    const note = it.type === "rating" && it.note ? `<p class="feed-note muted">“${esc(it.note)}”</p>` : "";
+    const when = it.when ? `<span class="feed-time">${esc(fmtDate(it.when))}</span>` : "";
+    const thumb = it.type === "upload" && it.photos[0]
+      ? `<img src="${esc(it.photos[0].url)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
+      : `<div class="ph" data-label="foto"></div>`;
+    return `<div class="feed-item">
       ${avatar(it.g.displayName, it.g.photoURL)}
-      <div class="feed-body"><span class="feed-line">${icon(ic)} ${line}</span>${note}${when}${photos}</div>
-    </button>`;
+      <div class="feed-body">
+        <div class="feed-text"><b>${who}</b> ${verb} <b>${esc(it.r.name)}</b></div>
+        ${stars}
+        ${note}
+        <button type="button" class="feed-card" data-feed-rest="${esc(it.r.id)}">
+          <div class="rcard-thumb" style="width:56px;height:56px">${thumb}</div>
+          <div class="stack" style="gap:3px;justify-content:center;min-width:0">
+            <span class="rcard-cat" style="color:var(${cat.varName}-ink)">${esc(cat.label)}</span>
+            <span class="rcard-name" style="font-size:var(--fs-base)">${esc(it.r.name)}</span>
+            <span class="rcard-loc">${icon("pin")} ${esc(it.r.town)}</span>
+          </div>
+        </button>
+        ${when}
+      </div>
+    </div>`;
   }
 
   function paintFeed(el, feed) {

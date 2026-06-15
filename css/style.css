@@ -1473,3 +1473,58 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .mark-visit .icon { width: 16px; height: 16px; }
 .mark-visit:hover { border-color: var(--accent); color: var(--accent-ink); }
 .mark-visit.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+/* ---- Amigos: feed + barra de grupo — design handoff ---- */
+.feed-item { display: flex; gap: var(--sp-3); padding: var(--sp-4) 0; border-bottom: 1px solid var(--hairline); }
+.feed-item:last-child { border-bottom: 0; }
+.feed-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.feed-text { font-size: var(--fs-base); line-height: 1.4; }
+.feed-text b { font-weight: 700; }
+.feed-note { font-size: var(--fs-base); margin: 0; line-height: 1.45; }
+.feed-time { font-size: var(--fs-xs); color: var(--text-faint); }
+.feed-item .stars-display .icon { width: 14px; height: 14px; }
+.feed-card {
+  display: flex; gap: var(--sp-3); padding: var(--sp-2); width: 100%; align-items: center; text-align: left;
+  background: var(--surface-inset); border: 1px solid var(--hairline); border-radius: var(--r-md); cursor: pointer;
+  transition: border-color var(--t) var(--ease);
+}
+.feed-card:hover { border-color: var(--border-strong); }
+.feed-card .rcard-thumb { flex: none; border-radius: var(--r-sm); }
+.feed-card .rcard-loc .icon { width: 13px; height: 13px; }
+
+/* barra de grupo: cartão azeitona suave */
+.groupbar {
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-radius: var(--r-lg);
+  margin: var(--sp-3) var(--sp-4) 0;
+}
+
+/* ---- Planeador: timeline de paragens — design handoff ---- */
+#planner-results {
+  position: relative; list-style: none; margin: 0;
+  padding: var(--sp-2) 0 var(--sp-2) var(--sp-5);
+  display: flex; flex-direction: column; gap: 0;
+}
+#planner-results::before {
+  content: ""; position: absolute; left: 9px; top: 14px; bottom: 14px; width: 2px;
+  background: repeating-linear-gradient(var(--border-strong) 0 6px, transparent 6px 12px);
+}
+#planner-results li.stop {
+  position: relative; display: flex; gap: var(--sp-3); padding: var(--sp-3) 0;
+  border: 0; border-bottom: 1px solid var(--hairline); background: none; border-radius: 0; cursor: pointer;
+}
+#planner-results li.stop:last-child { border-bottom: 0; }
+#planner-results li.stop::before {
+  content: ""; position: absolute; left: -20px; top: 22px; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--surface); border: 3px solid var(--cat, var(--primary));
+}
+#planner-results li.stop[data-cat="tradicional"] { --cat: var(--c-tradicional); }
+#planner-results li.stop[data-cat="petiscos"]    { --cat: var(--c-petiscos); }
+#planner-results li.stop[data-cat="pastelaria"]  { --cat: var(--c-pastelaria); }
+#planner-results li.stop[data-cat="fine-dining"] { --cat: var(--c-fine-dining); }
+#planner-results li.stop.selected { background: color-mix(in srgb, var(--primary) 7%, transparent); border-radius: var(--r-md); }
+.stop-body { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.stop-num { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-faint); letter-spacing: .04em; }
+.stop .rcard-thumb { flex: none; }
+.stop .route-summary { font-size: var(--fs-sm); color: var(--primary-strong); margin-top: 2px; cursor: pointer; }
