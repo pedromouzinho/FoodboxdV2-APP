@@ -1242,3 +1242,135 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* =====================================================================
+   REVAMP (UI/UX only) — "Bistrô alentejano": tokens + refinements.
+   Appended on purpose: overrides values above and adds new tokens
+   WITHOUT touching existing declarations. No class/markup/logic change.
+   `--primary-ink` keeps its existing meaning (on-primary contrast text).
+   ===================================================================== */
+:root {
+  color-scheme: light dark;
+  /* surfaces — papel quente, camadas de creme */
+  --bg: #f6f1e7;
+  --surface: #fffefb;
+  --surface-2: #f0e8d8;
+  --surface-3: #e7ddc8;
+  --surface-inset: #efe7d6;
+  /* ink */
+  --text: #29231b;
+  --text-muted: #6b6152;
+  --text-faint: #a89c88;
+  --on-accent: #fffdf7;
+  /* lines */
+  --border: #e3d8c3;
+  --border-strong: #d6c8ad;
+  --hairline: #ece3d2;
+  /* brand */
+  --primary: #b04a1c;
+  --primary-hover: #9c4019;
+  --primary-ink: #fffdf7;     /* text ON primary (unchanged meaning) */
+  --primary-strong: #9c401a;  /* terracotta text on light */
+  --primary-soft: #f7e4d6;
+  --accent: #5d7a47;
+  --accent-ink: #4e6a3a;
+  --accent-soft: #e6ecd9;
+  --star: #d39a23;
+  --danger: #c0492f;
+  --success: #5d7a47;
+  /* categorias (+ ink/soft) */
+  --c-tradicional: #ad6a37; --c-tradicional-ink: #93561f; --c-tradicional-soft: #f3e6d6;
+  --c-petiscos: #c0492f;    --c-petiscos-ink: #a83d27;    --c-petiscos-soft: #f7e1da;
+  --c-pastelaria: #bc5780;  --c-pastelaria-ink: #a4456c;  --c-pastelaria-soft: #f6e2ea;
+  --c-fine-dining: #5d7a47; --c-fine-dining-ink: #4e6a3a; --c-fine-dining-soft: #e6ecd9;
+  /* estado */
+  --ok: #4e6a3a; --warn: #c0492f; --info: #4a6b86; --open: #4e6a3a; --closed: #b3492f;
+  /* sombras quentes (e aliases para os nomes existentes) */
+  --shadow-rgb: 74 54 28;
+  --sh-sm: 0 1px 2px rgba(var(--shadow-rgb) / .07);
+  --sh-md: 0 2px 6px rgba(var(--shadow-rgb) / .07), 0 1px 2px rgba(var(--shadow-rgb) / .06);
+  --sh-lg: 0 10px 30px -8px rgba(var(--shadow-rgb) / .18), 0 2px 6px rgba(var(--shadow-rgb) / .08);
+  --sh-pop: 0 18px 48px -12px rgba(var(--shadow-rgb) / .28), 0 4px 12px rgba(var(--shadow-rgb) / .12);
+  --shadow-sm: var(--sh-sm);
+  --shadow-md: var(--sh-md);
+  --shadow-lg: var(--sh-lg);
+  /* tipografia — Hanken Grotesk para texto, Fraunces mantém-se nos títulos */
+  --font-text: "Hanken Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-body: var(--font-text);
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --fs-xs: .75rem; --fs-sm: .8125rem; --fs-base: .9375rem; --fs-md: 1.0625rem;
+  --fs-lg: 1.25rem; --fs-xl: 1.5rem; --fs-2xl: 1.875rem; --fs-3xl: 2.5rem;
+  --lh-tight: 1.12; --lh-snug: 1.28; --lh-base: 1.55;
+  --tracking-tight: -0.02em; --tracking-wide: 0.08em;
+  /* espaço + raio adicionais (os existentes mantêm-se) */
+  --sp-7: 40px; --sp-8: 48px; --sp-9: 64px;
+  --r-xl: 24px;
+  /* motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --t-fast: 120ms; --t: 200ms; --t-slow: 340ms;
+  --maxw: 1180px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161310; --surface: #211d16; --surface-2: #2a251c; --surface-3: #342e23; --surface-inset: #1b1812;
+    --text: #f0e8da; --text-muted: #b1a690; --text-faint: #7e735f; --on-accent: #1b150f;
+    --border: #342e23; --border-strong: #463e2f; --hairline: #2a251c;
+    --primary: #e8854b; --primary-hover: #f0905a; --primary-ink: #1b150f; --primary-strong: #f0a071; --primary-soft: #3a2417;
+    --accent: #94ad72; --accent-ink: #a8be89; --accent-soft: #283021;
+    --star: #e8b54a; --danger: #e0664a; --success: #94ad72;
+    --c-tradicional: #cf8f55; --c-tradicional-ink: #dca871; --c-tradicional-soft: #33271a;
+    --c-petiscos: #e0664a;    --c-petiscos-ink: #ec846b;    --c-petiscos-soft: #381f18;
+    --c-pastelaria: #d97aa0;  --c-pastelaria-ink: #e596b6;  --c-pastelaria-soft: #341f29;
+    --c-fine-dining: #94ad72; --c-fine-dining-ink: #a8be89; --c-fine-dining-soft: #283021;
+    --ok: #94ad72; --warn: #e0664a; --info: #7da7c4; --open: #94ad72; --closed: #e0664a;
+    --shadow-rgb: 0 0 0;
+    --sh-sm: 0 1px 2px rgba(0 0 0 / .35);
+    --sh-md: 0 2px 8px rgba(0 0 0 / .4);
+    --sh-lg: 0 12px 32px -8px rgba(0 0 0 / .55), 0 2px 6px rgba(0 0 0 / .4);
+    --sh-pop: 0 20px 50px -12px rgba(0 0 0 / .65), 0 4px 12px rgba(0 0 0 / .5);
+    --shadow-sm: var(--sh-sm); --shadow-md: var(--sh-md); --shadow-lg: var(--sh-lg);
+  }
+}
+
+/* ---- refinamentos de componentes (classes existentes; só visual) ---- */
+/* barras translúcidas com blur + hairline */
+.topbar {
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  backdrop-filter: saturate(1.3) blur(14px);
+  -webkit-backdrop-filter: saturate(1.3) blur(14px);
+  border-bottom: 1px solid var(--hairline);
+}
+.tabbar {
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  backdrop-filter: saturate(1.3) blur(14px);
+  -webkit-backdrop-filter: saturate(1.3) blur(14px);
+  border-top: 1px solid var(--hairline);
+}
+/* botões pill, coerentes */
+.btn { border-radius: var(--r-pill); }
+.btn-ghost { border-color: var(--border-strong); }
+/* cartões: rebordo hairline + raio suave + sombra quente */
+.card { border-radius: var(--r-lg); border-color: var(--hairline); box-shadow: var(--sh-sm); }
+/* modais mais suaves */
+.modal-card { border-radius: var(--r-xl); box-shadow: var(--sh-pop); }
+/* campos de nota com fundo "inset" */
+.note-input { background: var(--surface-inset); }
+/* badges suaves e codificados */
+.badge.priority { background: var(--primary-soft); color: var(--primary-strong); border-color: transparent; }
+.badge.community { background: var(--accent-soft); color: var(--accent-ink); border-color: transparent; }
+.badge.visited-by { background: var(--surface-2); color: var(--text-muted); border-color: var(--hairline); }
+/* IA "Sugere-me" + cartão de IA: toque dourado (azeite/ouro), sóbrio */
+.topbar-ai {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--star) 22%, var(--surface)), var(--surface));
+  border: 1px solid color-mix(in srgb, var(--star) 45%, var(--border));
+  color: var(--text);
+}
+.topbar-ai:hover { border-color: var(--star); }
+.topbar-ai .icon { color: var(--star); }
+.modal-card.ai-card {
+  border: 1px solid color-mix(in srgb, var(--star) 30%, var(--border));
+  background:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--star) 14%, transparent), transparent 60%),
+    var(--surface);
+}
