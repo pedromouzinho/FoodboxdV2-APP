@@ -18,6 +18,7 @@ const UserData = (() => {
   let getToken = null; // async () => idToken
   let onboarded = false; // has this account already seen the onboarding tour?
   let tasteProfile = null; // last AI-generated taste profile (feeds "Sugere-me")
+  let tasteGenDay = ""; // YYYY-MM-DD of the last background taste-profile run
 
   // my marks (used in cloud mode)
   let mine = { visited: new Set(), priority: new Set(), ratings: {}, history: {} };
@@ -71,6 +72,7 @@ const UserData = (() => {
       onboarded = doc.onboarded === true;
       activeGroupId = doc.activeGroup || null;
       tasteProfile = doc.tasteProfile || null;
+      tasteGenDay = doc.tasteGenDay || "";
       // First sign-in: fold in whatever was marked locally before logging in.
       if (firstTime) {
         Storage.getVisited().forEach((id) => mine.visited.add(id));
@@ -95,6 +97,7 @@ const UserData = (() => {
     myGroups = [];
     activeGroupId = null;
     tasteProfile = null;
+    tasteGenDay = "";
     if (onChange) onChange();
   }
 
@@ -181,7 +184,8 @@ const UserData = (() => {
         history: mine.history,
         onboarded,
         activeGroup: activeGroupId || "",
-        tasteProfile: tasteProfile || null
+        tasteProfile: tasteProfile || null,
+        tasteGenDay: tasteGenDay || ""
       },
       token
     );
@@ -192,6 +196,11 @@ const UserData = (() => {
   function getTasteProfile() { return tasteProfile; }
   function setTasteProfile(p) {
     tasteProfile = p || null;
+    if (cloud) persistNow().catch(() => {});
+  }
+  function getTasteGenDay() { return tasteGenDay; }
+  function markTasteGen(day) {
+    tasteGenDay = day || new Date().toISOString().slice(0, 10);
     if (cloud) persistNow().catch(() => {});
   }
 
@@ -387,6 +396,8 @@ const UserData = (() => {
     createGroup,
     joinGroup,
     getTasteProfile,
-    setTasteProfile
+    setTasteProfile,
+    getTasteGenDay,
+    markTasteGen
   };
 })();

@@ -1551,3 +1551,44 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
   background: var(--surface-inset); border: 1px solid var(--hairline);
   border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); gap: var(--sp-5);
 }
+
+/* ===== Iteração de produto: ajustes ===== */
+/* Lista não é checklist: visitado mantém prominência (sem dim) */
+.card.visited, .card.rcard.visited { opacity: 1; }
+/* foto do cartão centrada verticalmente */
+.card.rcard { align-items: center; }
+
+/* Críticas — as minhas avaliações como críticas */
+.critique-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
+.critique-when { font-size: var(--fs-xs); color: var(--text-faint); white-space: nowrap; flex: none; }
+.critique-stars { margin-top: 4px; }
+.critique-stars .stars-display .icon { width: 15px; height: 15px; }
+.critique-note { font-size: var(--fs-base); color: var(--text-muted); margin: 4px 0 0; line-height: 1.45; }
+
+/* Tab bar: conteúdo mais cheio (não parece vazio acima do home indicator) */
+.tab { gap: 3px; }
+.tab .icon { width: 24px; height: 24px; }
+
+/* Feed de amigos: mais respiração no mobile */
+.feed-card { padding: var(--sp-2) var(--sp-3); }
+.feed-item { gap: var(--sp-3); }
+
+/* Modal de perfil: espaçamento mais arrumado */
+.profile-card { gap: var(--sp-3); }
+.profile-card .modal-title { margin-bottom: 2px; }
+.profile-card .profile-photo { margin: 0 auto; }
+
+/* Filtros sempre visíveis mas compactos */
+.filters-extra { display: flex; flex-direction: column; gap: var(--sp-2); }
+#region-filters.chip-row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+#region-filters.chip-row::-webkit-scrollbar { display: none; }
+.filters-line { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.price-pick { display: inline-flex; gap: 4px; flex: none; }
+.switch-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 34px; padding: 0 var(--sp-3); border-radius: var(--r-pill);
+  border: 1px solid var(--border); background: var(--surface);
+  font-size: var(--fs-sm); color: var(--text-muted); cursor: pointer; user-select: none;
+}
+.switch-chip:has(input:checked) { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
+.switch-chip input { accent-color: var(--accent); width: 15px; height: 15px; }

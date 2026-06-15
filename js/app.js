@@ -52,6 +52,15 @@ const App = (() => {
     if (isNaN(d)) return "";
     return d.toLocaleDateString("pt-PT", { day: "2-digit", month: "short", year: "numeric" });
   }
+  // Date + time of day (for the friends activity feed).
+  function fmtDateTime(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d)) return "";
+    const date = d.toLocaleDateString("pt-PT", { day: "2-digit", month: "short" });
+    const time = d.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit", hour12: false });
+    return `${date}, ${time}`;
+  }
 
   // Suggest one of our categories from Google place types + price level.
   // Returns null when there isn't enough signal to suggest anything.
@@ -89,13 +98,20 @@ const App = (() => {
 
   function buildRegionFilters() {
     const wrap = document.getElementById("region-filters");
-    const existing = new Set([...wrap.querySelectorAll("input")].map((i) => i.dataset.region));
+    const existing = new Set([...wrap.querySelectorAll("[data-region]")].map((c) => c.dataset.region));
     [...new Set(state.restaurants.map((r) => r.region))].sort().forEach((region) => {
       if (existing.has(region)) return;
-      const label = document.createElement("label");
-      label.innerHTML = `<input type="checkbox" checked data-region="${esc(region)}"> ${esc(region)}`;
-      label.querySelector("input").addEventListener("change", render);
-      wrap.appendChild(label);
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.dataset.region = region;
+      chip.setAttribute("aria-pressed", "true");
+      chip.textContent = region;
+      chip.addEventListener("click", () => {
+        chip.setAttribute("aria-pressed", chip.getAttribute("aria-pressed") === "true" ? "false" : "true");
+        render();
+      });
+      wrap.appendChild(chip);
     });
   }
 
@@ -103,7 +119,7 @@ const App = (() => {
     return [...document.querySelectorAll('#category-filters .chip[aria-pressed="true"]')].map((c) => c.dataset.category);
   }
   function selectedRegions() {
-    return [...document.querySelectorAll("#region-filters input:checked")].map((i) => i.dataset.region);
+    return [...document.querySelectorAll('#region-filters .chip[aria-pressed="true"]')].map((c) => c.dataset.region);
   }
   function selectedPrices() {
     return [...document.querySelectorAll("#price-filters input:checked")].map((i) => parseInt(i.dataset.price, 10));
@@ -1513,10 +1529,45 @@ const App = (() => {
               `<a class="btn btn-ghost btn-sm taste-map" href="${esc(mapsSearchUrl(q.query))}" target="_blank" rel="noopener">${icon("external")} ${esc(q.label || q.query)}</a>`
             ).join("")}</div>
           </div>` : ""}
-        <button class="btn btn-primary btn-block taste-suggest" data-taste-suggest>${icon("sparkles")} Sugere-me com este perfil</button>
+        <button class="btn btn-primary btn-block taste-suggest" data-taste-suggest>${icon("sparkles")} Pede-me uma sugestão</button>
+        <button class="linklike taste-update" data-taste-update>Atualizar perfil de gosto</button>
       </div>`;
     const sg = document.querySelector("#ai-body [data-taste-suggest]");
     if (sg) sg.addEventListener("click", runSuggest);
+    const up = document.querySelector("#ai-body [data-taste-update]");
+    if (up) up.addEventListener("click", runTasteProfile);
+  }
+
+  // Open the saved taste profile (from the profile modal). Generates it if none.
+  function showTasteProfile() {
+    if (!UserData.isCloud()) { showSigninModal(); return; }
+    hideProfileModal();
+    const p = UserData.getTasteProfile();
+    if (p && p.summary) { openAi(); renderTaste(p); }
+    else runTasteProfile();
+  }
+
+  // Generate the taste profile silently, once per day, on first login — so it's
+  // already there to power suggestions without the user asking.
+  async function maybeAutoTasteProfile() {
+    if (!UserData.isCloud() || !AIModule.available()) return;
+    const today = new Date().toISOString().slice(0, 10);
+    if (UserData.getTasteGenDay() === today) return;
+    let n = 0;
+    for (const r of state.restaurants) {
+      const rt = UserData.getRating(r.id);
+      if ((rt && (rt.stars || rt.note)) || UserData.isVisited(r.id)) n++;
+      if (n >= 3) break;
+    }
+    if (n < 3) return; // not enough signal yet
+    try {
+      const p = await AIModule.tasteProfile({ catalog: aiCatalog(), profile: aiProfile(), near: aiNear() });
+      if (p && p.summary) {
+        p.updatedAt = new Date().toISOString();
+        UserData.setTasteProfile(p);
+        UserData.markTasteGen(today);
+      }
+    } catch (e) { /* silent — retry next session */ }
   }
 
   // Natural-language search: a query → structured filters applied to the UI.
@@ -1545,8 +1596,8 @@ const App = (() => {
       );
     }
     if (Array.isArray(f.regions) && f.regions.length) {
-      document.querySelectorAll("#region-filters input").forEach((i) =>
-        (i.checked = f.regions.includes(i.dataset.region))
+      document.querySelectorAll("#region-filters .chip").forEach((c) =>
+        c.setAttribute("aria-pressed", String(f.regions.includes(c.dataset.region)))
       );
     }
     if (Array.isArray(f.price) && f.price.length) {
@@ -1933,16 +1984,13 @@ const App = (() => {
   function renderMemorias() {
     const listEl = document.getElementById("memorias-list");
     const countEl = document.getElementById("memorias-count");
-    const tasteBtn = document.getElementById("taste-profile-btn");
     if (!listEl) return;
     if (!UserData.isCloud()) {
       listEl.innerHTML = signinInvite("Inicie sessão com a Google para guardar e rever as suas memórias.");
       if (countEl) countEl.textContent = "";
-      if (tasteBtn) tasteBtn.classList.add("hidden");
       return;
     }
     const mems = gatherMemories();
-    if (tasteBtn) tasteBtn.classList.toggle("hidden", !(AIModule.available() && mems.length));
     if (countEl) countEl.textContent = mems.length ? `${mems.length} ${mems.length === 1 ? "sítio" : "sítios"}` : "";
     listEl.innerHTML = "";
     if (!mems.length) {
@@ -1954,13 +2002,41 @@ const App = (() => {
 
   // ----- Críticas: my comments (or all), across every restaurant -----
   let criticasReqId = 0;
-  function critiqueRow(c) {
-    const r = state.restaurants.find((x) => x.id === c.restaurantId);
+  function critiqueRow(it) {
+    const r = it.r || state.restaurants.find((x) => x.id === it.restaurantId);
     const name = r ? r.name : "Restaurante";
-    return `<div class="critique" data-crit-rest="${esc(c.restaurantId)}">
-      <div class="critique-rest">${icon("pin")} ${esc(name)}</div>
-      ${renderComment(c)}
+    const when = it.when ? `<span class="critique-when muted">${esc(fmtDate(it.when))}</span>` : "";
+    const head = `<div class="critique-head"><span class="critique-rest">${icon("pin")} ${esc(name)}</span>${when}</div>`;
+    if (it.type === "comment") {
+      return `<div class="critique" data-crit-rest="${esc(it.restaurantId)}" data-crit-tab="crit">${head}${renderComment(it.comment)}</div>`;
+    }
+    // rating: stars + note + dishes (my own experience)
+    return `<div class="critique" data-crit-rest="${esc(it.restaurantId)}" data-crit-tab="mem">
+      ${head}
+      ${it.stars ? `<div class="critique-stars">${starsDisplay(it.stars)}</div>` : ""}
+      ${it.note ? `<p class="critique-note">${esc(it.note)}</p>` : ""}
+      ${dishChips(it.dishes)}
     </div>`;
+  }
+  // My own ratings (stars/note/dishes) as critiques — no network, from UserData.
+  function gatherMyRatingCritiques() {
+    if (!UserData.isCloud()) return [];
+    const out = [];
+    for (const r of state.restaurants) {
+      const rt = UserData.getRating(r.id);
+      if (rt && (rt.stars || rt.note || (rt.dishes && rt.dishes.length))) {
+        out.push({ type: "rating", r, restaurantId: r.id, when: rt.updatedAt || "", stars: rt.stars || 0, note: rt.note || "", dishes: rt.dishes || [] });
+      }
+    }
+    return out;
+  }
+  function wireCritiqueClicks(listEl) {
+    listEl.querySelectorAll("[data-crit-rest]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const r = state.restaurants.find((x) => x.id === el.dataset.critRest);
+        if (r) openOnTab(r, el.dataset.critTab || "crit");
+      });
+    });
   }
   function renderCriticas() {
     const listEl = document.getElementById("criticas-list");
@@ -1970,34 +2046,44 @@ const App = (() => {
       b.classList.toggle("active", on);
       b.setAttribute("aria-pressed", String(on));
     });
+    const reqId = ++criticasReqId;
+
+    if (state.criticasScope === "mine") {
+      if (!UserData.isCloud()) { listEl.innerHTML = signinInvite("Inicie sessão para ver as suas críticas."); return; }
+      const ratings = gatherMyRatingCritiques();
+      const paint = (items) => {
+        if (!items.length) {
+          listEl.innerHTML = `<p class="muted screen-empty">Ainda não avaliaste nenhum sítio. Dá a tua nota numa experiência.</p>`;
+          return;
+        }
+        listEl.innerHTML = items.map(critiqueRow).join("");
+        wireCritiqueClicks(listEl);
+      };
+      paint(ratings); // instant: my ratings (no network)
+      if (DB.isAvailable()) {
+        DB.fetchCommentsByUser(UserData.me().uid).then((comments) => {
+          if (reqId !== criticasReqId) return;
+          const commentItems = (comments || []).map((c) => ({ type: "comment", restaurantId: c.restaurantId, when: c.createdAt || "", comment: c }));
+          if (!commentItems.length) return; // ratings already painted
+          const merged = ratings.concat(commentItems).sort((a, b) => (a.when < b.when ? 1 : -1));
+          paint(merged);
+        }).catch(() => {});
+      }
+      return;
+    }
+
+    // scope "all": every public comment
     if (!DB.isAvailable()) {
       listEl.innerHTML = `<p class="muted screen-empty">As críticas precisam da cloud configurada.</p>`;
       return;
     }
-    if (state.criticasScope === "mine" && !UserData.isCloud()) {
-      listEl.innerHTML = signinInvite("Inicie sessão para ver as suas críticas.");
-      return;
-    }
-    const reqId = ++criticasReqId;
     listEl.innerHTML = `<div class="skeleton sk-line" style="width:55%"></div><div class="skeleton" style="height:54px;margin-top:8px"></div>`;
-    const p = state.criticasScope === "mine"
-      ? DB.fetchCommentsByUser(UserData.me().uid)
-      : DB.fetchRecentComments(100);
-    p.then((comments) => {
+    DB.fetchRecentComments(100).then((comments) => {
       if (reqId !== criticasReqId) return;
-      if (!comments.length) {
-        listEl.innerHTML = `<p class="muted screen-empty">${
-          state.criticasScope === "mine" ? "Ainda não escreveu críticas." : "Ainda não há críticas."
-        }</p>`;
-        return;
-      }
-      listEl.innerHTML = comments.map(critiqueRow).join("");
-      listEl.querySelectorAll("[data-crit-rest]").forEach((el) => {
-        el.addEventListener("click", () => {
-          const r = state.restaurants.find((x) => x.id === el.dataset.critRest);
-          if (r) openOnTab(r, "crit");
-        });
-      });
+      if (!comments.length) { listEl.innerHTML = `<p class="muted screen-empty">Ainda não há críticas.</p>`; return; }
+      const items = comments.map((c) => ({ type: "comment", restaurantId: c.restaurantId, when: c.createdAt || "", comment: c }));
+      listEl.innerHTML = items.map(critiqueRow).join("");
+      wireCritiqueClicks(listEl);
     });
   }
 
@@ -2060,7 +2146,7 @@ const App = (() => {
     else verb = "quer ir a";
     const stars = it.type === "rating" && it.stars ? starsDisplay(it.stars) : "";
     const note = it.type === "rating" && it.note ? `<p class="feed-note muted">“${esc(it.note)}”</p>` : "";
-    const when = it.when ? `<span class="feed-time">${esc(fmtDate(it.when))}</span>` : "";
+    const when = it.when ? `<span class="feed-time">${esc(fmtDateTime(it.when))}</span>` : "";
     const thumb = it.type === "upload" && it.photos[0]
       ? `<img src="${esc(it.photos[0].url)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
       : `<div class="ph" data-label="foto"></div>`;
@@ -2244,8 +2330,11 @@ const App = (() => {
       else aiBtn.classList.add("hidden");
     }
     document.querySelectorAll("[data-close-ai]").forEach((el) => el.addEventListener("click", hideAi));
-    const tasteBtn = document.getElementById("taste-profile-btn");
-    if (tasteBtn && AIModule.available()) tasteBtn.addEventListener("click", runTasteProfile);
+    const profileTasteBtn = document.getElementById("profile-taste-btn");
+    if (profileTasteBtn) {
+      if (AIModule.available()) profileTasteBtn.addEventListener("click", showTasteProfile);
+      else profileTasteBtn.classList.add("hidden");
+    }
 
     // Groups: modal close / confirm (the create/join buttons are wired per-render
     // in renderGroupBar).
@@ -2386,6 +2475,9 @@ const App = (() => {
       } else if (!tourDone()) {
         showTour();
       }
+      // First login of the day: build the taste profile in the background so it's
+      // ready to power suggestions (once restaurants are loaded).
+      setTimeout(maybeAutoTasteProfile, 2000);
     } else {
       UserData.clearUser();
       maybePromptSignin();

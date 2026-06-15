@@ -118,31 +118,19 @@
 
         <div class="chip-row" id="category-filters" role="group" aria-label="Filtrar por tipo"></div>
 
-        <details class="panel" id="more-filters">
-          <summary class="panel-summary">
-            <svg class="icon"><use href="#i-sliders"/></svg> Mais filtros
-            <svg class="icon chev"><use href="#i-chevron-down"/></svg>
-          </summary>
-          <div class="panel-body">
-            <h3 class="field-label">Região</h3>
-            <div id="region-filters" class="check-list"></div>
-            <h3 class="field-label">Preço <span class="muted">(do Google)</span></h3>
-            <div id="price-filters" class="chip-row" role="group" aria-label="Filtrar por preço">
+        <div class="filters-extra">
+          <div id="region-filters" class="chip-row" role="group" aria-label="Filtrar por região"></div>
+          <div class="filters-line">
+            <div id="price-filters" class="price-pick" role="group" aria-label="Filtrar por preço">
               <label class="price-chip"><input type="checkbox" data-price="1" checked /> <span>€</span></label>
               <label class="price-chip"><input type="checkbox" data-price="2" checked /> <span>€€</span></label>
               <label class="price-chip"><input type="checkbox" data-price="3" checked /> <span>€€€</span></label>
               <label class="price-chip"><input type="checkbox" data-price="4" checked /> <span>€€€€</span></label>
             </div>
-            <label class="switch-row">
-              <input type="checkbox" id="hide-visited-checkbox" />
-              <span>Esconder já visitados</span>
-            </label>
-            <label class="switch-row">
-              <input type="checkbox" id="only-priority-checkbox" />
-              <span>Só prioritários</span>
-            </label>
+            <label class="switch-chip"><input type="checkbox" id="hide-visited-checkbox" /> <span>Esconder visitados</span></label>
+            <label class="switch-chip"><input type="checkbox" id="only-priority-checkbox" /> <span>Só prioritários</span></label>
           </div>
-        </details>
+        </div>
 
         <details class="panel" id="planner-panel">
           <summary class="panel-summary">
@@ -209,9 +197,6 @@
         <h2>Memórias</h2>
         <span class="screen-sub" id="memorias-count"></span>
       </div>
-      <button id="taste-profile-btn" class="btn btn-ghost btn-sm topbar-ai hidden" type="button">
-        <svg class="icon"><use href="#i-sparkles"/></svg> Perfil de gosto
-      </button>
     </div>
     <div id="memorias-list" class="screen-list"></div>
   </section>
@@ -240,7 +225,6 @@
   <section id="screen-amigos" class="screen screen-data" data-screen="amigos" hidden>
     <div class="screen-head">
       <div class="screen-titles">
-        <span class="eyebrow">A tua malta</span>
         <h2>Amigos</h2>
       </div>
       <div class="seg subtabs" id="amigos-tabs" role="group" aria-label="Vista de amigos">
@@ -411,17 +395,19 @@
       <button class="icon-btn modal-close" data-close-profile aria-label="Fechar">
         <svg class="icon"><use href="#i-x"/></svg>
       </button>
-      <h2 class="modal-title">A minha foto</h2>
+      <h2 class="modal-title">O meu perfil</h2>
       <img class="profile-photo" data-profile-img alt="" />
       <label class="btn btn-primary btn-block">
         <svg class="icon"><use href="#i-camera"/></svg> Mudar foto
         <input type="file" accept="image/*" data-profile-input hidden />
       </label>
       <p class="photo-status muted" data-profile-status></p>
+      <button class="btn btn-ghost btn-block topbar-ai" id="profile-taste-btn">
+        <svg class="icon"><use href="#i-sparkles"/></svg> O meu perfil de gosto
+      </button>
       <button class="btn btn-ghost btn-block" id="tour-replay-btn">
         <svg class="icon"><use href="#i-sparkles"/></svg> Rever tutorial
       </button>
-      <button class="btn btn-ghost btn-block" data-close-profile>Fechar</button>
     </div>
   </div>
 
