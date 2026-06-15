@@ -1876,23 +1876,29 @@ const App = (() => {
     return out.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
   }
 
+  function fmtDateShort(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d)) return "";
+    return d.toLocaleDateString("pt-PT", { day: "numeric", month: "short" }).replace(".", "");
+  }
   function buildMemoryCard(m) {
     const cat = catFor(m.r);
-    const meta = m.lastVisit
-      ? `Última visita: ${fmtDate(m.lastVisit)}${m.visitCount > 1 ? ` · ${m.visitCount} visitas` : ""}`
-      : "Sem visitas registadas";
     const card = document.createElement("button");
     card.type = "button";
-    card.className = "memory-card";
+    card.className = "memory";
+    card.dataset.cat = m.r.category;
     card.innerHTML = `
-      <div class="memory-head">
+      <div class="ph" data-label="foto · Google"></div>
+      <div class="memory-body">
+        <span class="rcard-cat" style="color:var(${cat.varName}-ink)">${esc(cat.label)}</span>
         <span class="memory-name">${esc(m.r.name)}</span>
-        ${m.stars ? starsDisplay(m.stars) : ""}
-      </div>
-      <span class="memory-loc">${dot(cat)} ${esc(m.r.town)}, ${esc(m.r.region)}</span>
-      ${m.note ? `<p class="memory-note">${esc(m.note)}</p>` : ""}
-      ${dishChips(m.dishes)}
-      <span class="memory-meta muted">${icon("check-circle")} ${esc(meta)}</span>`;
+        <span class="rcard-loc">${icon("pin")} ${esc(m.r.town)}, ${esc(m.r.region)}</span>
+        <div class="memory-foot">
+          ${m.stars ? starsDisplay(m.stars) : `<span class="muted" style="font-size:var(--fs-xs)">Sem nota</span>`}
+          <span class="mono faint">${esc(fmtDateShort(m.lastVisit || m.updatedAt))}</span>
+        </div>
+      </div>`;
     card.addEventListener("click", () => openOnTab(m.r, "mem"));
     return card;
   }

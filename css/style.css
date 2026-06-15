@@ -1374,3 +1374,60 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
     radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--star) 14%, transparent), transparent 60%),
     var(--surface);
 }
+
+/* ---- Memórias (cartões com foto, grelha) — design handoff ---- */
+.eyebrow {
+  font-family: var(--font-text);
+  font-size: var(--fs-xs); font-weight: 600;
+  letter-spacing: var(--tracking-wide); text-transform: uppercase;
+  color: var(--text-faint);
+}
+.screen-titles { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.screen-titles h2 { font-size: var(--fs-2xl); }
+.screen-titles .screen-sub { font-size: var(--fs-sm); color: var(--text-muted); }
+
+/* photo placeholder (conteúdo real vem da Google Maps API) */
+.ph {
+  position: relative; width: 100%; height: 100%;
+  background: repeating-linear-gradient(135deg,
+    var(--surface-2) 0 11px,
+    color-mix(in srgb, var(--surface-3) 60%, var(--surface-2)) 11px 22px);
+  display: grid; place-items: center; overflow: hidden;
+}
+.ph::after {
+  content: attr(data-label);
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .04em;
+  color: var(--text-faint);
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  padding: 3px 7px; border-radius: 99px;
+}
+
+#memorias-list.screen-list { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); align-content: start; }
+#memorias-list > p, #memorias-list > .signin-invite { grid-column: 1 / -1; }
+
+.memory {
+  --cat: var(--primary);
+  display: flex; flex-direction: column; text-align: left; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--hairline);
+  border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--sh-sm); padding: 0;
+  transition: box-shadow var(--t) var(--ease), transform var(--t-fast) var(--ease);
+}
+.memory:hover { box-shadow: var(--sh-md); transform: translateY(-2px); }
+.memory[data-cat="tradicional"] { --cat: var(--c-tradicional); }
+.memory[data-cat="petiscos"]    { --cat: var(--c-petiscos); }
+.memory[data-cat="pastelaria"]  { --cat: var(--c-pastelaria); }
+.memory[data-cat="fine-dining"] { --cat: var(--c-fine-dining); }
+.memory .ph { height: 116px; flex: none; }
+.memory-body { padding: var(--sp-3); display: flex; flex-direction: column; gap: 5px; }
+.rcard-cat { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.memory-name { font-family: var(--font-display); font-size: var(--fs-md); font-weight: 540; line-height: 1.15; letter-spacing: var(--tracking-tight); }
+.rcard-loc { font-size: var(--fs-sm); color: var(--text-muted); display: inline-flex; align-items: center; gap: 5px; }
+.rcard-loc .icon { width: 14px; height: 14px; flex: none; }
+.memory-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-top: 2px; }
+.memory-foot .stars-display .icon { width: 14px; height: 14px; }
+
+/* small layout utils used by the new markup (new classes; harmless) */
+.stack { display: flex; flex-direction: column; }
+.row { display: flex; align-items: center; }
+.faint { color: var(--text-faint); }
+.mono { font-family: var(--font-mono); }
