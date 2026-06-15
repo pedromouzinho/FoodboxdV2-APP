@@ -10,18 +10,18 @@ const { AnthropicVertex } = require("@anthropic-ai/vertex-sdk");
 admin.initializeApp();
 const db = admin.firestore();
 
-// Vertex region(s) where the Claude models are enabled (Model Garden). Each
-// model can live in its own region — Claude MaaS availability differs per model
-// per region — so every tier carries its own region, falling back to
-// VERTEX_REGION. Model IDs are overridable too: if Vertex rejects a bare id, set
-// MODEL_* to the Vertex-published id for that region.
+// Vertex location for the Claude models. Default to the `global` endpoint —
+// Anthropic's recommendation: dynamic routing, max availability, no price premium
+// (use `eu` for EU data residency, or a specific region like `europe-west1`).
+// Each tier can still override its location (REGION_*), e.g. if one model is only
+// enabled in a specific region. Model IDs are overridable too (MODEL_*).
 const PROJECT = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || "app-restaurantes-499400";
-const VERTEX_REGION = process.env.VERTEX_REGION || "us-east5";
+const VERTEX_REGION = process.env.VERTEX_REGION || "global";
 
 const MODELS = {
   recommend: { id: process.env.MODEL_RECOMMEND || "claude-opus-4-8", region: process.env.REGION_RECOMMEND || VERTEX_REGION },
   planner: { id: process.env.MODEL_PLANNER || "claude-sonnet-4-6", region: process.env.REGION_PLANNER || VERTEX_REGION },
-  cheap: { id: process.env.MODEL_CHEAP || "claude-haiku-4-5", region: process.env.REGION_CHEAP || VERTEX_REGION }
+  cheap: { id: process.env.MODEL_CHEAP || "claude-haiku-4-5@20251001", region: process.env.REGION_CHEAP || VERTEX_REGION }
 };
 
 // One Vertex client per region, created on demand and reused.

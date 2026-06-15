@@ -5,7 +5,7 @@
   "engines": { "node": "20" },
   "main": "index.js",
   "dependencies": {
-    "@anthropic-ai/vertex-sdk": "^0.7.0",
+    "@anthropic-ai/vertex-sdk": "^0.17.1",
     "firebase-admin": "^12.6.0",
     "firebase-functions": "^6.1.0"
   }

@@ -43,10 +43,15 @@ Cloud Function `ai` (functions/index.js)
    ```
 3. **Ativar os modelos Claude no Model Garden** (Console → Vertex AI → Model Garden →
    procurar "Claude" → Opus 4.8 / Sonnet 4.6 / Haiku 4.5 → *Enable* e aceitar os
-   termos da Anthropic). Confirma a **região** onde ficam disponíveis.
-4. **Região:** a função usa `VERTEX_REGION` (default `us-east5`). Usa uma região onde
-   os modelos estejam ativados. Se preferires `europe-west1` (onde corre a função),
-   confirma a disponibilidade de cada modelo nessa região e ajusta a env.
+   termos da Anthropic). O *Enable* é **ao nível do projeto** (aceita os termos uma
+   vez); **não** fixa uma região por modelo — a região/endpoint é escolhida na
+   chamada (env `VERTEX_REGION`).
+4. **Endpoint/região:** a função usa por omissão o **endpoint `global`** (default
+   `VERTEX_REGION=global`) — recomendado pela Anthropic: encaminhamento dinâmico,
+   máxima disponibilidade, **sem custo extra** e sem ter de adivinhar regiões. Para
+   **residência de dados na UE** usa `eu` (multi-região UE, +10%); para uma região
+   única usa ex.: `europe-west1` (+10%). Não precisas de procurar a região de cada
+   modelo — o `global` cobre todos.
 5. **IAM da service account de runtime** (a SA que executa a função — por omissão
    `<project>@appspot.gserviceaccount.com` ou a default do Compute): dar
    **`roles/aiplatform.user`**.
@@ -62,28 +67,27 @@ Todas têm default no código; define só o que precisares de mudar:
 
 | Env | Default | Para quê |
 |---|---|---|
-| `VERTEX_REGION` | `us-east5` | Região por omissão (fallback de todos os modelos) |
-| `REGION_RECOMMEND` | `VERTEX_REGION` | Região onde o **Opus** está ativado |
-| `REGION_PLANNER` | `VERTEX_REGION` | Região onde o **Sonnet** está ativado |
-| `REGION_CHEAP` | `VERTEX_REGION` | Região onde o **Haiku** está ativado |
+| `VERTEX_REGION` | `global` | Endpoint/região por omissão (`global` \| `eu` \| `us` \| região) |
+| `REGION_RECOMMEND` | `VERTEX_REGION` | Override só para o **Opus** (se enabled noutra região) |
+| `REGION_PLANNER` | `VERTEX_REGION` | Override só para o **Sonnet** |
+| `REGION_CHEAP` | `VERTEX_REGION` | Override só para o **Haiku** |
 | `MODEL_RECOMMEND` | `claude-opus-4-8` | Override do id (ex.: id publicado no Vertex) |
 | `MODEL_PLANNER` | `claude-sonnet-4-6` | idem |
-| `MODEL_CHEAP` | `claude-haiku-4-5` | idem |
+| `MODEL_CHEAP` | `claude-haiku-4-5@20251001` | idem |
 | `AI_DAILY_CAP` | `120` | Limite de pedidos por utilizador/dia |
 
-> **Região por modelo:** a disponibilidade do Claude no Vertex (MaaS) varia por
-> modelo e por região. Cada tier tem a sua própria região (`REGION_*`); se cada
-> modelo ficou ativado numa região diferente, define as três. Se estiverem todos
-> na mesma, basta `VERTEX_REGION`.
+> **Endpoint global:** com o default `global`, o Vertex encaminha para qualquer
+> região com capacidade — não tens de descobrir/escolher a região de cada modelo.
+> Os `REGION_*` só são precisos se quiseres prender um tier a uma região específica.
 
-> **Nota sobre os ids:** se o Vertex rejeitar um id "first-party" (ex.:
-> `claude-opus-4-8`), define a env correspondente com o id **publicado no Vertex** para
-> a tua região (Model Garden mostra-o ao ativar o modelo).
+> **Nota sobre os ids:** o id de Vertex do Haiku 4.5 leva sufixo de versão
+> (`claude-haiku-4-5@20251001`); Opus 4.8 e Sonnet 4.6 usam o id "bare". Se o Vertex
+> rejeitar um id, define o `MODEL_*` com o id publicado no Model Garden.
 
-Definir envs no deploy (exemplo com 3 regiões diferentes):
+Definir envs no deploy (só se quiseres mudar o default `global`):
 ```bash
-firebase deploy --only functions \
-  --set-env-vars REGION_RECOMMEND=europe-west1,REGION_PLANNER=europe-west4,REGION_CHEAP=europe-west1,AI_DAILY_CAP=120
+# residência de dados na UE (+10%):
+firebase deploy --only functions --set-env-vars VERTEX_REGION=eu
 ```
 (ou um ficheiro `functions/.env` — já ignorado pelo git.)
 
