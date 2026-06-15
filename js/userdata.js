@@ -20,7 +20,13 @@ const UserData = (() => {
 
   // my marks (used in cloud mode)
   let mine = { visited: new Set(), priority: new Set(), ratings: {}, history: {} };
-  let group = []; // [{ uid, displayName, photoURL, visited:[], priority:[], ratings:{}, history:{} }]
+  let group = []; // the active social view: [{ uid, displayName, photoURL, visited:[], priority:[], ratings:{}, history:{} }]
+
+  // Groups: every signed-in user is loaded into `allUsers`; `group` is `allUsers`
+  // filtered to the active group's members (or everyone when no group is active).
+  let allUsers = [];
+  let myGroups = []; // [{ id, name, code, ownerUid, members:[uid] }]
+  let activeGroupId = null; // null → "Todos" (global view)
 
   let onChange = null; // called after async loads complete
   let saveTimer = null;
@@ -62,6 +68,7 @@ const UserData = (() => {
       // Onboarding is once-per-account (cloud), so the tour can't reappear on a
       // new device / the installed PWA's separate storage.
       onboarded = doc.onboarded === true;
+      activeGroupId = doc.activeGroup || null;
       // First sign-in: fold in whatever was marked locally before logging in.
       if (firstTime) {
         Storage.getVisited().forEach((id) => mine.visited.add(id));
@@ -82,20 +89,43 @@ const UserData = (() => {
     onboarded = false;
     mine = { visited: new Set(), priority: new Set(), ratings: {}, history: {} };
     group = [];
+    allUsers = [];
+    myGroups = [];
+    activeGroupId = null;
     if (onChange) onChange();
   }
 
   async function reloadGroup() {
     if (!cloud) {
-      group = [];
+      group = allUsers = myGroups = [];
       return;
     }
     try {
       const token = await getToken();
-      group = await DB.fetchAllUsers(token);
+      const [users, groups] = await Promise.all([
+        DB.fetchAllUsers(token),
+        DB.fetchMyGroups(uid, token)
+      ]);
+      allUsers = users;
+      myGroups = groups;
+      // Drop a stale active group (e.g. removed remotely).
+      if (activeGroupId && !myGroups.some((g) => g.id === activeGroupId)) activeGroupId = null;
+      applyGroupFilter();
     } catch (e) {
-      group = [];
+      group = allUsers = myGroups = [];
     }
+  }
+
+  // Narrow `allUsers` down to the active group's members (or show everyone).
+  function applyGroupFilter() {
+    const grp = activeGroupId ? myGroups.find((g) => g.id === activeGroupId) : null;
+    if (grp) {
+      const ids = new Set(grp.members || []);
+      group = allUsers.filter((u) => ids.has(u.uid));
+    } else {
+      group = allUsers.slice();
+    }
+    syncMineToGroup();
   }
 
   // Update my profile photo (custom upload) — persists and refreshes the UI.
@@ -146,11 +176,63 @@ const UserData = (() => {
         priority: [...mine.priority],
         ratings: mine.ratings,
         history: mine.history,
-        onboarded
+        onboarded,
+        activeGroup: activeGroupId || ""
       },
       token
     );
     syncMineToGroup();
+  }
+
+  // ---- groups (create / join by code / switch active) ----
+  const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no ambiguous 0/O/1/I/L
+  function genCode(n = 6) {
+    let s = "";
+    for (let i = 0; i < n; i++) s += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+    return s;
+  }
+  function getGroups() { return myGroups.slice(); }
+  function getActiveGroupId() { return activeGroupId; }
+  function activeGroup() { return activeGroupId ? myGroups.find((g) => g.id === activeGroupId) || null : null; }
+
+  // Switch the active social view (null = everyone). Persists the choice.
+  function setActiveGroup(id) {
+    activeGroupId = id || null;
+    applyGroupFilter();
+    if (cloud) persistNow().catch(() => {});
+    if (onChange) onChange();
+  }
+
+  async function createGroup(name) {
+    if (!cloud) throw new Error("Inicie sessão para criar um grupo.");
+    const token = await getToken();
+    const g = await DB.createGroup({ name: (name || "").trim() || "O meu grupo", code: genCode(), ownerUid: uid, members: [uid] }, token);
+    myGroups.push(g);
+    activeGroupId = g.id;
+    applyGroupFilter();
+    await persistNow();
+    if (onChange) onChange();
+    return g;
+  }
+
+  async function joinGroup(code) {
+    if (!cloud) throw new Error("Inicie sessão para entrar num grupo.");
+    const norm = (code || "").trim().toUpperCase();
+    if (!norm) throw new Error("Introduza um código.");
+    const token = await getToken();
+    const g = await DB.fetchGroupByCode(norm, token);
+    if (!g) throw new Error("Código não encontrado.");
+    if (!(g.members || []).includes(uid)) {
+      const members = [...(g.members || []), uid];
+      await DB.addGroupMember(g.id, members, token);
+      g.members = members;
+    }
+    if (!myGroups.some((x) => x.id === g.id)) myGroups.push(g);
+    activeGroupId = g.id;
+    applyGroupFilter();
+    await persistNow();
+    if (onChange) onChange();
+    return g;
   }
 
   // ---- onboarding (tour shown once per account) ----
@@ -286,6 +368,12 @@ const UserData = (() => {
     visitedBy,
     priorityBy,
     ratingsFor,
-    avgRating
+    avgRating,
+    getGroups,
+    getActiveGroupId,
+    activeGroup,
+    setActiveGroup,
+    createGroup,
+    joinGroup
   };
 })();

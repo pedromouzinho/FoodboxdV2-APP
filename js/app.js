@@ -115,8 +115,10 @@ const App = (() => {
     const prices = selectedPrices();
     const q = document.getElementById("search-input").value.trim().toLowerCase();
     const hideVisited = document.getElementById("hide-visited-checkbox").checked;
+    const onlyPriority = document.getElementById("only-priority-checkbox").checked;
     return state.restaurants.filter((r) => {
       if (!cats.includes(r.category)) return false;
+      if (onlyPriority && !UserData.isPriority(r.id)) return false;
       if (regions.length && !regions.includes(r.region)) return false;
       // Price comes from Google (cached). Unknown price always passes; filter
       // only kicks in when not every bucket is selected.
@@ -1622,6 +1624,9 @@ const App = (() => {
   function showScreen(name) {
     if (!SCREENS.includes(name)) name = "mapa";
     state.currentScreen = name;
+    // The sidebar (list/filters) only belongs to the map; leaving it should
+    // dismiss the open sidebar so it doesn't hang over the other screens.
+    if (name !== "mapa") openSidebar(false);
     document.querySelectorAll(".screen-data").forEach((s) => {
       s.hidden = s.dataset.screen !== name;
     });
@@ -1635,8 +1640,95 @@ const App = (() => {
     else if (name === "amigos") renderAmigosScreen();
   }
 
+  // ---------- Groups (Amigos screen) ----------
+  // The bar above the Amigos sub-tabs: pick the active group (or "Todos"),
+  // create a new one, or join with a code. The social views (feed, leaderboard,
+  // badges) are scoped to whatever is active here, via UserData's group filter.
+  function renderGroupBar() {
+    const el = document.getElementById("amigos-groupbar");
+    if (!el) return;
+    if (!UserData.isCloud()) { el.innerHTML = ""; return; }
+    const groups = UserData.getGroups();
+    const activeId = UserData.getActiveGroupId();
+    const active = groups.find((g) => g.id === activeId) || null;
+    const options = [`<option value=""${activeId ? "" : " selected"}>Todos (global)</option>`]
+      .concat(groups.map((g) => `<option value="${esc(g.id)}"${g.id === activeId ? " selected" : ""}>${esc(g.name)}</option>`))
+      .join("");
+    el.innerHTML = `
+      <div class="groupbar-row">
+        <span class="groupbar-label">${icon("users")} Grupo</span>
+        <select class="groupbar-select" data-group-select aria-label="Grupo ativo">${options}</select>
+        <button class="btn btn-ghost btn-sm" data-group-create>${icon("plus")} Criar</button>
+        <button class="btn btn-ghost btn-sm" data-group-join>Entrar</button>
+      </div>
+      ${active
+        ? `<div class="groupbar-code">Convida amigos com o código <strong data-group-code>${esc(active.code)}</strong> <button class="linklike" data-copy-code>copiar</button></div>`
+        : `<div class="groupbar-hint muted">A ver toda a gente. Cria um grupo ou entra com um código para filtrares por amigos.</div>`}`;
+    el.querySelector("[data-group-select]").addEventListener("change", (e) => UserData.setActiveGroup(e.target.value || null));
+    el.querySelector("[data-group-create]").addEventListener("click", () => openGroupModal("create"));
+    el.querySelector("[data-group-join]").addEventListener("click", () => openGroupModal("join"));
+    const copy = el.querySelector("[data-copy-code]");
+    if (copy && active) copy.addEventListener("click", () => {
+      if (navigator.clipboard) navigator.clipboard.writeText(active.code).catch(() => {});
+      copy.textContent = "copiado ✓";
+    });
+  }
+
+  let groupModalMode = "create";
+  function openGroupModal(mode) {
+    groupModalMode = mode;
+    const title = document.querySelector("[data-group-title]");
+    const intro = document.querySelector("[data-group-intro]");
+    const input = document.getElementById("group-input");
+    const confirm = document.querySelector("[data-group-confirm]");
+    document.querySelector("[data-group-status]").textContent = "";
+    if (mode === "create") {
+      title.textContent = "Criar grupo";
+      intro.textContent = "Dá-lhe um nome. Recebes um código para convidar amigos.";
+      input.placeholder = "Nome do grupo (ex: Roadtrip Alentejo)";
+      input.value = "";
+      confirm.textContent = "Criar grupo";
+    } else {
+      title.textContent = "Entrar num grupo";
+      intro.textContent = "Introduz o código que um amigo te deu.";
+      input.placeholder = "Código (ex: ABC123)";
+      input.value = "";
+      confirm.textContent = "Entrar";
+    }
+    document.getElementById("group-modal").classList.remove("hidden");
+    input.focus();
+  }
+  function hideGroupModal() { document.getElementById("group-modal").classList.add("hidden"); }
+  function groupModalOpen() { return !document.getElementById("group-modal").classList.contains("hidden"); }
+
+  async function confirmGroup() {
+    const input = document.getElementById("group-input");
+    const status = document.querySelector("[data-group-status]");
+    const confirm = document.querySelector("[data-group-confirm]");
+    const val = input.value.trim();
+    if (!val) { status.textContent = "Preenche o campo."; return; }
+    confirm.disabled = true;
+    status.textContent = "A processar…";
+    try {
+      if (groupModalMode === "create") {
+        const g = await UserData.createGroup(val);
+        status.textContent = `Grupo criado. Código para convidar: ${g.code}`;
+        setTimeout(hideGroupModal, 1400);
+      } else {
+        const g = await UserData.joinGroup(val);
+        status.textContent = `Entraste em "${g.name}".`;
+        setTimeout(hideGroupModal, 900);
+      }
+      renderAmigosScreen();
+    } catch (e) {
+      status.textContent = e.message || "Não foi possível concluir.";
+    }
+    confirm.disabled = false;
+  }
+
   // Amigos screen: switch between the activity feed and the leaderboard subtab.
   function renderAmigosScreen() {
+    renderGroupBar();
     document.querySelectorAll("#amigos-tabs .seg-btn").forEach((b) => {
       const on = b.dataset.atab === state.amigosTab;
       b.classList.toggle("active", on);
@@ -2042,6 +2134,16 @@ const App = (() => {
       else aiBtn.classList.add("hidden");
     }
     document.querySelectorAll("[data-close-ai]").forEach((el) => el.addEventListener("click", hideAi));
+
+    // Groups: modal close / confirm (the create/join buttons are wired per-render
+    // in renderGroupBar).
+    document.querySelectorAll("[data-close-group]").forEach((el) => el.addEventListener("click", hideGroupModal));
+    const groupConfirm = document.querySelector("[data-group-confirm]");
+    if (groupConfirm) groupConfirm.addEventListener("click", confirmGroup);
+    const groupInput = document.getElementById("group-input");
+    if (groupInput) groupInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); confirmGroup(); }
+    });
     const nlBtn = document.getElementById("nl-search-btn");
     if (nlBtn) {
       if (AIModule.available()) {
@@ -2054,6 +2156,7 @@ const App = (() => {
     }
 
     document.getElementById("hide-visited-checkbox").addEventListener("change", render);
+    document.getElementById("only-priority-checkbox").addEventListener("change", render);
     document.querySelectorAll("#price-filters input").forEach((el) => el.addEventListener("change", render));
     document.getElementById("pick-random-btn").addEventListener("click", pickRandom);
     document.getElementById("sidebar-toggle").addEventListener("click", () =>
@@ -2092,6 +2195,7 @@ const App = (() => {
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         if (viewerOpen()) { hidePhotoViewer(); return; }
+        if (groupModalOpen()) { hideGroupModal(); return; }
         if (aiOpen()) { hideAi(); return; }
         if (tourOpen()) { hideTour(); return; }
         const pm = document.getElementById("profile-modal");

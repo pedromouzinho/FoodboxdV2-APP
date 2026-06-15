@@ -207,6 +207,7 @@ const DB = (() => {
       ratings: data.ratings || {},
       history: data.history || {},
       onboarded: data.onboarded === true,
+      activeGroup: data.activeGroup || "",
       updatedAt: new Date().toISOString()
     });
     const res = await fetch(`${docsBase}/userData/${encodeURIComponent(uid)}?${keyQ()}`, {
@@ -242,6 +243,99 @@ const DB = (() => {
     } catch (e) {
       return [];
     }
+  }
+
+  // ---- Groups (groups/{autoId}) ----
+  // A group is { name, code, ownerUid, members:[uid], createdAt }. Created by the
+  // owner; others join by code (appending their uid to members).
+  function decodeGroup(doc) {
+    const f = decodeFields(doc);
+    return {
+      id: doc.name.split("/").pop(),
+      name: f.name || "Grupo",
+      code: f.code || "",
+      ownerUid: f.ownerUid || "",
+      members: Array.isArray(f.members) ? f.members : []
+    };
+  }
+
+  async function createGroup(g, token) {
+    if (!ready) throw new Error("Cloud database not configured.");
+    const fields = encodeFields({
+      name: g.name || "Grupo",
+      code: g.code,
+      ownerUid: g.ownerUid,
+      members: g.members || [g.ownerUid],
+      createdAt: new Date().toISOString()
+    });
+    const res = await fetch(`${docsBase}/groups?${keyQ()}`, {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify({ fields })
+    });
+    if (!res.ok) throw new Error(`Could not create group (${res.status}).`);
+    return decodeGroup(await res.json());
+  }
+
+  // Groups I belong to (members array-contains my uid).
+  async function fetchMyGroups(uid, token) {
+    if (!ready) return [];
+    try {
+      const body = {
+        structuredQuery: {
+          from: [{ collectionId: "groups" }],
+          where: { fieldFilter: { field: { fieldPath: "members" }, op: "ARRAY_CONTAINS", value: { stringValue: uid } } },
+          limit: 50
+        }
+      };
+      const res = await fetch(`${docsBase}:runQuery?${keyQ()}`, {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) return [];
+      const rows = await res.json();
+      return (rows || []).filter((r) => r.document).map((r) => decodeGroup(r.document));
+    } catch (e) {
+      return [];
+    }
+  }
+
+  async function fetchGroupByCode(code, token) {
+    if (!ready) return null;
+    try {
+      const body = {
+        structuredQuery: {
+          from: [{ collectionId: "groups" }],
+          where: { fieldFilter: { field: { fieldPath: "code" }, op: "EQUAL", value: { stringValue: code } } },
+          limit: 1
+        }
+      };
+      const res = await fetch(`${docsBase}:runQuery?${keyQ()}`, {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) return null;
+      const rows = await res.json();
+      const row = (rows || []).find((r) => r.document);
+      return row ? decodeGroup(row.document) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Join (or otherwise update membership): replace just the members field.
+  async function addGroupMember(groupId, members, token) {
+    if (!ready) throw new Error("Cloud database not configured.");
+    const fields = encodeFields({ members });
+    const res = await fetch(`${docsBase}/groups/${encodeURIComponent(groupId)}?updateMask.fieldPaths=members&${keyQ()}`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+      body: JSON.stringify({ fields })
+    });
+    if (!res.ok) throw new Error(`Could not join group (${res.status}).`);
+    return true;
   }
 
   // ---- Comments (comments/{autoId}) ----
@@ -512,6 +606,10 @@ const DB = (() => {
     fetchUserDoc,
     saveUserDoc,
     fetchAllUsers,
+    createGroup,
+    fetchMyGroups,
+    fetchGroupByCode,
+    addGroupMember,
     fetchComments,
     fetchCommentsByUser,
     fetchRecentComments,

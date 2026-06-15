@@ -140,8 +140,16 @@ Quando é preciso ler/apagar/patchar dados ou pôr CORS, faço scripts Node que:
 - **Locais:** `Storage.getCustomRestaurants()` (quando sem sessão).
 
 **Por utilizador:** `userData/{uid}` = `{ displayName, photoURL, visited[],
-priority[], ratings{ id:{stars,note,dishes[],updatedAt} }, history{ id:[ISO] } }`.
-O grupo = todos os docs de `userData` (lidos por qualquer autenticado).
+priority[], ratings{ id:{stars,note,dishes[],updatedAt} }, history{ id:[ISO] },
+onboarded, activeGroup }`. Carregam-se todos os docs de `userData` (`allUsers`); a
+vista social (`group`) é `allUsers` filtrado pelos membros do `activeGroup`.
+
+**Grupos:** `groups/{autoId}` = `{ name, code, ownerUid, members:[uid], createdAt }`.
+Qualquer autenticado cria (dono+membro) e lê (para encontrar por código); o dono
+edita/apaga; outros só entram (acrescentam o próprio uid a `members`). O `activeGroup`
+do utilizador (em `userData`) escolhe o grupo ativo; vazio = "Todos" (global). UI no
+ecrã Amigos (barra de grupo + modal criar/entrar). `UserData.createGroup/joinGroup/
+setActiveGroup/getGroups`; `DB.createGroup/fetchMyGroups/fetchGroupByCode/addGroupMember`.
 
 **Comentários (críticas):** `comments/{autoId}` = `{ restaurantId, uid, author,
 photoURL, text, createdAt }`.
@@ -162,6 +170,10 @@ retrocompatibilidade; novas usam `foodboxd.*` (ex.: `foodboxd.a2hsDismissed`).
   (autor apaga o seu).
 - `overrides`: read all; create/update all; delete false.
 - `userData/{uid}`: read se autenticado (group view); write só o próprio.
+- `groups`: read se autenticado; **create** se `ownerUid==auth.uid && auth.uid in
+  members`; **delete**/edição livre só o dono; **update** de não-dono só para
+  entrar (adiciona o próprio uid a `members`, mantendo name/code/ownerUid e sem
+  remover ninguém — via `toSet().difference()`).
 - `comments`/`photos`: read all; create/delete só o autor (uid match).
 
 `firebase/storage.rules`: `restaurants/{rid}/{file}` e `avatars/{file}` — read
@@ -200,7 +212,13 @@ all; write se `auth && file começa por uid + imagem + <6MB`; delete se auth.
     topbar, considera ratings/pratos/visitas + "perto de mim"), `planner` (Sonnet,
     notas nas paragens), `summarizeReviews`/`draftReview`/`nlSearch`/`categorize`
     (Haiku). Auth por Firebase ID token, rate-limit por uid, `tool_use` para JSON,
-    prompt caching do catálogo. Setup/IAM/deploy em `AI_SETUP.md`. (sw v22.)
+    prompt caching do catálogo. Setup/IAM/deploy em `AI_SETUP.md`. Em produção
+    (`global` endpoint; Cloud Run `ai` com `allUsers` run.invoker). (sw v22.)
+12. **Grupos** (`groups/{id}`): qualquer user cria um grupo (recebe um código) e
+    convida outros (entram com o código). A vista social (feed, leaderboard,
+    badges "visitado por N", médias) passa a estar **scoped** ao grupo ativo;
+    "Todos" = global (default). UI no ecrã Amigos. **Filtro "Só prioritários"** na
+    lista. **Sidebar fecha-se sozinha** ao sair do mapa para outro tab. (sw v23.)
 
 ## 8. Convenções / decisões
 

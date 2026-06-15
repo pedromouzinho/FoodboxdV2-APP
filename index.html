@@ -137,6 +137,10 @@
               <input type="checkbox" id="hide-visited-checkbox" />
               <span>Esconder já visitados</span>
             </label>
+            <label class="switch-row">
+              <input type="checkbox" id="only-priority-checkbox" />
+              <span>Só prioritários</span>
+            </label>
           </div>
         </details>
 
@@ -227,6 +231,7 @@
         <button class="seg-btn" data-atab="leaderboard" aria-pressed="false">Leaderboard</button>
       </div>
     </div>
+    <div id="amigos-groupbar" class="groupbar"></div>
     <div id="amigos-feed" class="screen-list"></div>
     <div id="amigos-leaderboard" class="screen-list" hidden></div>
   </section>
@@ -415,6 +420,21 @@
         <button class="btn btn-ghost" data-viewer-download><svg class="icon"><use href="#i-download"/></svg> Descarregar</button>
         <button class="btn btn-primary" data-viewer-share><svg class="icon"><use href="#i-share"/></svg> Partilhar</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Group create / join modal -->
+  <div id="group-modal" class="modal hidden">
+    <div class="modal-scrim" data-close-group></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Grupo">
+      <button class="icon-btn modal-close" data-close-group aria-label="Fechar">
+        <svg class="icon"><use href="#i-x"/></svg>
+      </button>
+      <h2 class="modal-title" data-group-title>Grupo</h2>
+      <p class="modal-intro" data-group-intro></p>
+      <input id="group-input" class="note-input" autocomplete="off" />
+      <p class="form-status" data-group-status></p>
+      <button class="btn btn-primary btn-block" data-group-confirm>Confirmar</button>
     </div>
   </div>
 
