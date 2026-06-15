@@ -1,9 +1,28 @@
-# Foodboxd — camada de IA (Claude via Vertex AI)
+# Foodboxd — camada de IA (Claude)
 
-A app ganhou uma camada de IA servida por uma **Cloud Function** (`functions/index.js`,
-função `ai`) que fala com a **Claude através do Vertex AI** (Model Garden do Google
-Cloud). A chave nunca chega ao browser: o cliente envia o **Firebase ID token** e a
-função autentica-se no Vertex pela **service account de runtime** (ADC), sem API key.
+A app tem uma camada de IA servida por uma **Cloud Function** (`functions/index.js`,
+função `ai`). A chave do modelo nunca chega ao browser: o cliente envia o **Firebase
+ID token** e a função fala com a Claude.
+
+## Fornecedor (selecionável)
+
+`AI_PROVIDER` escolhe o backend (default: `anthropic` se houver `ANTHROPIC_API_KEY`,
+senão `vertex`):
+
+- **`anthropic` (em uso):** API direta da Anthropic via `@anthropic-ai/sdk`. Precisa
+  de `ANTHROPIC_API_KEY` (de console.anthropic.com, com créditos). A key é dada no
+  deploy via `functions/.env` (no `.gitignore` — **nunca** vai para o repo) ou Secret
+  Manager. Faturado pela Anthropic. **Não depende de quota do Vertex.**
+- **`vertex`:** Claude no Model Garden via `@anthropic-ai/vertex-sdk` + ADC (sem key).
+  Requer modelos ativados no Model Garden, `roles/aiplatform.user` na SA de runtime e
+  **quota** (projetos/billing novos são recusados até terem histórico — ver §Vertex).
+
+`functions/.env` (exemplo, gitignored):
+```
+AI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+```
+A API de Messages, o `tool_use` forçado e o prompt caching são iguais nos dois.
 
 ## Arquitetura
 

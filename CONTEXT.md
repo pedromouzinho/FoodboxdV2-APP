@@ -212,8 +212,11 @@ all; write se `auth && file começa por uid + imagem + <6MB`; delete se auth.
     topbar, considera ratings/pratos/visitas + "perto de mim"), `planner` (Sonnet,
     notas nas paragens), `summarizeReviews`/`draftReview`/`nlSearch`/`categorize`
     (Haiku). Auth por Firebase ID token, rate-limit por uid, `tool_use` para JSON,
-    prompt caching do catálogo. Setup/IAM/deploy em `AI_SETUP.md`. Em produção
-    (`global` endpoint; Cloud Run `ai` com `allUsers` run.invoker). (sw v22.)
+    prompt caching do catálogo. Setup/IAM/deploy em `AI_SETUP.md`. **Fornecedor
+    selecionável** (`AI_PROVIDER`): **em produção usa a API direta da Anthropic**
+    (`@anthropic-ai/sdk`, key em `functions/.env` gitignored) porque o Vertex
+    recusou quota a projeto novo; `vertex` fica disponível via env. Cloud Run `ai`
+    com `allUsers` run.invoker; runtime SA = appspot; rate-limit fail-open. (sw v22.)
 12. **Grupos** (`groups/{id}`): qualquer user cria um grupo (recebe um código) e
     convida outros (entram com o código). A vista social (feed, leaderboard,
     badges "visitado por N", médias) passa a estar **scoped** ao grupo ativo;
