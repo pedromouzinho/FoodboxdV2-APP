@@ -1334,17 +1334,18 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 }
 
 /* ---- refinamentos de componentes (classes existentes; só visual) ---- */
-/* barras translúcidas com blur + hairline */
+/* barras SÓLIDAS (sem backdrop-filter): blur sobre o mapa torna o zoom lento
+   em mobile — usar fundo opaco mantém o aspeto limpo e o mapa fluido. */
 .topbar {
-  background: color-mix(in srgb, var(--surface) 86%, transparent);
-  backdrop-filter: saturate(1.3) blur(14px);
-  -webkit-backdrop-filter: saturate(1.3) blur(14px);
+  background: var(--surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border-bottom: 1px solid var(--hairline);
 }
 .tabbar {
-  background: color-mix(in srgb, var(--surface) 90%, transparent);
-  backdrop-filter: saturate(1.3) blur(14px);
-  -webkit-backdrop-filter: saturate(1.3) blur(14px);
+  background: var(--surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border-top: 1px solid var(--hairline);
 }
 /* botões pill, coerentes */
@@ -1431,3 +1432,44 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .row { display: flex; align-items: center; }
 .faint { color: var(--text-faint); }
 .mono { font-family: var(--font-mono); }
+
+/* ---- Lista de restaurantes (rcard) — design handoff ---- */
+.card.rcard {
+  --cat: var(--primary);
+  position: relative;
+  display: grid; grid-template-columns: 76px 1fr; gap: var(--sp-3);
+  padding: var(--sp-3); align-items: start;
+  border-radius: var(--r-lg); border: 1px solid var(--hairline);
+  box-shadow: var(--sh-sm); cursor: pointer;
+  transition: box-shadow var(--t) var(--ease), transform var(--t-fast) var(--ease), border-color var(--t) var(--ease);
+}
+.card.rcard:hover { box-shadow: var(--sh-md); transform: translateY(-1px); border-color: var(--border); }
+.card.rcard.visited { opacity: .72; }
+.card.rcard[data-cat="tradicional"] { --cat: var(--c-tradicional); }
+.card.rcard[data-cat="petiscos"]    { --cat: var(--c-petiscos); }
+.card.rcard[data-cat="pastelaria"]  { --cat: var(--c-pastelaria); }
+.card.rcard[data-cat="fine-dining"] { --cat: var(--c-fine-dining); }
+.card.rcard::before {
+  content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px;
+  border-radius: 0 3px 3px 0; background: var(--cat);
+}
+.rcard-thumb { width: 76px; height: 76px; border-radius: var(--r-md); overflow: hidden; background: var(--surface-2); flex: none; }
+.rcard-thumb .ph::after { font-size: 8.5px; padding: 2px 5px; }
+.rcard-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding-right: 34px; }
+.rcard-name {
+  font-family: var(--font-display); font-size: var(--fs-md); font-weight: 560; line-height: 1.15;
+  letter-spacing: var(--tracking-tight); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rcard-notes { font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.4; }
+.rcard-meta { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-top: 2px; }
+.rcard-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.mark-visit {
+  position: absolute; top: var(--sp-3); right: var(--sp-3); z-index: 1;
+  width: 32px; height: 32px; border-radius: var(--r-pill);
+  display: grid; place-items: center;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted);
+  transition: background var(--t) var(--ease), border-color var(--t) var(--ease), color var(--t) var(--ease);
+}
+.mark-visit .icon { width: 16px; height: 16px; }
+.mark-visit:hover { border-color: var(--accent); color: var(--accent-ink); }
+.mark-visit.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }

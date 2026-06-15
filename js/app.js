@@ -168,8 +168,9 @@ const App = (() => {
     const visited = UserData.isVisited(r.id);
     const cat = catFor(r);
     const card = document.createElement("div");
-    card.className = "card" + (visited ? " visited" : "");
+    card.className = "card rcard" + (visited ? " visited" : "");
     card.dataset.id = r.id;
+    card.dataset.cat = r.category;
 
     // group/personal badges
     const badges = [];
@@ -181,19 +182,18 @@ const App = (() => {
     }
 
     card.innerHTML = `
-      <span class="card-accent" style="background:var(${cat.varName})"></span>
-      <div class="card-main">
-        <div class="card-title-row">
-          <span class="card-title">${esc(r.name)}</span>
-          ${badges.join(" ")}
-        </div>
-        <div class="card-town">${esc(r.town)} · ${esc(r.region)}</div>
-        ${r.notes ? `<div class="card-notes">${esc(r.notes)}</div>` : ""}
-        <div class="card-meta" data-meta></div>
-      </div>
-      <button class="card-visit${visited ? " on" : ""}" data-visit aria-label="Marcar como visitado" aria-pressed="${visited}">
+      <div class="rcard-thumb"><div class="ph" data-label="foto · Google"></div></div>
+      <button class="mark-visit${visited ? " on" : ""}" data-visit aria-label="Marcar como visitado" aria-pressed="${visited}">
         ${icon("check")}
-      </button>`;
+      </button>
+      <div class="rcard-body">
+        <span class="rcard-cat" style="color:var(${cat.varName}-ink)">${esc(cat.label)}</span>
+        <span class="rcard-name">${esc(r.name)}</span>
+        <span class="rcard-loc">${icon("pin")} ${esc(r.town)} · ${esc(r.region)}</span>
+        ${r.notes ? `<div class="rcard-notes">${esc(r.notes)}</div>` : ""}
+        <div class="rcard-meta card-meta" data-meta></div>
+        ${badges.length ? `<div class="rcard-badges">${badges.join(" ")}</div>` : ""}
+      </div>`;
 
     card.addEventListener("click", (e) => {
       if (e.target.closest("[data-visit]")) return;
