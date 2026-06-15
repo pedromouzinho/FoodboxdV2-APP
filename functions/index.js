@@ -135,15 +135,59 @@ const ACTIONS = {
       }
     };
     const system = cachedSystem(
-      "És o concierge do Foodboxd. Recomendas restaurantes a partir do CATÁLOGO fornecido (usa só ids existentes). Tom claro e direto, em português europeu, sem emojis. Considera o gosto do utilizador (as suas avaliações, pratos e visitas) e os critérios. Justifica em 1–2 frases concretas.",
+      "És o concierge do Foodboxd. Recomendas restaurantes a partir do CATÁLOGO fornecido (usa só ids existentes). Tom claro e direto, em português europeu, sem emojis. Considera o gosto do utilizador (as suas avaliações, pratos e visitas), o PERFIL DE GOSTO (se vier) e os critérios. Justifica em 1–2 frases concretas, ligando à preferência dele.",
       catalog
     );
     const user = [
       { type: "text", text: "PERFIL: " + JSON.stringify(body.profile || {}) },
+      { type: "text", text: "PERFIL DE GOSTO (resumo): " + JSON.stringify(body.taste || {}) },
       { type: "text", text: "CRITÉRIOS: " + JSON.stringify(body.criteria || {}) },
       { type: "text", text: "Escolhe o melhor restaurante e 3 alternativas." }
     ];
     return structured({ model: MODELS.recommend, system, user, tool, maxTokens: 1200 });
+  },
+
+  // Build a "taste profile" from the user's records + Google Maps searches to
+  // discover new places that match it.
+  async tasteProfile(uid, body) {
+    const catalog = Array.isArray(body.catalog) ? body.catalog.slice(0, 400) : [];
+    const tool = {
+      name: "perfilar",
+      description: "Resume o gosto do utilizador e propõe pesquisas para o Google Maps.",
+      input_schema: {
+        type: "object",
+        properties: {
+          summary: { type: "string", description: "2–4 frases, na 2.ª pessoa (tu), português europeu, concretas, sem emojis." },
+          cuisines: { type: "array", items: { type: "string" }, description: "Cozinhas/estilos preferidos." },
+          dishes: { type: "array", items: { type: "string" }, description: "Pratos favoritos." },
+          price: { type: "string", description: "Faixa de preço habitual, em texto curto." },
+          vibe: { type: "string", description: "Ambiente preferido (ex.: tascas tradicionais, petiscos animados)." },
+          mapsQueries: {
+            type: "array",
+            description: "2 a 4 pesquisas COMPETENTES para o Google Maps, à medida do gosto e da zona indicada. Inclui sempre localidade/região na query para dar bons resultados.",
+            items: {
+              type: "object",
+              properties: {
+                label: { type: "string", description: "Rótulo curto para o botão (3–5 palavras)." },
+                query: { type: "string", description: "Texto de pesquisa para o Google Maps." }
+              },
+              required: ["label", "query"]
+            }
+          }
+        },
+        required: ["summary", "cuisines", "dishes", "vibe", "mapsQueries"]
+      }
+    };
+    const system = cachedSystem(
+      "És um analista de gosto gastronómico do Foodboxd. A partir do CATÁLOGO (os restaurantes do utilizador, com as estrelas, pratos e visitas dele), descreve o gosto de forma concreta e útil, em português europeu, sem emojis. A seguir propõe pesquisas para o Google Maps que o ajudem a descobrir sítios NOVOS alinhados com esse gosto, perto da ZONA indicada — usa nomes de localidade/região nas queries para serem competentes (ex.: 'tasca tradicional alentejana migas perto de Évora').",
+      catalog
+    );
+    const user = [
+      { type: "text", text: "AGREGADO: " + JSON.stringify(body.profile || {}) },
+      { type: "text", text: "ZONA: " + JSON.stringify(body.near || {}) },
+      { type: "text", text: "Faz o perfil de gosto e as pesquisas para o Maps." }
+    ];
+    return structured({ model: MODELS.planner, system, user, tool, maxTokens: 900 });
   },
 
   // Personalized notes for the trip-planner stops.

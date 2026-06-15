@@ -208,6 +208,7 @@ const DB = (() => {
       history: data.history || {},
       onboarded: data.onboarded === true,
       activeGroup: data.activeGroup || "",
+      tasteProfile: data.tasteProfile || null,
       updatedAt: new Date().toISOString()
     });
     const res = await fetch(`${docsBase}/userData/${encodeURIComponent(uid)}?${keyQ()}`, {

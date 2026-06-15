@@ -1398,6 +1398,7 @@ const App = (() => {
       const r = await AIModule.recommend({
         catalog: aiCatalog(near),
         profile: aiProfile(),
+        taste: UserData.getTasteProfile() || undefined,
         criteria: near ? { near: true } : {}
       });
       renderSuggest(r);
@@ -1436,6 +1437,67 @@ const App = (() => {
         if (rest) { hideAi(); onSelect(rest); }
       })
     );
+  }
+
+  // ---------- Taste profile ----------
+  // The dominant town/region across my rated/visited places — the location
+  // anchor the model uses to build competent Google Maps searches.
+  function aiNear() {
+    const townCount = {}, regionCount = {};
+    state.restaurants.forEach((r) => {
+      const rt = UserData.getRating(r.id);
+      if ((rt && rt.stars) || UserData.isVisited(r.id)) {
+        if (r.town) townCount[r.town] = (townCount[r.town] || 0) + 1;
+        if (r.region) regionCount[r.region] = (regionCount[r.region] || 0) + 1;
+      }
+    });
+    const top = (o) => Object.keys(o).sort((a, b) => o[b] - o[a])[0] || "";
+    return { town: top(townCount), region: top(regionCount) };
+  }
+
+  async function runTasteProfile() {
+    if (!UserData.isCloud()) { showSigninModal(); return; }
+    openAi();
+    aiLoading("A construir o teu perfil de gosto…");
+    try {
+      const p = await AIModule.tasteProfile({
+        catalog: aiCatalog(),
+        profile: aiProfile(),
+        near: aiNear()
+      });
+      if (!p || !p.summary) { aiError("Ainda não há registos suficientes. Avalia alguns restaurantes primeiro."); return; }
+      p.updatedAt = new Date().toISOString();
+      UserData.setTasteProfile(p); // persists + feeds "Sugere-me"
+      renderTaste(p);
+    } catch (e) {
+      aiError(e.message);
+    }
+  }
+
+  function mapsSearchUrl(query) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  }
+
+  function renderTaste(p) {
+    const chips = (arr) => (arr || []).map((x) => `<span class="taste-chip">${esc(x)}</span>`).join("");
+    document.getElementById("ai-body").innerHTML = `
+      <div class="taste">
+        <p class="taste-summary">${esc(p.summary || "")}</p>
+        ${p.cuisines && p.cuisines.length ? `<div class="taste-row"><span class="taste-label">Cozinhas</span><div class="taste-chips">${chips(p.cuisines)}</div></div>` : ""}
+        ${p.dishes && p.dishes.length ? `<div class="taste-row"><span class="taste-label">Pratos</span><div class="taste-chips">${chips(p.dishes)}</div></div>` : ""}
+        ${p.vibe ? `<div class="taste-row"><span class="taste-label">Ambiente</span><span class="taste-val">${esc(p.vibe)}</span></div>` : ""}
+        ${p.price ? `<div class="taste-row"><span class="taste-label">Preço</span><span class="taste-val">${esc(p.price)}</span></div>` : ""}
+        ${(p.mapsQueries && p.mapsQueries.length) ? `
+          <div class="taste-discover">
+            <div class="taste-label">${icon("pin")} Descobrir no Google Maps</div>
+            <div class="taste-maps">${p.mapsQueries.map((q) =>
+              `<a class="btn btn-ghost btn-sm taste-map" href="${esc(mapsSearchUrl(q.query))}" target="_blank" rel="noopener">${icon("external")} ${esc(q.label || q.query)}</a>`
+            ).join("")}</div>
+          </div>` : ""}
+        <button class="btn btn-primary btn-block taste-suggest" data-taste-suggest>${icon("sparkles")} Sugere-me com este perfil</button>
+      </div>`;
+    const sg = document.querySelector("#ai-body [data-taste-suggest]");
+    if (sg) sg.addEventListener("click", runSuggest);
   }
 
   // Natural-language search: a query → structured filters applied to the UI.
@@ -1838,13 +1900,16 @@ const App = (() => {
   function renderMemorias() {
     const listEl = document.getElementById("memorias-list");
     const countEl = document.getElementById("memorias-count");
+    const tasteBtn = document.getElementById("taste-profile-btn");
     if (!listEl) return;
     if (!UserData.isCloud()) {
       listEl.innerHTML = signinInvite("Inicie sessão com a Google para guardar e rever as suas memórias.");
       if (countEl) countEl.textContent = "";
+      if (tasteBtn) tasteBtn.classList.add("hidden");
       return;
     }
     const mems = gatherMemories();
+    if (tasteBtn) tasteBtn.classList.toggle("hidden", !(AIModule.available() && mems.length));
     if (countEl) countEl.textContent = mems.length ? `${mems.length} ${mems.length === 1 ? "sítio" : "sítios"}` : "";
     listEl.innerHTML = "";
     if (!mems.length) {
@@ -2134,6 +2199,8 @@ const App = (() => {
       else aiBtn.classList.add("hidden");
     }
     document.querySelectorAll("[data-close-ai]").forEach((el) => el.addEventListener("click", hideAi));
+    const tasteBtn = document.getElementById("taste-profile-btn");
+    if (tasteBtn && AIModule.available()) tasteBtn.addEventListener("click", runTasteProfile);
 
     // Groups: modal close / confirm (the create/join buttons are wired per-render
     // in renderGroupBar).

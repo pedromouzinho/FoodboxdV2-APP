@@ -17,6 +17,7 @@ const UserData = (() => {
   let photoURL = "";
   let getToken = null; // async () => idToken
   let onboarded = false; // has this account already seen the onboarding tour?
+  let tasteProfile = null; // last AI-generated taste profile (feeds "Sugere-me")
 
   // my marks (used in cloud mode)
   let mine = { visited: new Set(), priority: new Set(), ratings: {}, history: {} };
@@ -69,6 +70,7 @@ const UserData = (() => {
       // new device / the installed PWA's separate storage.
       onboarded = doc.onboarded === true;
       activeGroupId = doc.activeGroup || null;
+      tasteProfile = doc.tasteProfile || null;
       // First sign-in: fold in whatever was marked locally before logging in.
       if (firstTime) {
         Storage.getVisited().forEach((id) => mine.visited.add(id));
@@ -92,6 +94,7 @@ const UserData = (() => {
     allUsers = [];
     myGroups = [];
     activeGroupId = null;
+    tasteProfile = null;
     if (onChange) onChange();
   }
 
@@ -177,11 +180,19 @@ const UserData = (() => {
         ratings: mine.ratings,
         history: mine.history,
         onboarded,
-        activeGroup: activeGroupId || ""
+        activeGroup: activeGroupId || "",
+        tasteProfile: tasteProfile || null
       },
       token
     );
     syncMineToGroup();
+  }
+
+  // ---- taste profile (AI-generated; durable so it keeps feeding recommend) ----
+  function getTasteProfile() { return tasteProfile; }
+  function setTasteProfile(p) {
+    tasteProfile = p || null;
+    if (cloud) persistNow().catch(() => {});
   }
 
   // ---- groups (create / join by code / switch active) ----
@@ -374,6 +385,8 @@ const UserData = (() => {
     activeGroup,
     setActiveGroup,
     createGroup,
-    joinGroup
+    joinGroup,
+    getTasteProfile,
+    setTasteProfile
   };
 })();
