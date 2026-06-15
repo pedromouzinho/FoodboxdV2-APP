@@ -45,16 +45,23 @@ async function requireUser(req) {
   }
 }
 
-// Simple per-user daily cap (best-effort).
+// Simple per-user daily cap (best-effort). Fails OPEN: if Firestore is
+// unreachable (e.g. the runtime SA lacks datastore access), we skip the cap
+// rather than block the request.
 async function checkRateLimit(uid) {
-  const day = new Date().toISOString().slice(0, 10);
-  const ref = db.collection("aiUsage").doc(uid);
-  const snap = await ref.get();
-  const d = snap.exists ? snap.data() : {};
-  const count = d.day === day ? (d.count || 0) : 0;
-  if (count >= DAILY_CAP) return false;
-  await ref.set({ day, count: count + 1, updatedAt: new Date().toISOString() }, { merge: true });
-  return true;
+  try {
+    const day = new Date().toISOString().slice(0, 10);
+    const ref = db.collection("aiUsage").doc(uid);
+    const snap = await ref.get();
+    const d = snap.exists ? snap.data() : {};
+    const count = d.day === day ? (d.count || 0) : 0;
+    if (count >= DAILY_CAP) return false;
+    await ref.set({ day, count: count + 1, updatedAt: new Date().toISOString() }, { merge: true });
+    return true;
+  } catch (e) {
+    console.error("rate-limit skipped:", e && e.message);
+    return true;
+  }
 }
 
 // One forced-tool call → returns the tool input as the structured result.
@@ -263,7 +270,13 @@ exports.ai = onRequest(
       if (!result) return res.status(502).json({ error: "sem resposta" });
       return res.json({ result });
     } catch (e) {
-      console.error("ai error", action, e && e.message);
+      // Log the full Vertex/Anthropic error so failures are diagnosable.
+      console.error("ai error", action,
+        "status=", e && e.status,
+        "msg=", e && e.message,
+        "model=", (MODELS[action === "recommend" ? "recommend" : action === "planner" ? "planner" : "cheap"] || {}),
+        "detail=", (() => { try { return JSON.stringify(e && (e.error || e.response || e)).slice(0, 800); } catch (_) { return "?"; } })()
+      );
       return res.status(500).json({ error: "falha ao gerar" });
     }
   }
