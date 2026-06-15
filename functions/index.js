@@ -5,30 +5,40 @@
 
 const { onRequest } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
-const { AnthropicVertex } = require("@anthropic-ai/vertex-sdk");
 
 admin.initializeApp();
 const db = admin.firestore();
 
-// Vertex location for the Claude models. Default to the `global` endpoint —
-// Anthropic's recommendation: dynamic routing, max availability, no price premium
-// (use `eu` for EU data residency, or a specific region like `europe-west1`).
-// Each tier can still override its location (REGION_*), e.g. if one model is only
-// enabled in a specific region. Model IDs are overridable too (MODEL_*).
+// Provider: "anthropic" (direct API key) or "vertex" (Claude in Model Garden).
+// Defaults to anthropic when an API key is present, else vertex.
 const PROJECT = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || "app-restaurantes-499400";
 const VERTEX_REGION = process.env.VERTEX_REGION || "global";
+function provider() {
+  return process.env.AI_PROVIDER || (process.env.ANTHROPIC_API_KEY ? "anthropic" : "vertex");
+}
 
+// Model ids (Anthropic API form). For Vertex, Haiku needs the `@`-dated id —
+// override MODEL_CHEAP=claude-haiku-4-5@20251001 when AI_PROVIDER=vertex.
 const MODELS = {
-  recommend: { id: process.env.MODEL_RECOMMEND || "claude-opus-4-8", region: process.env.REGION_RECOMMEND || VERTEX_REGION },
-  planner: { id: process.env.MODEL_PLANNER || "claude-sonnet-4-6", region: process.env.REGION_PLANNER || VERTEX_REGION },
-  cheap: { id: process.env.MODEL_CHEAP || "claude-haiku-4-5@20251001", region: process.env.REGION_CHEAP || VERTEX_REGION }
+  recommend: process.env.MODEL_RECOMMEND || "claude-opus-4-8",
+  planner: process.env.MODEL_PLANNER || "claude-sonnet-4-6",
+  cheap: process.env.MODEL_CHEAP || "claude-haiku-4-5"
 };
 
-// One Vertex client per region, created on demand and reused.
-const clients = {};
-function clientFor(region) {
-  if (!clients[region]) clients[region] = new AnthropicVertex({ projectId: PROJECT, region });
-  return clients[region];
+// One lazily-built client (reads the key/region at first use, so Secret Manager
+// / env values are available).
+let _client = null;
+function client() {
+  if (_client) return _client;
+  if (provider() === "anthropic") {
+    const mod = require("@anthropic-ai/sdk");
+    const Anthropic = mod.Anthropic || mod.default || mod;
+    _client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  } else {
+    const { AnthropicVertex } = require("@anthropic-ai/vertex-sdk");
+    _client = new AnthropicVertex({ projectId: PROJECT, region: VERTEX_REGION });
+  }
+  return _client;
 }
 const DAILY_CAP = parseInt(process.env.AI_DAILY_CAP || "120", 10);
 
@@ -66,10 +76,10 @@ async function checkRateLimit(uid) {
 
 // One forced-tool call → returns the tool input as the structured result.
 // `system` may be an array of content blocks (so the catalog block can be cached).
-// `model` is a tier object { id, region }; we route to the client for its region.
+// `model` is the model id string (provider-agnostic).
 async function structured({ model, system, user, tool, maxTokens = 1024 }) {
-  const msg = await clientFor(model.region).messages.create({
-    model: model.id,
+  const msg = await client().messages.create({
+    model,
     max_tokens: maxTokens,
     system,
     tools: [tool],
