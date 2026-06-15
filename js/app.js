@@ -164,6 +164,22 @@ const App = (() => {
     });
   }
 
+  // Drop a real Google photo into a `.ph` placeholder once we have its URL.
+  function setThumbPhoto(phEl, url) {
+    if (!phEl || !url) return;
+    phEl.removeAttribute("data-label");
+    phEl.style.background = "none";
+    phEl.innerHTML = `<img src="${esc(url)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover">`;
+  }
+  // Fetch (cached, no extra quota after the first time) the Google photo for a
+  // restaurant and fill a `.ph` thumbnail with it.
+  function fillThumbPhoto(phEl, r) {
+    if (!phEl || !PlacesModule.isAvailable()) return;
+    PlacesModule.fetchDetails(r).then((data) => {
+      if (data && data.photos && data.photos[0]) setThumbPhoto(phEl, data.photos[0]);
+    }).catch(() => {});
+  }
+
   function buildCard(r) {
     const visited = UserData.isVisited(r.id);
     const cat = catFor(r);
@@ -204,8 +220,11 @@ const App = (() => {
       setVisited(r.id, !UserData.isVisited(r.id));
     });
     if (PlacesModule.isAvailable()) {
+      const ph = card.querySelector(".rcard-thumb .ph");
       PlacesModule.enrichCard(r, card.querySelector("[data-meta]")).then((data) => {
-        if (data && data.phone) card.querySelector("[data-community-badge]")?.remove();
+        if (!data) return;
+        if (data.phone) card.querySelector("[data-community-badge]")?.remove();
+        if (ph && data.photos && data.photos[0]) setThumbPhoto(ph, data.photos[0]);
       });
     }
     return card;
@@ -1644,6 +1663,7 @@ const App = (() => {
               selectStop(li, restaurant);
             }
           });
+          fillThumbPhoto(li.querySelector(".ph"), restaurant);
           results.appendChild(li);
         });
         selectStop(results.querySelector("li"), stops[0].restaurant);
@@ -1906,6 +1926,7 @@ const App = (() => {
         </div>
       </div>`;
     card.addEventListener("click", () => openOnTab(m.r, "mem"));
+    fillThumbPhoto(card.querySelector(".ph"), m.r);
     return card;
   }
 
@@ -2069,10 +2090,10 @@ const App = (() => {
     }
     el.innerHTML = feed.map(feedRow).join("");
     el.querySelectorAll("[data-feed-rest]").forEach((b) => {
-      b.addEventListener("click", () => {
-        const r = state.restaurants.find((x) => x.id === b.dataset.feedRest);
-        if (r) openOnTab(r, "amigos");
-      });
+      const r = state.restaurants.find((x) => x.id === b.dataset.feedRest);
+      b.addEventListener("click", () => { if (r) openOnTab(r, "amigos"); });
+      const ph = b.querySelector(".ph");
+      if (r && ph) fillThumbPhoto(ph, r); // real photo (else keep placeholder)
     });
   }
 
@@ -2342,11 +2363,14 @@ const App = (() => {
     return [...seen.values()];
   }
 
-  function onRestaurantAdded(r) {
+  function onRestaurantAdded(r, opts) {
+    opts = opts || {};
     state.restaurants = mergeRestaurants(state.restaurants, [r]);
     buildRegionFilters();
+    if (opts.priority) UserData.setPriority(r.id, true); // wishlist: quero ir
     render();
-    onSelect(r);
+    if (opts.tab) openOnTab(r, opts.tab); // experiência: abre para avaliar
+    else onSelect(r);
   }
 
   // Called by AuthModule when the signed-in user changes.

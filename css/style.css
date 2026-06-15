@@ -1528,3 +1528,7 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .stop-num { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-faint); letter-spacing: .04em; }
 .stop .rcard-thumb { flex: none; }
 .stop .route-summary { font-size: var(--fs-sm); color: var(--primary-strong); margin-top: 2px; cursor: pointer; }
+
+/* dois CTAs de adicionar (wishlist / experiência) */
+.list-add-group { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.list-add-group .list-add-btn .icon { width: 14px; height: 14px; }

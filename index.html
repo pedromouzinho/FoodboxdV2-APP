@@ -174,9 +174,14 @@
 
         <div class="list-head">
           <span id="list-count">0 restaurantes</span>
-          <button id="add-restaurant-btn" class="btn btn-ghost btn-sm list-add-btn">
-            <svg class="icon"><use href="#i-plus"/></svg> Adicionar
-          </button>
+          <div class="list-add-group">
+            <button id="add-wishlist-btn" class="btn btn-ghost btn-sm list-add-btn" title="Adicionar um sítio onde quero ir">
+              <svg class="icon"><use href="#i-flame"/></svg> Quero ir
+            </button>
+            <button id="add-experience-btn" class="btn btn-ghost btn-sm list-add-btn" title="Registar um sítio onde já fui">
+              <svg class="icon"><use href="#i-check-circle"/></svg> Já fui
+            </button>
+          </div>
         </div>
         <div id="restaurant-list" class="restaurant-list"></div>
       </div>

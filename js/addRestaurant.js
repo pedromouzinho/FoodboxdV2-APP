@@ -5,8 +5,11 @@
 // "Opções avançadas" for the rare case the auto-location is off.
 
 const AddRestaurantModule = (() => {
-  let modal, form, closeBtn, locateBtn, locateStatus, copyJsonBtn, submitBtn, statusEl, aiSuggestBtn;
+  let modal, form, closeBtn, locateBtn, locateStatus, copyJsonBtn, submitBtn, statusEl, aiSuggestBtn, titleEl, introEl;
   let nameInput, townInput, regionInput, categorySelect, notesInput, latInput, lngInput;
+  // "wishlist" = um sítio onde quero ir (fica prioritário); "experience" = já fui
+  // (abre logo a experiência para avaliar). Define o comportamento pós-adição.
+  let mode = "wishlist";
 
   function slugify(text) {
     return text
@@ -37,7 +40,12 @@ const AddRestaurantModule = (() => {
     latInput = document.getElementById("form-lat");
     lngInput = document.getElementById("form-lng");
 
-    document.getElementById("add-restaurant-btn").addEventListener("click", open);
+    titleEl = modal.querySelector(".modal-title");
+    introEl = modal.querySelector(".modal-intro");
+    const wishlistBtn = document.getElementById("add-wishlist-btn");
+    const experienceBtn = document.getElementById("add-experience-btn");
+    if (wishlistBtn) wishlistBtn.addEventListener("click", () => open("wishlist"));
+    if (experienceBtn) experienceBtn.addEventListener("click", () => open("experience"));
     modal.querySelectorAll("[data-close-modal]").forEach((el) => el.addEventListener("click", close));
 
     locateBtn.addEventListener("click", manualLocate);
@@ -73,7 +81,13 @@ const AddRestaurantModule = (() => {
     aiSuggestBtn.disabled = false;
   }
 
-  function open() {
+  function open(m) {
+    mode = m === "experience" ? "experience" : "wishlist";
+    if (titleEl) titleEl.textContent = mode === "experience" ? "Adicionar experiência" : "Adicionar à wishlist";
+    if (introEl) introEl.textContent = mode === "experience"
+      ? "Um sítio onde já foste — depois avalias e registas a visita."
+      : "Um sítio onde queres ir — fica marcado como prioritário.";
+    if (submitBtn) submitBtn.textContent = mode === "experience" ? "Adicionar e avaliar" : "Adicionar à wishlist";
     modal.classList.remove("hidden");
     statusEl.textContent = "";
     statusEl.className = "form-status";
@@ -196,14 +210,16 @@ const AddRestaurantModule = (() => {
 
       // The shared list requires a signed-in author (Firestore rules enforce
       // addedByUid == auth.uid). Without a session, save locally instead.
+      // Post-add behaviour depends on the CTA used.
+      const opts = mode === "experience" ? { tab: "mem" } : { priority: true };
       if (DB.isAvailable() && signedIn) {
         setStatus("A guardar para todos...", "info");
         const saved = await DB.add(restaurant, token);
-        App.onRestaurantAdded(saved);
-        setStatus("Restaurante adicionado.", "success");
+        App.onRestaurantAdded(saved, opts);
+        setStatus(mode === "experience" ? "Adicionado. Avalia a tua experiência." : "Adicionado à wishlist.", "success");
       } else {
         Storage.addCustomRestaurant(restaurant);
-        App.onRestaurantAdded(restaurant);
+        App.onRestaurantAdded(restaurant, opts);
         setStatus(
           DB.isAvailable()
             ? "Guardado só neste navegador. Inicie sessão para partilhar com todos."
