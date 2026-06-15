@@ -62,20 +62,28 @@ Todas têm default no código; define só o que precisares de mudar:
 
 | Env | Default | Para quê |
 |---|---|---|
-| `VERTEX_REGION` | `us-east5` | Região do Model Garden |
+| `VERTEX_REGION` | `us-east5` | Região por omissão (fallback de todos os modelos) |
+| `REGION_RECOMMEND` | `VERTEX_REGION` | Região onde o **Opus** está ativado |
+| `REGION_PLANNER` | `VERTEX_REGION` | Região onde o **Sonnet** está ativado |
+| `REGION_CHEAP` | `VERTEX_REGION` | Região onde o **Haiku** está ativado |
 | `MODEL_RECOMMEND` | `claude-opus-4-8` | Override do id (ex.: id publicado no Vertex) |
 | `MODEL_PLANNER` | `claude-sonnet-4-6` | idem |
 | `MODEL_CHEAP` | `claude-haiku-4-5` | idem |
 | `AI_DAILY_CAP` | `120` | Limite de pedidos por utilizador/dia |
 
+> **Região por modelo:** a disponibilidade do Claude no Vertex (MaaS) varia por
+> modelo e por região. Cada tier tem a sua própria região (`REGION_*`); se cada
+> modelo ficou ativado numa região diferente, define as três. Se estiverem todos
+> na mesma, basta `VERTEX_REGION`.
+
 > **Nota sobre os ids:** se o Vertex rejeitar um id "first-party" (ex.:
 > `claude-opus-4-8`), define a env correspondente com o id **publicado no Vertex** para
 > a tua região (Model Garden mostra-o ao ativar o modelo).
 
-Definir envs no deploy (exemplo):
+Definir envs no deploy (exemplo com 3 regiões diferentes):
 ```bash
 firebase deploy --only functions \
-  --set-env-vars VERTEX_REGION=us-east5,AI_DAILY_CAP=120
+  --set-env-vars REGION_RECOMMEND=europe-west1,REGION_PLANNER=europe-west4,REGION_CHEAP=europe-west1,AI_DAILY_CAP=120
 ```
 (ou um ficheiro `functions/.env` — já ignorado pelo git.)
 

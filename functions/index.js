@@ -10,18 +10,26 @@ const { AnthropicVertex } = require("@anthropic-ai/vertex-sdk");
 admin.initializeApp();
 const db = admin.firestore();
 
-// Vertex region where the Claude models are enabled (Model Garden). Override via
-// env if needed. Model IDs are overridable too — if Vertex rejects a bare id,
-// set MODEL_* to the Vertex-published id for that region.
+// Vertex region(s) where the Claude models are enabled (Model Garden). Each
+// model can live in its own region — Claude MaaS availability differs per model
+// per region — so every tier carries its own region, falling back to
+// VERTEX_REGION. Model IDs are overridable too: if Vertex rejects a bare id, set
+// MODEL_* to the Vertex-published id for that region.
 const PROJECT = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || "app-restaurantes-499400";
 const VERTEX_REGION = process.env.VERTEX_REGION || "us-east5";
-const anthropic = new AnthropicVertex({ projectId: PROJECT, region: VERTEX_REGION });
 
 const MODELS = {
-  recommend: process.env.MODEL_RECOMMEND || "claude-opus-4-8",
-  planner: process.env.MODEL_PLANNER || "claude-sonnet-4-6",
-  cheap: process.env.MODEL_CHEAP || "claude-haiku-4-5"
+  recommend: { id: process.env.MODEL_RECOMMEND || "claude-opus-4-8", region: process.env.REGION_RECOMMEND || VERTEX_REGION },
+  planner: { id: process.env.MODEL_PLANNER || "claude-sonnet-4-6", region: process.env.REGION_PLANNER || VERTEX_REGION },
+  cheap: { id: process.env.MODEL_CHEAP || "claude-haiku-4-5", region: process.env.REGION_CHEAP || VERTEX_REGION }
 };
+
+// One Vertex client per region, created on demand and reused.
+const clients = {};
+function clientFor(region) {
+  if (!clients[region]) clients[region] = new AnthropicVertex({ projectId: PROJECT, region });
+  return clients[region];
+}
 const DAILY_CAP = parseInt(process.env.AI_DAILY_CAP || "120", 10);
 
 // ---- helpers ---------------------------------------------------------------
@@ -51,9 +59,10 @@ async function checkRateLimit(uid) {
 
 // One forced-tool call → returns the tool input as the structured result.
 // `system` may be an array of content blocks (so the catalog block can be cached).
+// `model` is a tier object { id, region }; we route to the client for its region.
 async function structured({ model, system, user, tool, maxTokens = 1024 }) {
-  const msg = await anthropic.messages.create({
-    model,
+  const msg = await clientFor(model.region).messages.create({
+    model: model.id,
     max_tokens: maxTokens,
     system,
     tools: [tool],
