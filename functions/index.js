@@ -238,8 +238,13 @@ const ACTIONS = {
 
 // ---- HTTP entrypoint -------------------------------------------------------
 
+// Run as a service account that holds roles/aiplatform.user (the Vertex caller).
+// Gen2 functions otherwise default to the Compute Engine SA, which may not have
+// it. Override with RUNTIME_SA if your project uses a different account.
+const RUNTIME_SA = process.env.RUNTIME_SA || `${PROJECT}@appspot.gserviceaccount.com`;
+
 exports.ai = onRequest(
-  { region: "europe-west1", cors: true, maxInstances: 10, timeoutSeconds: 60 },
+  { region: "europe-west1", cors: true, maxInstances: 10, timeoutSeconds: 60, serviceAccount: RUNTIME_SA },
   async (req, res) => {
     if (req.method === "OPTIONS") return res.status(204).send("");
     if (req.method !== "POST") return res.status(405).json({ error: "method" });
