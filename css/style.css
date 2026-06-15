@@ -1532,3 +1532,22 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 /* dois CTAs de adicionar (wishlist / experiência) */
 .list-add-group { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
 .list-add-group .list-add-btn .icon { width: 14px; height: 14px; }
+
+/* ---- segmented toggles (pill) + detail stat strip — design handoff ---- */
+.seg {
+  display: inline-flex; padding: 3px; gap: 2px; flex-wrap: nowrap;
+  background: var(--surface-2); border: 1px solid var(--hairline); border-radius: var(--r-pill);
+}
+.seg-btn {
+  border: 0; background: transparent; border-radius: var(--r-pill);
+  padding: 7px var(--sp-3); min-height: 36px;
+  font-size: var(--fs-sm); font-weight: 600; color: var(--text-muted);
+  transition: background var(--t) var(--ease), color var(--t) var(--ease);
+}
+.seg-btn:hover { color: var(--text); border-color: transparent; background: transparent; }
+.seg-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--sh-sm); border-color: transparent; }
+
+.detail-stats {
+  background: var(--surface-inset); border: 1px solid var(--hairline);
+  border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); gap: var(--sp-5);
+}
