@@ -1011,7 +1011,8 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
   .topbar-menu { display: inline-flex; }
   .sidebar {
     position: fixed;
-    top: var(--topbar-total); left: 0; bottom: 0;
+    top: var(--topbar-total); left: 0;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
     width: 90%; max-width: 384px;
     z-index: 50;
     transform: translateX(-100%);
