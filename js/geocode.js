@@ -111,16 +111,31 @@ const Geocode = (() => {
     return null;
   }
 
-  // Resolve coordinates for "name, town". Tries the most specific query first,
-  // then falls back to just the town so we almost always land somewhere sane.
-  async function locate(name, town) {
-    const specific = `${name}, ${town}, Portugal`;
-    const townOnly = `${town}, Portugal`;
-
-    if (googleGeocoder) {
-      return (await viaGoogle(specific)) || (await viaGoogle(townOnly));
+  // Resolve coordinates for "name, town". Ambiguous town names (e.g. "Oura"
+  // exists in both Algarve and the north) used to land on the wrong one, so we
+  // bias the query with the expected region (typed, or inferred from the town)
+  // and prefer a result whose region actually matches it.
+  async function locate(name, town, expectedRegion) {
+    const known = (expectedRegion && expectedRegion.trim()) || regionForTown(town);
+    const run = googleGeocoder ? viaGoogle : viaNominatim;
+    const queries = [];
+    if (known) {
+      queries.push(`${name}, ${town}, ${known}, Portugal`);
+      queries.push(`${town}, ${known}, Portugal`);
     }
-    return (await viaNominatim(specific)) || (await viaNominatim(townOnly));
+    queries.push(`${name}, ${town}, Portugal`);
+    queries.push(`${town}, Portugal`);
+
+    let firstAny = null;
+    for (const q of queries) {
+      const res = await run(q);
+      if (!res) continue;
+      if (!firstAny) firstAny = res; // region-biased query comes first, so this is already a good guess
+      if (!known) return res;
+      if (res.region && normalizePlaceName(res.region) === normalizePlaceName(known)) return res;
+    }
+    if (firstAny && known && !firstAny.region) firstAny.region = known;
+    return firstAny;
   }
 
   return { init, locate, regionForTown };

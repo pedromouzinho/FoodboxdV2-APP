@@ -11,7 +11,7 @@ const CATEGORIES = {
 };
 
 const App = (() => {
-  const state = { restaurants: [], currentDetail: null, currentScreen: "mapa", criticasView: "mine", amigosTab: "atividade" };
+  const state = { restaurants: [], currentDetail: null, currentScreen: "mapa", criticasView: "mine", criticasSort: "recent", amigosTab: "atividade" };
 
   function esc(str) {
     return String(str == null ? "" : str).replace(/[&<>"']/g, (c) =>
@@ -1946,9 +1946,11 @@ const App = (() => {
     });
     const list = document.getElementById("criticas-list");
     const lb = document.getElementById("criticas-leaderboard");
+    const sort = document.getElementById("criticas-sort");
     const onLeaderboard = state.criticasView === "leaderboard";
     if (list) list.hidden = onLeaderboard;
     if (lb) lb.hidden = !onLeaderboard;
+    if (sort) sort.hidden = onLeaderboard; // sorting only applies to critique lists
     if (onLeaderboard) renderCriticasLeaderboard();
     else renderCriticas();
   }
@@ -2066,17 +2068,19 @@ const App = (() => {
       ${head}${author}
       ${it.stars ? `<div class="critique-stars">${starsDisplay(it.stars)}</div>` : ""}
       ${it.note ? `<p class="critique-note">${esc(it.note)}</p>` : ""}
+      ${it.comment ? `<p class="critique-quote">“${esc(it.comment)}”</p>` : ""}
       ${dishChips(it.dishes)}
     </div>`;
   }
   // My own ratings (stars/note/dishes) as critiques — no network, from UserData.
   function gatherMyRatingCritiques() {
     if (!UserData.isCloud()) return [];
+    const myUid = UserData.me().uid;
     const out = [];
     for (const r of state.restaurants) {
       const rt = UserData.getRating(r.id);
       if (rt && (rt.stars || rt.note || (rt.dishes && rt.dishes.length))) {
-        out.push({ type: "rating", r, restaurantId: r.id, when: rt.updatedAt || "", stars: rt.stars || 0, note: rt.note || "", dishes: rt.dishes || [] });
+        out.push({ type: "rating", uid: myUid, r, restaurantId: r.id, when: rt.updatedAt || "", stars: rt.stars || 0, note: rt.note || "", dishes: rt.dishes || [] });
       }
     }
     return out;
@@ -2085,7 +2089,7 @@ const App = (() => {
     const out = [];
     Object.entries(u.ratings || {}).forEach(([id, rt]) => {
       if (!rt || (!rt.stars && !rt.note && !(rt.dishes && rt.dishes.length))) return;
-      out.push({ type: "rating", r: byId.get(id), restaurantId: id, who: u.displayName || "Amigo", photoURL: u.photoURL || "", stars: rt.stars || 0, note: rt.note || "", dishes: rt.dishes || [], when: rt.updatedAt || "" });
+      out.push({ type: "rating", uid: u.uid, r: byId.get(id), restaurantId: id, who: u.displayName || "Amigo", photoURL: u.photoURL || "", stars: rt.stars || 0, note: rt.note || "", dishes: rt.dishes || [], when: rt.updatedAt || "" });
     });
     return out;
   }
@@ -2101,7 +2105,30 @@ const App = (() => {
     return items;
   }
   function commentItem(c, withAuthor) {
-    return { type: "comment", restaurantId: c.restaurantId, note: c.text || "", when: c.createdAt || "", who: withAuthor ? (c.author || "Amigo") : "", photoURL: c.photoURL || "" };
+    return { type: "comment", uid: c.uid || "", restaurantId: c.restaurantId, comment: c.text || "", when: c.createdAt || "", who: withAuthor ? (c.author || "Amigo") : "", photoURL: c.photoURL || "" };
+  }
+  // Merge a person's rating + comment for the same restaurant into one card.
+  function mergeCritiques(items) {
+    const map = new Map(); const order = [];
+    for (const it of items) {
+      const key = (it.uid || it.who || "me") + "|" + it.restaurantId;
+      let m = map.get(key);
+      if (!m) { map.set(key, Object.assign({}, it)); order.push(key); continue; }
+      if (it.stars && !m.stars) m.stars = it.stars;
+      if (it.dishes && it.dishes.length && !(m.dishes && m.dishes.length)) m.dishes = it.dishes;
+      if (it.note && !m.note) m.note = it.note;
+      if (it.comment && !m.comment) m.comment = it.comment;
+      if (!m.who && it.who) { m.who = it.who; m.photoURL = it.photoURL; }
+      if ((it.when || "") > (m.when || "")) m.when = it.when;
+      if (it.type === "rating") m.type = "rating"; // open on the experiences tab
+    }
+    return order.map((k) => map.get(k));
+  }
+  function sortCritiques(arr) {
+    if (state.criticasSort === "rating") {
+      return arr.slice().sort((a, b) => (b.stars || 0) - (a.stars || 0) || (a.when < b.when ? 1 : -1));
+    }
+    return arr.slice().sort((a, b) => (a.when < b.when ? 1 : -1));
   }
   function wireCritiqueClicks(listEl) {
     listEl.querySelectorAll("[data-crit-rest]").forEach((el) => {
@@ -2120,10 +2147,10 @@ const App = (() => {
       listEl.innerHTML = signinInvite(scope === "mine" ? "Inicie sessão para ver as suas críticas." : "Inicie sessão para ver as críticas.");
       return;
     }
-    const byWhen = (a, b) => (a.when < b.when ? 1 : -1);
     const paint = (items, emptyMsg) => {
-      if (!items.length) { listEl.innerHTML = `<p class="muted screen-empty">${emptyMsg}</p>`; return; }
-      listEl.innerHTML = items.slice().sort(byWhen).map(critiqueRow).join("");
+      const merged = sortCritiques(mergeCritiques(items));
+      if (!merged.length) { listEl.innerHTML = `<p class="muted screen-empty">${emptyMsg}</p>`; return; }
+      listEl.innerHTML = merged.map(critiqueRow).join("");
       wireCritiqueClicks(listEl);
     };
 
@@ -2470,6 +2497,16 @@ const App = (() => {
     window.addEventListener("hashchange", onHashChange);
     document.querySelectorAll("#criticas-seg .chip-tab").forEach((b) =>
       b.addEventListener("click", () => { state.criticasView = b.dataset.cview; renderCriticasScreen(); })
+    );
+    document.querySelectorAll("#criticas-sort .chip-sort").forEach((b) =>
+      b.addEventListener("click", () => {
+        state.criticasSort = b.dataset.csort;
+        document.querySelectorAll("#criticas-sort .chip-sort").forEach((x) => {
+          const on = x.dataset.csort === state.criticasSort;
+          x.classList.toggle("active", on); x.setAttribute("aria-pressed", String(on));
+        });
+        renderCriticas();
+      })
     );
     document.querySelectorAll("#amigos-tabs .chip-tab").forEach((b) =>
       b.addEventListener("click", () => { state.amigosTab = b.dataset.atab; renderAmigosScreen(); })

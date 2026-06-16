@@ -1665,3 +1665,11 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .critique-author { display: inline-flex; align-items: center; gap: 6px; }
 .critique-author-name { font-size: var(--fs-sm); font-weight: 600; color: var(--text-muted); }
 .avatar-xs { width: 22px; height: 22px; min-width: 22px; font-size: 0.66rem; }
+
+/* Críticas: sort chips + merged comment quote */
+.criticas-sort { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.criticas-sort[hidden] { display: none; }
+.chip-sort { height: 30px; font-size: 0.76rem; font-weight: 600; }
+.chip-sort[aria-pressed="true"] { background: var(--surface-2); color: var(--text); border-color: var(--border-strong); opacity: 1; }
+.chip-sort[aria-pressed="false"] { opacity: 1; color: var(--text-faint); }
+.critique-quote { font-size: var(--fs-base); color: var(--text-muted); margin: 0; line-height: 1.45; font-style: italic; }

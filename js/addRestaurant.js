@@ -116,7 +116,7 @@ const AddRestaurantModule = (() => {
       return;
     }
     locateStatus.textContent = "A procurar...";
-    const coords = await Geocode.locate(nameInput.value.trim(), townInput.value.trim());
+    const coords = await Geocode.locate(nameInput.value.trim(), townInput.value.trim(), regionInput.value.trim());
     if (coords) {
       latInput.value = coords.lat.toFixed(5);
       lngInput.value = coords.lng.toFixed(5);
@@ -171,7 +171,7 @@ const AddRestaurantModule = (() => {
         coords = { lat, lng };
       } else {
         setStatus("A localizar no mapa...", "info");
-        coords = await Geocode.locate(nameInput.value.trim(), townInput.value.trim());
+        coords = await Geocode.locate(nameInput.value.trim(), townInput.value.trim(), regionInput.value.trim());
       }
 
       if (!coords) {
