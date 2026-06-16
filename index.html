@@ -483,7 +483,14 @@
         window.location.reload();
       });
       window.addEventListener("load", function () {
-        navigator.serviceWorker.register("sw.js").catch(function () {});
+        navigator.serviceWorker.register("sw.js").then(function (reg) {
+          // Installed PWAs can run a stale build for a long time, so check for a
+          // new version whenever the app returns to the foreground. A new SW then
+          // takes control and the controllerchange handler above reloads once.
+          document.addEventListener("visibilitychange", function () {
+            if (document.visibilityState === "visible") reg.update();
+          });
+        }).catch(function () {});
       });
     }
 

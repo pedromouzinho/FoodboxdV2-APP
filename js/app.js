@@ -2157,31 +2157,33 @@ const App = (() => {
     let verb;
     if (it.type === "rating") verb = "avaliou";
     else if (it.type === "visit") verb = "visitou";
-    else if (it.type === "upload") verb = it.photos.length > 1 ? `partilhou ${it.photos.length} fotos em` : "partilhou uma foto em";
+    else if (it.type === "upload") verb = it.photos.length > 1 ? `partilhou ${it.photos.length} fotos` : "partilhou uma foto";
     else verb = "quer ir a";
-    const stars = it.type === "rating" && it.stars ? starsDisplay(it.stars) : "";
-    const note = it.type === "rating" && it.note ? `<p class="feed-note muted">“${esc(it.note)}”</p>` : "";
-    const when = it.when ? `<span class="feed-time">${esc(fmtDateTime(it.when))}</span>` : "";
+    const stars = it.type === "rating" && it.stars ? `<div class="feed-stars">${starsDisplay(it.stars)}</div>` : "";
+    const note = it.type === "rating" && it.note ? `<p class="feed-note">“${esc(it.note)}”</p>` : "";
+    const when = it.when ? esc(fmtDateTime(it.when)) : "";
     const thumb = it.type === "upload" && it.photos[0]
       ? `<img src="${esc(it.photos[0].url)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
       : `<div class="ph" data-label="foto"></div>`;
-    return `<div class="feed-item">
-      ${avatar(it.g.displayName, it.g.photoURL)}
-      <div class="feed-body">
-        <div class="feed-text"><b>${who}</b> ${verb} <b>${esc(it.r.name)}</b></div>
-        ${stars}
-        ${note}
-        <button type="button" class="feed-card" data-feed-rest="${esc(it.r.id)}">
-          <div class="rcard-thumb" style="width:56px;height:56px">${thumb}</div>
-          <div class="stack" style="gap:3px;justify-content:center;min-width:0">
-            <span class="rcard-cat" style="color:var(${cat.varName}-ink)">${esc(cat.label)}</span>
-            <span class="rcard-name" style="font-size:var(--fs-base)">${esc(it.r.name)}</span>
-            <span class="rcard-loc">${icon("pin")} ${esc(it.r.town)}</span>
-          </div>
-        </button>
-        ${when}
+    return `<button type="button" class="feed-item" data-feed-rest="${esc(it.r.id)}">
+      <div class="feed-top">
+        ${avatar(it.g.displayName, it.g.photoURL)}
+        <div class="feed-top-text">
+          <span class="feed-who"><b>${who}</b> ${verb}</span>
+          ${when ? `<span class="feed-time">${when}</span>` : ""}
+        </div>
       </div>
-    </div>`;
+      <div class="feed-rest">
+        <div class="rcard-thumb" style="width:52px;height:52px">${thumb}</div>
+        <div class="feed-rest-info">
+          <span class="rcard-cat" style="color:var(${cat.varName}-ink)">${esc(cat.label)}</span>
+          <span class="feed-rest-name">${esc(it.r.name)}</span>
+          <span class="rcard-loc">${icon("pin")} ${esc(it.r.town)} · ${esc(it.r.region)}</span>
+        </div>
+      </div>
+      ${stars}
+      ${note}
+    </button>`;
   }
 
   function paintFeed(el, feed) {
@@ -2460,11 +2462,21 @@ const App = (() => {
     else onSelect(r);
   }
 
+  // Show the custom (cloud) profile photo in the topbar chip — AuthModule only
+  // knows the Google photo, so after our data loads we may have a better one.
+  function syncAccountChip() {
+    const chipImg = document.getElementById("user-chip-img");
+    if (!chipImg || !UserData.isCloud()) return;
+    const url = UserData.me().photoURL;
+    if (url) { chipImg.src = url; chipImg.classList.remove("hidden"); }
+  }
+
   // Called by AuthModule when the signed-in user changes.
   async function onAuthChange(user, getToken) {
     if (user) {
       hideSigninModal(true); // signed in — close and don't auto-prompt again this session
       await UserData.setUser(user, getToken); // async; UserData.onChange triggers re-render
+      syncAccountChip();
       // Tutorial only on the account's FIRST-ever sign-in. The flag lives in the
       // cloud profile, so it can't reappear on a new device or the installed
       // PWA's separate storage. (Fallback to localStorage when not cloud.)

@@ -889,7 +889,7 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .success-card .btn { margin-top: var(--sp-2); }
 
 /* ---------- Profile modal ---------- */
-.profile-card { text-align: center; }
+.profile-card { display: flex; flex-direction: column; gap: var(--sp-3); text-align: center; }
 .profile-photo {
   width: 96px; height: 96px; border-radius: 50%; object-fit: cover;
   background: var(--surface-2); border: 1px solid var(--border);
@@ -1640,3 +1640,23 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 
 /* Button-based cards must not inherit iOS-blue button text (feed/leaderboard names) */
 .feed-card, .feed-card .rcard-name, .lb-rest, .memory, .memory-name { color: var(--text); }
+
+/* Friends activity: one clean card per item (no duplicated restaurant name) */
+.feed-item {
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  width: 100%; text-align: left; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--hairline);
+  border-radius: var(--r-lg); padding: var(--sp-3);
+}
+.feed-item:active { transform: scale(0.99); }
+.feed-top { display: flex; align-items: center; gap: var(--sp-2); }
+.feed-top-text { flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
+.feed-who { font-size: var(--fs-base); color: var(--text); min-width: 0; }
+.feed-who b { font-weight: 700; }
+.feed-time { font-size: var(--fs-xs); color: var(--text-faint); white-space: nowrap; flex: none; }
+.feed-rest { display: flex; align-items: center; gap: var(--sp-3); background: var(--surface-2); border-radius: var(--r-md); padding: var(--sp-2); }
+.feed-rest-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.feed-rest-name { font-family: var(--font-display); font-size: var(--fs-md); font-weight: 540; line-height: 1.15; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feed-stars { margin: 0; }
+.feed-stars .stars-display .icon { width: 16px; height: 16px; }
+.feed-note { font-size: var(--fs-base); color: var(--text-muted); margin: 0; line-height: 1.45; font-style: italic; }
