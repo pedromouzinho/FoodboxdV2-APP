@@ -389,9 +389,9 @@ input[type="checkbox"] { width: 18px; height: 18px; }
 .planner-results .route-summary { display: block; margin-top: 3px; color: var(--primary); font-size: 0.78rem; font-weight: 650; }
 
 /* ---------- Restaurant list ---------- */
-.list-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.list-head { display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-2); }
 #list-count { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); font-weight: 600; }
-.list-add-btn { min-height: 32px; padding: 0 var(--sp-2); font-size: 0.8rem; }
+.list-add-btn { min-height: 40px; padding: 0 var(--sp-2); font-size: 0.8rem; white-space: normal; line-height: 1.1; text-align: center; justify-content: center; }
 .restaurant-list { display: flex; flex-direction: column; gap: var(--sp-2); }
 .region-heading {
   font-family: var(--font-display);
@@ -1530,8 +1530,8 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .stop .route-summary { font-size: var(--fs-sm); color: var(--primary-strong); margin-top: 2px; cursor: pointer; }
 
 /* dois CTAs de adicionar (wishlist / experiência) */
-.list-add-group { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
-.list-add-group .list-add-btn .icon { width: 14px; height: 14px; }
+.list-add-group { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.list-add-group .list-add-btn .icon { width: 14px; height: 14px; flex: none; }
 
 /* ---- segmented toggles (pill) + detail stat strip — design handoff ---- */
 .seg {
@@ -1607,3 +1607,26 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .groupbar-share { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); }
 .groupbar-share .groupbar-label { width: 100%; }
 .share-groups { display: flex; flex-wrap: wrap; gap: var(--sp-2); width: 100%; }
+
+/* ===== Redesign pass (iOS PWA polish) ===== */
+/* Segmented control: full-width, equal segments */
+.seg-full { display: flex; width: 100%; }
+.seg-full .seg-btn { flex: 1; text-align: center; justify-content: center; padding-left: 0; padding-right: 0; }
+
+/* Thumbnail: kill the empty label pill that lingered after the photo loaded */
+.ph:not([data-label])::after { display: none; }
+
+/* Memory cards are <button>s — force brand text colour (iOS rendered them blue) */
+.memory, .memory-name { color: var(--text); }
+
+/* Críticas cards: uniform, tight rhythm */
+.critique { display: flex; flex-direction: column; gap: 6px; }
+.critique-rest { margin-bottom: 0; }
+.critique-stars, .critique-note { margin: 0; }
+
+/* Amigos group card: lighter, grouped-list feel (was a heavy green block) */
+.groupbar { background: var(--surface); border: 1px solid var(--hairline); }
+.groupbar-row .groupbar-select { flex: 1; }
+.groupbar-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.groupbar-actions .btn { min-height: 40px; justify-content: center; }
+.groupbar-share { border-top: 1px solid var(--hairline); margin-top: var(--sp-3); padding-top: var(--sp-3); }

@@ -11,7 +11,7 @@ const CATEGORIES = {
 };
 
 const App = (() => {
-  const state = { restaurants: [], currentDetail: null, currentScreen: "mapa", criticasScope: "mine", amigosTab: "atividade", criticasTab: "minhas" };
+  const state = { restaurants: [], currentDetail: null, currentScreen: "mapa", criticasView: "mine", amigosTab: "atividade" };
 
   function esc(str) {
     return String(str == null ? "" : str).replace(/[&<>"']/g, (c) =>
@@ -1793,8 +1793,10 @@ const App = (() => {
       <div class="groupbar-row">
         <span class="groupbar-label">${icon("users")} Grupo</span>
         <select class="groupbar-select" data-group-select aria-label="Grupo ativo">${options}</select>
-        <button class="btn btn-ghost btn-sm" data-group-create>${icon("plus")} Criar</button>
-        <button class="btn btn-ghost btn-sm" data-group-join>Entrar</button>
+      </div>
+      <div class="groupbar-actions">
+        <button class="btn btn-ghost btn-sm" data-group-create>${icon("plus")} Criar grupo</button>
+        <button class="btn btn-ghost btn-sm" data-group-join>Entrar com código</button>
       </div>
       ${active
         ? `<div class="groupbar-code">Convida amigos com o código <strong data-group-code>${esc(active.code)}</strong> <button class="linklike" data-copy-code>copiar</button> · <button class="linklike" data-leave-group="${esc(active.id)}">sair do grupo</button></div>`
@@ -1903,18 +1905,16 @@ const App = (() => {
 
   // Críticas screen: switch between "my critiques" and the restaurant leaderboard.
   function renderCriticasScreen() {
-    document.querySelectorAll("#criticas-tabs .seg-btn").forEach((b) => {
-      const on = b.dataset.ctab === state.criticasTab;
+    document.querySelectorAll("#criticas-seg .seg-btn").forEach((b) => {
+      const on = b.dataset.cview === state.criticasView;
       b.classList.toggle("active", on);
       b.setAttribute("aria-pressed", String(on));
     });
     const list = document.getElementById("criticas-list");
     const lb = document.getElementById("criticas-leaderboard");
-    const scope = document.getElementById("criticas-scope");
-    const onLeaderboard = state.criticasTab === "leaderboard";
+    const onLeaderboard = state.criticasView === "leaderboard";
     if (list) list.hidden = onLeaderboard;
     if (lb) lb.hidden = !onLeaderboard;
-    if (scope) scope.hidden = onLeaderboard;
     if (onLeaderboard) renderCriticasLeaderboard();
     else renderCriticas();
   }
@@ -2060,14 +2060,10 @@ const App = (() => {
   function renderCriticas() {
     const listEl = document.getElementById("criticas-list");
     if (!listEl) return;
-    document.querySelectorAll("#criticas-scope .seg-btn").forEach((b) => {
-      const on = b.dataset.scope === state.criticasScope;
-      b.classList.toggle("active", on);
-      b.setAttribute("aria-pressed", String(on));
-    });
+    const scope = state.criticasView === "all" ? "all" : "mine";
     const reqId = ++criticasReqId;
 
-    if (state.criticasScope === "mine") {
+    if (scope === "mine") {
       if (!UserData.isCloud()) { listEl.innerHTML = signinInvite("Inicie sessão para ver as suas críticas."); return; }
       const ratings = gatherMyRatingCritiques();
       const paint = (items) => {
@@ -2420,17 +2416,11 @@ const App = (() => {
       t.addEventListener("click", () => navTo(t.dataset.tabNav))
     );
     window.addEventListener("hashchange", onHashChange);
-    document.querySelectorAll("#criticas-scope .seg-btn").forEach((b) =>
-      b.addEventListener("click", () => {
-        state.criticasScope = b.dataset.scope;
-        renderCriticas();
-      })
+    document.querySelectorAll("#criticas-seg .seg-btn").forEach((b) =>
+      b.addEventListener("click", () => { state.criticasView = b.dataset.cview; renderCriticasScreen(); })
     );
     document.querySelectorAll("#amigos-tabs .seg-btn").forEach((b) =>
       b.addEventListener("click", () => { state.amigosTab = b.dataset.atab; renderAmigosScreen(); })
-    );
-    document.querySelectorAll("#criticas-tabs .seg-btn").forEach((b) =>
-      b.addEventListener("click", () => { state.criticasTab = b.dataset.ctab; renderCriticasScreen(); })
     );
     document.querySelectorAll("[data-a2hs-close]").forEach((el) => el.addEventListener("click", hideA2HS));
 

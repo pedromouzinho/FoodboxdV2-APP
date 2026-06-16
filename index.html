@@ -194,19 +194,14 @@
 
   <section id="screen-criticas" class="screen screen-data" data-screen="criticas" hidden>
     <div class="screen-head screen-head-col">
-      <div class="screen-head-row">
-        <div class="screen-titles">
-          <span class="eyebrow">A tua opinião</span>
-          <h2>Críticas</h2>
-        </div>
-        <div class="seg subtabs" id="criticas-tabs" role="group" aria-label="Vista de críticas">
-          <button class="seg-btn active" data-ctab="minhas" aria-pressed="true">As minhas</button>
-          <button class="seg-btn" data-ctab="leaderboard" aria-pressed="false">Leaderboard</button>
-        </div>
+      <div class="screen-titles">
+        <span class="eyebrow">A tua opinião</span>
+        <h2>Críticas</h2>
       </div>
-      <div class="seg" id="criticas-scope" role="group" aria-label="Âmbito das críticas">
-        <button class="seg-btn active" data-scope="mine" aria-pressed="true">As minhas</button>
-        <button class="seg-btn" data-scope="all" aria-pressed="false">Todas</button>
+      <div class="seg seg-full" id="criticas-seg" role="group" aria-label="Vista de críticas">
+        <button class="seg-btn active" data-cview="mine" aria-pressed="true">As minhas</button>
+        <button class="seg-btn" data-cview="all" aria-pressed="false">Todas</button>
+        <button class="seg-btn" data-cview="leaderboard" aria-pressed="false">Leaderboard</button>
       </div>
     </div>
     <div id="criticas-list" class="screen-list"></div>
@@ -214,11 +209,11 @@
   </section>
 
   <section id="screen-amigos" class="screen screen-data" data-screen="amigos" hidden>
-    <div class="screen-head">
+    <div class="screen-head screen-head-col">
       <div class="screen-titles">
         <h2>Amigos</h2>
       </div>
-      <div class="seg subtabs" id="amigos-tabs" role="group" aria-label="Vista de amigos">
+      <div class="seg seg-full" id="amigos-tabs" role="group" aria-label="Vista de amigos">
         <button class="seg-btn active" data-atab="atividade" aria-pressed="true">Atividade</button>
         <button class="seg-btn" data-atab="leaderboard" aria-pressed="false">Leaderboard</button>
       </div>
