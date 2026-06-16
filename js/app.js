@@ -1788,6 +1788,7 @@ const App = (() => {
     const options = [`<option value=""${activeId ? "" : " selected"}>Todos (global)</option>`]
       .concat(groups.map((g) => `<option value="${esc(g.id)}"${g.id === activeId ? " selected" : ""}>${esc(g.name)}</option>`))
       .join("");
+    const sharing = UserData.getSharing();
     el.innerHTML = `
       <div class="groupbar-row">
         <span class="groupbar-label">${icon("users")} Grupo</span>
@@ -1796,8 +1797,17 @@ const App = (() => {
         <button class="btn btn-ghost btn-sm" data-group-join>Entrar</button>
       </div>
       ${active
-        ? `<div class="groupbar-code">Convida amigos com o código <strong data-group-code>${esc(active.code)}</strong> <button class="linklike" data-copy-code>copiar</button></div>`
-        : `<div class="groupbar-hint muted">A ver toda a gente. Cria um grupo ou entra com um código para filtrares por amigos.</div>`}`;
+        ? `<div class="groupbar-code">Convida amigos com o código <strong data-group-code>${esc(active.code)}</strong> <button class="linklike" data-copy-code>copiar</button> · <button class="linklike" data-leave-group="${esc(active.id)}">sair do grupo</button></div>`
+        : `<div class="groupbar-hint muted">A ver toda a gente. Cria um grupo ou entra com um código para filtrares por amigos.</div>`}
+      <div class="groupbar-share">
+        <span class="groupbar-label">${icon("sliders")} Quem vê a minha atividade</span>
+        <label class="switch-chip"><input type="checkbox" data-share-global ${sharing.global ? "checked" : ""}> <span>Toda a gente</span></label>
+        ${!sharing.global ? `<div class="share-groups">${
+          groups.length
+            ? groups.map((g) => `<label class="switch-chip"><input type="checkbox" data-share-group="${esc(g.id)}" ${sharing.groupIds.includes(g.id) ? "checked" : ""}> <span>${esc(g.name)}</span></label>`).join("")
+            : `<span class="muted">Sem grupos — a tua atividade fica privada.</span>`
+        }</div>` : ""}
+      </div>`;
     el.querySelector("[data-group-select]").addEventListener("change", (e) => UserData.setActiveGroup(e.target.value || null));
     el.querySelector("[data-group-create]").addEventListener("click", () => openGroupModal("create"));
     el.querySelector("[data-group-join]").addEventListener("click", () => openGroupModal("join"));
@@ -1806,6 +1816,20 @@ const App = (() => {
       if (navigator.clipboard) navigator.clipboard.writeText(active.code).catch(() => {});
       copy.textContent = "copiado ✓";
     });
+    const leave = el.querySelector("[data-leave-group]");
+    if (leave) leave.addEventListener("click", () => {
+      if (!confirm(`Sair de "${active.name}"? Deixas de ver a atividade do grupo.`)) return;
+      UserData.leaveGroup(leave.dataset.leaveGroup).catch((e) => alert(e.message || "Não consegui sair."));
+    });
+    const globalToggle = el.querySelector("[data-share-global]");
+    if (globalToggle) globalToggle.addEventListener("change", () => {
+      if (globalToggle.checked) UserData.setSharing({ global: true });
+      else UserData.setSharing({ global: false, groupIds: sharing.groupIds.length ? sharing.groupIds : groups.map((g) => g.id) });
+    });
+    el.querySelectorAll("[data-share-group]").forEach((cb) => cb.addEventListener("change", () => {
+      const ids = [...el.querySelectorAll("[data-share-group]")].filter((x) => x.checked).map((x) => x.dataset.shareGroup);
+      UserData.setSharing({ global: false, groupIds: ids });
+    }));
   }
 
   let groupModalMode = "create";

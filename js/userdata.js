@@ -30,6 +30,11 @@ const UserData = (() => {
   let myGroups = []; // [{ id, name, code, ownerUid, members:[uid] }]
   let activeGroupId = null; // null → "Todos" (global view)
 
+  // Activity sharing scope. Default (and legacy docs): visible to everyone.
+  let audienceGlobal = true;
+  let shareGroupIds = []; // when not global, the group ids I chose to share with
+  let visibleTo = []; // derived uids allowed to read my activity (the rules use this)
+
   let onChange = null; // called after async loads complete
   let saveTimer = null;
 
@@ -73,12 +78,25 @@ const UserData = (() => {
       activeGroupId = doc.activeGroup || null;
       tasteProfile = doc.tasteProfile || null;
       tasteGenDay = doc.tasteGenDay || "";
+      audienceGlobal = doc.audienceGlobal !== false; // default + legacy: global
+      shareGroupIds = Array.isArray(doc.shareGroups) ? doc.shareGroups : [];
+      visibleTo = Array.isArray(doc.visibleTo) ? doc.visibleTo : [];
+      const legacyAudience = doc.audienceGlobal === undefined; // stamp it so others can query me
       // First sign-in: fold in whatever was marked locally before logging in.
       if (firstTime) {
         Storage.getVisited().forEach((id) => mine.visited.add(id));
         await persistNow();
       }
       await reloadGroup();
+      // visibleTo is derived from current group membership — recompute and
+      // re-persist if the snapshot drifted (e.g. someone joined a shared group).
+      const fresh = computeVisibleTo();
+      if (legacyAudience || fresh.join(",") !== visibleTo.join(",")) {
+        visibleTo = fresh;
+        if (!firstTime) persistNow().catch(() => {});
+      } else {
+        visibleTo = fresh;
+      }
     } catch (e) {
       // On failure, degrade to local-only so the app still works.
       cloud = false;
@@ -98,6 +116,9 @@ const UserData = (() => {
     activeGroupId = null;
     tasteProfile = null;
     tasteGenDay = "";
+    audienceGlobal = true;
+    shareGroupIds = [];
+    visibleTo = [];
     if (onChange) onChange();
   }
 
@@ -109,7 +130,7 @@ const UserData = (() => {
     try {
       const token = await getToken();
       const [users, groups] = await Promise.all([
-        DB.fetchAllUsers(token),
+        DB.fetchAllUsers(token, uid),
         DB.fetchMyGroups(uid, token)
       ]);
       allUsers = users;
@@ -185,11 +206,49 @@ const UserData = (() => {
         onboarded,
         activeGroup: activeGroupId || "",
         tasteProfile: tasteProfile || null,
-        tasteGenDay: tasteGenDay || ""
+        tasteGenDay: tasteGenDay || "",
+        audienceGlobal,
+        visibleTo: computeVisibleTo(),
+        shareGroups: shareGroupIds
       },
       token
     );
     syncMineToGroup();
+  }
+
+  // The uids allowed to read my activity. Global → nobody special (rules let all
+  // signed-in users read). Otherwise → the members of the groups I chose to share.
+  function computeVisibleTo() {
+    if (audienceGlobal) return [];
+    const ids = new Set(shareGroupIds);
+    const uids = new Set([uid]);
+    myGroups.forEach((g) => { if (ids.has(g.id)) (g.members || []).forEach((m) => uids.add(m)); });
+    return [...uids];
+  }
+  function getSharing() { return { global: audienceGlobal, groupIds: shareGroupIds.slice() }; }
+  async function setSharing(opts) {
+    if (!cloud) return;
+    audienceGlobal = (opts && opts.global) !== false;
+    shareGroupIds = opts && Array.isArray(opts.groupIds) ? opts.groupIds.slice() : [];
+    visibleTo = computeVisibleTo();
+    await persistNow();
+    if (onChange) onChange();
+  }
+  // Leave a group: remove only my own uid from its members (rules allow this).
+  async function leaveGroup(groupId) {
+    if (!cloud) return;
+    const g = myGroups.find((x) => x.id === groupId);
+    if (!g) return;
+    const token = await getToken();
+    const members = (g.members || []).filter((m) => m !== uid);
+    await DB.addGroupMember(groupId, members, token);
+    myGroups = myGroups.filter((x) => x.id !== groupId);
+    shareGroupIds = shareGroupIds.filter((id) => id !== groupId);
+    if (activeGroupId === groupId) activeGroupId = null;
+    visibleTo = computeVisibleTo();
+    applyGroupFilter();
+    await persistNow();
+    if (onChange) onChange();
   }
 
   // ---- taste profile (AI-generated; durable so it keeps feeding recommend) ----
@@ -398,6 +457,9 @@ const UserData = (() => {
     getTasteProfile,
     setTasteProfile,
     getTasteGenDay,
-    markTasteGen
+    markTasteGen,
+    getSharing,
+    setSharing,
+    leaveGroup
   };
 })();

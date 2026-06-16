@@ -210,6 +210,9 @@ const DB = (() => {
       activeGroup: data.activeGroup || "",
       tasteProfile: data.tasteProfile || null,
       tasteGenDay: data.tasteGenDay || "",
+      audienceGlobal: data.audienceGlobal !== false, // default: shared globally
+      visibleTo: Array.isArray(data.visibleTo) ? data.visibleTo : [],
+      shareGroups: Array.isArray(data.shareGroups) ? data.shareGroups : [],
       updatedAt: new Date().toISOString()
     });
     const res = await fetch(`${docsBase}/userData/${encodeURIComponent(uid)}?${keyQ()}`, {
@@ -222,29 +225,58 @@ const DB = (() => {
   }
 
   // Everyone's docs (for the group view). Needs a token (rules require auth).
-  async function fetchAllUsers(token) {
-    if (!ready) return [];
+  function decodeUserDoc(doc) {
+    const f = decodeFields(doc);
+    return {
+      uid: doc.name.split("/").pop(),
+      displayName: f.displayName || "",
+      photoURL: f.photoURL || "",
+      visited: f.visited || [],
+      priority: f.priority || [],
+      ratings: f.ratings || {},
+      history: f.history || {}
+    };
+  }
+  async function runUserQuery(body, token) {
     try {
-      const res = await fetch(`${docsBase}/userData?${keyQ()}&pageSize=300`, {
-        headers: authHeaders(token)
+      const res = await fetch(`${docsBase}:runQuery?${keyQ()}`, {
+        method: "POST", headers: authHeaders(token), body: JSON.stringify(body)
       });
       if (!res.ok) return [];
-      const data = await res.json();
-      return (data.documents || []).map((doc) => {
-        const f = decodeFields(doc);
-        return {
-          uid: doc.name.split("/").pop(),
-          displayName: f.displayName || "",
-          photoURL: f.photoURL || "",
-          visited: f.visited || [],
-          priority: f.priority || [],
-          ratings: f.ratings || {},
-          history: f.history || {}
-        };
-      });
-    } catch (e) {
-      return [];
-    }
+      const rows = await res.json();
+      return (rows || []).filter((r) => r.document).map((r) => decodeUserDoc(r.document));
+    } catch (e) { return []; }
+  }
+  // Everyone whose activity I'm allowed to see. Security rules require the query
+  // to be constrained to the rule, so we run two: globally-shared docs, and docs
+  // that list me in visibleTo. Plus my own doc. Merge + dedup by uid.
+  async function fetchAllUsers(token, myUid) {
+    if (!ready) return [];
+    const globalQ = {
+      structuredQuery: {
+        from: [{ collectionId: "userData" }],
+        where: { fieldFilter: { field: { fieldPath: "audienceGlobal" }, op: "EQUAL", value: { booleanValue: true } } },
+        limit: 300
+      }
+    };
+    const sharedQ = myUid ? {
+      structuredQuery: {
+        from: [{ collectionId: "userData" }],
+        where: { fieldFilter: { field: { fieldPath: "visibleTo" }, op: "ARRAY_CONTAINS", value: { stringValue: myUid } } },
+        limit: 300
+      }
+    } : null;
+    const parts = await Promise.all([
+      runUserQuery(globalQ, token),
+      sharedQ ? runUserQuery(sharedQ, token) : Promise.resolve([]),
+      myUid ? fetchUserDoc(myUid, token).then((f) => (f ? [{
+        uid: myUid, displayName: f.displayName || "", photoURL: f.photoURL || "",
+        visited: f.visited || [], priority: f.priority || [], ratings: f.ratings || {}, history: f.history || {}
+      }] : [])).catch(() => []) : Promise.resolve([])
+    ]);
+    const byUid = new Map();
+    parts.flat().forEach((u) => { if (u && u.uid) byUid.set(u.uid, u); });
+    return [...byUid.values()];
   }
 
   // ---- Groups (groups/{autoId}) ----
