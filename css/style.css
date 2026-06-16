@@ -1630,3 +1630,12 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .groupbar-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
 .groupbar-actions .btn { min-height: 40px; justify-content: center; }
 .groupbar-share { border-top: 1px solid var(--hairline); margin-top: var(--sp-3); padding-top: var(--sp-3); }
+
+/* Sub-navigation as standalone separate chips (not a connected segmented bar) */
+.chip-tabs { display: flex; flex-wrap: wrap; gap: var(--sp-2); width: 100%; }
+.chip-tab { font-weight: 600; }
+.chip-tab[aria-pressed="true"] { background: var(--primary); color: var(--primary-ink); border-color: var(--primary); opacity: 1; }
+.chip-tab[aria-pressed="false"] { opacity: 1; color: var(--text-muted); }
+
+/* Button-based cards must not inherit iOS-blue button text (feed/leaderboard names) */
+.feed-card, .feed-card .rcard-name, .lb-rest, .memory, .memory-name { color: var(--text); }

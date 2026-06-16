@@ -1889,7 +1889,7 @@ const App = (() => {
   // Amigos screen: switch between the activity feed and the leaderboard subtab.
   function renderAmigosScreen() {
     renderGroupBar();
-    document.querySelectorAll("#amigos-tabs .seg-btn").forEach((b) => {
+    document.querySelectorAll("#amigos-tabs .chip-tab").forEach((b) => {
       const on = b.dataset.atab === state.amigosTab;
       b.classList.toggle("active", on);
       b.setAttribute("aria-pressed", String(on));
@@ -1905,7 +1905,7 @@ const App = (() => {
 
   // Críticas screen: switch between "my critiques" and the restaurant leaderboard.
   function renderCriticasScreen() {
-    document.querySelectorAll("#criticas-seg .seg-btn").forEach((b) => {
+    document.querySelectorAll("#criticas-seg .chip-tab").forEach((b) => {
       const on = b.dataset.cview === state.criticasView;
       b.classList.toggle("active", on);
       b.setAttribute("aria-pressed", String(on));
@@ -2024,7 +2024,7 @@ const App = (() => {
   function critiqueRow(it) {
     const r = it.r || state.restaurants.find((x) => x.id === it.restaurantId);
     const name = r ? r.name : "Restaurante";
-    const when = it.when ? `<span class="critique-when muted">${esc(fmtDate(it.when))}</span>` : "";
+    const when = it.when ? `<span class="critique-when muted">${esc(fmtDateTime(it.when))}</span>` : "";
     const head = `<div class="critique-head"><span class="critique-rest">${icon("pin")} ${esc(name)}</span>${when}</div>`;
     if (it.type === "comment") {
       return `<div class="critique" data-crit-rest="${esc(it.restaurantId)}" data-crit-tab="crit">${head}${renderComment(it.comment)}</div>`;
@@ -2416,10 +2416,10 @@ const App = (() => {
       t.addEventListener("click", () => navTo(t.dataset.tabNav))
     );
     window.addEventListener("hashchange", onHashChange);
-    document.querySelectorAll("#criticas-seg .seg-btn").forEach((b) =>
+    document.querySelectorAll("#criticas-seg .chip-tab").forEach((b) =>
       b.addEventListener("click", () => { state.criticasView = b.dataset.cview; renderCriticasScreen(); })
     );
-    document.querySelectorAll("#amigos-tabs .seg-btn").forEach((b) =>
+    document.querySelectorAll("#amigos-tabs .chip-tab").forEach((b) =>
       b.addEventListener("click", () => { state.amigosTab = b.dataset.atab; renderAmigosScreen(); })
     );
     document.querySelectorAll("[data-a2hs-close]").forEach((el) => el.addEventListener("click", hideA2HS));
