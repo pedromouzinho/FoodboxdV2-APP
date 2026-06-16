@@ -2053,19 +2053,17 @@ const App = (() => {
     mems.forEach((m) => listEl.appendChild(buildMemoryCard(m)));
   }
 
-  // ----- Críticas: my comments (or all), across every restaurant -----
+  // ----- Críticas: ratings (stars+note+dishes) + comments, mine or everyone's -----
   let criticasReqId = 0;
   function critiqueRow(it) {
     const r = it.r || state.restaurants.find((x) => x.id === it.restaurantId);
     const name = r ? r.name : "Restaurante";
     const when = it.when ? `<span class="critique-when muted">${esc(fmtDateTime(it.when))}</span>` : "";
     const head = `<div class="critique-head"><span class="critique-rest">${icon("pin")} ${esc(name)}</span>${when}</div>`;
-    if (it.type === "comment") {
-      return `<div class="critique" data-crit-rest="${esc(it.restaurantId)}" data-crit-tab="crit">${head}${renderComment(it.comment)}</div>`;
-    }
-    // rating: stars + note + dishes (my own experience)
-    return `<div class="critique" data-crit-rest="${esc(it.restaurantId)}" data-crit-tab="mem">
-      ${head}
+    const author = it.who ? `<div class="critique-author">${avatar(it.who, it.photoURL, "avatar-xs")}<span class="critique-author-name">${esc(it.who)}</span></div>` : "";
+    const tab = it.type === "comment" ? "crit" : "mem";
+    return `<div class="critique" data-crit-rest="${esc(it.restaurantId)}" data-crit-tab="${tab}">
+      ${head}${author}
       ${it.stars ? `<div class="critique-stars">${starsDisplay(it.stars)}</div>` : ""}
       ${it.note ? `<p class="critique-note">${esc(it.note)}</p>` : ""}
       ${dishChips(it.dishes)}
@@ -2083,6 +2081,28 @@ const App = (() => {
     }
     return out;
   }
+  function ratingItemsFrom(u, byId) {
+    const out = [];
+    Object.entries(u.ratings || {}).forEach(([id, rt]) => {
+      if (!rt || (!rt.stars && !rt.note && !(rt.dishes && rt.dishes.length))) return;
+      out.push({ type: "rating", r: byId.get(id), restaurantId: id, who: u.displayName || "Amigo", photoURL: u.photoURL || "", stars: rt.stars || 0, note: rt.note || "", dishes: rt.dishes || [], when: rt.updatedAt || "" });
+    });
+    return out;
+  }
+  // Everyone's ratings (friends + me), each tagged with its author.
+  function gatherAllRatingCritiques() {
+    const byId = new Map(state.restaurants.map((r) => [r.id, r]));
+    let items = [];
+    UserData.others().forEach((u) => { items = items.concat(ratingItemsFrom(u, byId)); });
+    if (UserData.isCloud()) {
+      const me = UserData.me();
+      gatherMyRatingCritiques().forEach((it) => { it.who = me.displayName; it.photoURL = me.photoURL; items.push(it); });
+    }
+    return items;
+  }
+  function commentItem(c, withAuthor) {
+    return { type: "comment", restaurantId: c.restaurantId, note: c.text || "", when: c.createdAt || "", who: withAuthor ? (c.author || "Amigo") : "", photoURL: c.photoURL || "" };
+  }
   function wireCritiqueClicks(listEl) {
     listEl.querySelectorAll("[data-crit-rest]").forEach((el) => {
       el.addEventListener("click", () => {
@@ -2096,44 +2116,40 @@ const App = (() => {
     if (!listEl) return;
     const scope = state.criticasView === "all" ? "all" : "mine";
     const reqId = ++criticasReqId;
+    if (!UserData.isCloud()) {
+      listEl.innerHTML = signinInvite(scope === "mine" ? "Inicie sessão para ver as suas críticas." : "Inicie sessão para ver as críticas.");
+      return;
+    }
+    const byWhen = (a, b) => (a.when < b.when ? 1 : -1);
+    const paint = (items, emptyMsg) => {
+      if (!items.length) { listEl.innerHTML = `<p class="muted screen-empty">${emptyMsg}</p>`; return; }
+      listEl.innerHTML = items.slice().sort(byWhen).map(critiqueRow).join("");
+      wireCritiqueClicks(listEl);
+    };
 
     if (scope === "mine") {
-      if (!UserData.isCloud()) { listEl.innerHTML = signinInvite("Inicie sessão para ver as suas críticas."); return; }
       const ratings = gatherMyRatingCritiques();
-      const paint = (items) => {
-        if (!items.length) {
-          listEl.innerHTML = `<p class="muted screen-empty">Ainda não avaliaste nenhum sítio. Dá a tua nota numa experiência.</p>`;
-          return;
-        }
-        listEl.innerHTML = items.map(critiqueRow).join("");
-        wireCritiqueClicks(listEl);
-      };
-      paint(ratings); // instant: my ratings (no network)
+      paint(ratings, "Ainda não avaliaste nenhum sítio. Dá a tua nota numa experiência.");
       if (DB.isAvailable()) {
         DB.fetchCommentsByUser(UserData.me().uid).then((comments) => {
           if (reqId !== criticasReqId) return;
-          const commentItems = (comments || []).map((c) => ({ type: "comment", restaurantId: c.restaurantId, when: c.createdAt || "", comment: c }));
-          if (!commentItems.length) return; // ratings already painted
-          const merged = ratings.concat(commentItems).sort((a, b) => (a.when < b.when ? 1 : -1));
-          paint(merged);
+          const cis = (comments || []).map((c) => commentItem(c, false));
+          if (cis.length) paint(ratings.concat(cis), "");
         }).catch(() => {});
       }
       return;
     }
 
-    // scope "all": every public comment
-    if (!DB.isAvailable()) {
-      listEl.innerHTML = `<p class="muted screen-empty">As críticas precisam da cloud configurada.</p>`;
-      return;
+    // scope "all": everyone's ratings (with stars + author) + public comments
+    const ratings = gatherAllRatingCritiques();
+    paint(ratings, "Ainda não há críticas.");
+    if (DB.isAvailable()) {
+      DB.fetchRecentComments(100).then((comments) => {
+        if (reqId !== criticasReqId) return;
+        const cis = (comments || []).map((c) => commentItem(c, true));
+        if (cis.length) paint(ratings.concat(cis), "Ainda não há críticas.");
+      }).catch(() => {});
     }
-    listEl.innerHTML = `<div class="skeleton sk-line" style="width:55%"></div><div class="skeleton" style="height:54px;margin-top:8px"></div>`;
-    DB.fetchRecentComments(100).then((comments) => {
-      if (reqId !== criticasReqId) return;
-      if (!comments.length) { listEl.innerHTML = `<p class="muted screen-empty">Ainda não há críticas.</p>`; return; }
-      const items = comments.map((c) => ({ type: "comment", restaurantId: c.restaurantId, when: c.createdAt || "", comment: c }));
-      listEl.innerHTML = items.map(critiqueRow).join("");
-      wireCritiqueClicks(listEl);
-    });
   }
 
   // ----- Amigos: activity feed across all restaurants (from group data) -----

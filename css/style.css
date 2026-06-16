@@ -1660,3 +1660,8 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .feed-stars { margin: 0; }
 .feed-stars .stars-display .icon { width: 16px; height: 16px; }
 .feed-note { font-size: var(--fs-base); color: var(--text-muted); margin: 0; line-height: 1.45; font-style: italic; }
+
+/* Críticas: author line (shown in "Todas") + small avatar */
+.critique-author { display: inline-flex; align-items: center; gap: 6px; }
+.critique-author-name { font-size: var(--fs-sm); font-weight: 600; color: var(--text-muted); }
+.avatar-xs { width: 22px; height: 22px; min-width: 22px; font-size: 0.66rem; }
