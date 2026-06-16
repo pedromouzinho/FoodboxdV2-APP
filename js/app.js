@@ -187,13 +187,24 @@ const App = (() => {
     phEl.style.background = "none";
     phEl.innerHTML = `<img src="${esc(url)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover">`;
   }
-  // Fetch (cached, no extra quota after the first time) the Google photo for a
-  // restaurant and fill a `.ph` thumbnail with it.
+  // Fill a `.ph` thumbnail: a community "cover" photo (override) wins; otherwise
+  // fall back to the cached Google photo.
   function fillThumbPhoto(phEl, r) {
-    if (!phEl || !PlacesModule.isAvailable()) return;
+    if (!phEl) return;
+    if (r && r.photoURL) { setThumbPhoto(phEl, r.photoURL); return; }
+    if (!PlacesModule.isAvailable()) return;
     PlacesModule.fetchDetails(r).then((data) => {
       if (data && data.photos && data.photos[0]) setThumbPhoto(phEl, data.photos[0]);
     }).catch(() => {});
+  }
+
+  // Apply a shared override to a restaurant. Cloud overrides are objects
+  // ({category, photoURL}); the local-storage fallback is a bare category string.
+  function applyOverride(r, ov) {
+    if (!ov) return;
+    if (typeof ov === "string") { r.category = ov; return; }
+    if (ov.category) r.category = ov.category;
+    if (ov.photoURL) r.photoURL = ov.photoURL;
   }
 
   function buildCard(r) {
@@ -1301,7 +1312,30 @@ const App = (() => {
     viewerUrl = url;
     const img = m.querySelector("[data-viewer-img]");
     if (img) img.src = url;
+    // "Set as the restaurant's photo" only when we opened from a restaurant's
+    // gallery and can write (signed in).
+    const coverBtn = m.querySelector("[data-viewer-cover]");
+    if (coverBtn) coverBtn.classList.toggle("hidden", !(state.currentDetail && UserData.isCloud() && DB.isAvailable()));
     m.classList.remove("hidden");
+  }
+  // Set the tapped community photo as this restaurant's cover (shared override).
+  async function setRestaurantCover(url) {
+    const r = state.currentDetail;
+    if (!r || !url || !UserData.isCloud()) return;
+    const btn = document.querySelector("[data-viewer-cover]");
+    if (btn) { btn.disabled = true; btn.classList.add("busy"); }
+    try {
+      await DB.setPhotoOverride(r.id, url);
+      r.photoURL = url;
+      hidePhotoViewer();
+      render();
+      refreshOpenDetail();
+      refreshActiveDataScreen();
+    } catch (e) {
+      if (btn) btn.textContent = "Não foi possível.";
+    } finally {
+      if (btn) { btn.disabled = false; btn.classList.remove("busy"); }
+    }
   }
   function hidePhotoViewer() {
     const m = document.getElementById("photo-viewer");
@@ -2436,6 +2470,8 @@ const App = (() => {
     const vSh = document.querySelector("[data-viewer-share]");
     if (vDl) vDl.addEventListener("click", () => downloadPhoto(viewerUrl));
     if (vSh) vSh.addEventListener("click", () => sharePhoto(viewerUrl));
+    const vCover = document.querySelector("[data-viewer-cover]");
+    if (vCover) vCover.addEventListener("click", () => setRestaurantCover(viewerUrl));
 
     wireDetailSwipe();
     wirePullToRefresh();
@@ -2517,9 +2553,7 @@ const App = (() => {
 
     // Apply shared category edits (Firebase) or local ones as a fallback.
     const overrides = DB.isAvailable() ? await DB.fetchOverrides() : Storage.getOverrides();
-    state.restaurants.forEach((r) => {
-      if (overrides[r.id]) r.category = overrides[r.id];
-    });
+    state.restaurants.forEach((r) => applyOverride(r, overrides[r.id]));
 
     buildCategoryFilters();
     buildRegionFilters();
@@ -2537,7 +2571,7 @@ const App = (() => {
     ]);
     state.restaurants = mergeRestaurants(state.curated || [], community, Storage.getCustomRestaurants());
     const overrides = DB.isAvailable() ? await DB.fetchOverrides().catch(() => ({})) : Storage.getOverrides();
-    state.restaurants.forEach((r) => { if (overrides[r.id]) r.category = overrides[r.id]; });
+    state.restaurants.forEach((r) => applyOverride(r, overrides[r.id]));
     buildRegionFilters();
     render();
     refreshActiveDataScreen();

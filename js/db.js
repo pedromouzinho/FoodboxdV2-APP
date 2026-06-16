@@ -156,7 +156,10 @@ const DB = (() => {
       (data.documents || []).forEach((doc) => {
         const id = doc.name.split("/").pop();
         const f = decodeFields(doc);
-        if (f.category) map[id] = f.category;
+        const o = {};
+        if (f.category) o.category = f.category;
+        if (f.photoURL) o.photoURL = f.photoURL;
+        if (o.category || o.photoURL) map[id] = o;
       });
       return map;
     } catch (e) {
@@ -164,14 +167,15 @@ const DB = (() => {
     }
   }
 
-  // Upsert a single restaurant's category override (shared for everyone).
-  async function setOverride(id, category) {
+  // Upsert one field of a restaurant's shared override (category or photoURL),
+  // leaving the other field intact (updateMask targets just this field).
+  async function patchOverride(id, field, value) {
     if (!ready) throw new Error("Cloud database not configured.");
-    const fields = {
-      category: encodeValue(category),
-      updatedAt: { timestampValue: new Date().toISOString() }
-    };
-    const res = await fetch(`${docsBase}/overrides/${encodeURIComponent(id)}?${keyQ()}`, {
+    const fields = {};
+    fields[field] = encodeValue(value);
+    fields.updatedAt = { timestampValue: new Date().toISOString() };
+    const mask = `updateMask.fieldPaths=${field}&updateMask.fieldPaths=updatedAt`;
+    const res = await fetch(`${docsBase}/overrides/${encodeURIComponent(id)}?${mask}&${keyQ()}`, {
       method: "PATCH",
       headers: authHeaders(),
       body: JSON.stringify({ fields })
@@ -179,6 +183,8 @@ const DB = (() => {
     if (!res.ok) throw new Error(`Could not save (${res.status}).`);
     return true;
   }
+  function setOverride(id, category) { return patchOverride(id, "category", category); }
+  function setPhotoOverride(id, url) { return patchOverride(id, "photoURL", url); }
 
   // ---- Per-user data (userData/{uid}) ----
   // Stored shape: { displayName, photoURL, visited:[id], priority:[id],
@@ -637,6 +643,7 @@ const DB = (() => {
     deleteRestaurant,
     fetchOverrides,
     setOverride,
+    setPhotoOverride,
     fetchUserDoc,
     saveUserDoc,
     fetchAllUsers,
