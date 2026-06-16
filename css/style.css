@@ -1565,9 +1565,12 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .critique-stars .stars-display .icon { width: 15px; height: 15px; }
 .critique-note { font-size: var(--fs-base); color: var(--text-muted); margin: 4px 0 0; line-height: 1.45; }
 
-/* Tab bar: conteúdo mais cheio (não parece vazio acima do home indicator) */
+/* Tab bar: conteúdo mais cheio + descido (a safe-area do PWA deixava os ícones
+   demasiado em cima, com uma banda vazia por baixo). Metade da safe-area como
+   almofada chega para libertar o home indicator. */
 .tab { gap: 3px; }
 .tab .icon { width: 24px; height: 24px; }
+.tabbar { padding-bottom: calc(env(safe-area-inset-bottom) * 0.5); }
 
 /* Feed de amigos: mais respiração no mobile */
 .feed-card { padding: var(--sp-2) var(--sp-3); }
