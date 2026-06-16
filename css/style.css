@@ -1592,3 +1592,10 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 }
 .switch-chip:has(input:checked) { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
 .switch-chip input { accent-color: var(--accent); width: 15px; height: 15px; }
+
+/* Smart Suggestion chatbot (caixa única) */
+.ai-compose { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ai-ask { width: 100%; min-height: 64px; resize: vertical; }
+.ai-hint { font-size: var(--fs-xs); text-align: center; margin: 0; }
+.ai-reply { font-size: var(--fs-base); line-height: 1.5; margin: 0 0 var(--sp-3); color: var(--text); }
+.ai-actions-row { display: flex; gap: var(--sp-2); justify-content: center; flex-wrap: wrap; margin-top: var(--sp-3); }

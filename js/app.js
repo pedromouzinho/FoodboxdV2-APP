@@ -280,14 +280,6 @@ const App = (() => {
     document.getElementById("progress-fill").style.width = pct + "%";
   }
 
-  // ---------- Surprise me ----------
-  function pickRandom() {
-    const pool = getFiltered().filter((r) => !UserData.isVisited(r.id));
-    const choices = pool.length ? pool : getFiltered();
-    if (!choices.length) return;
-    onSelect(choices[Math.floor(Math.random() * choices.length)]);
-  }
-
   // ---------- Select + detail drawer ----------
   function onSelect(r) {
     // Remember the overview before the first focus, so closing returns to it.
@@ -1414,64 +1406,84 @@ const App = (() => {
       `<div class="ai-error">${icon("info")} ${esc(msg || "Não foi possível gerar agora.")}</div>`;
   }
 
-  async function runSuggest() {
+  // ---------- Smart Suggestion (chatbot, caixa única) ----------
+  function runSmartSuggest() {
     if (!UserData.isCloud()) { showSigninModal(); return; }
     if (!state.restaurants.length) return;
     openAi();
-    aiLoading("A analisar os teus restaurantes…");
+    renderAiComposer();
+  }
+  function renderAiComposer(prefill) {
+    document.getElementById("ai-body").innerHTML = `
+      <div class="ai-compose">
+        <textarea class="note-input ai-ask" data-ai-ask rows="2" placeholder="O que te apetece? (ex.: peixe fresco, barato, perto e tranquilo)">${esc(prefill || "")}</textarea>
+        <button class="btn btn-primary btn-block" data-ai-send>${icon("sparkles")} Pergunta-me</button>
+        <p class="ai-hint muted">Uso o teu gosto, a tua lista e a tua localização.</p>
+      </div>`;
+    const ta = document.querySelector("#ai-body [data-ai-ask]");
+    const send = document.querySelector("#ai-body [data-ai-send]");
+    const go = () => submitSmartSuggest(ta ? ta.value.trim() : "");
+    if (send) send.addEventListener("click", go);
+    if (ta) { ta.focus(); ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); go(); } }); }
+  }
+  async function submitSmartSuggest(query) {
+    aiLoading("A pensar na melhor escolha…");
     let near = null;
     if (navigator.geolocation) {
-      near = await new Promise((res) =>
-        navigator.geolocation.getCurrentPosition(
-          (p) => res({ lat: p.coords.latitude, lng: p.coords.longitude }),
-          () => res(null),
-          { timeout: 6000, maximumAge: 300000 }
-        )
-      );
+      near = await new Promise((res) => navigator.geolocation.getCurrentPosition(
+        (p) => res({ lat: p.coords.latitude, lng: p.coords.longitude }), () => res(null),
+        { timeout: 6000, maximumAge: 300000 }));
     }
     try {
-      const r = await AIModule.recommend({
+      const r = await AIModule.smartSuggest({
+        query,
         catalog: aiCatalog(near),
         profile: aiProfile(),
         taste: UserData.getTasteProfile() || undefined,
-        criteria: near ? { near: true } : {}
+        near: !!near
       });
-      renderSuggest(r);
-    } catch (e) {
-      aiError(e.message);
-    }
+      if (!r) { aiError("Não consegui agora."); return; }
+      renderSmartResult(r);
+    } catch (e) { aiError(e.message); }
   }
-
-  function renderSuggest(r) {
-    const pick = r && restById(r.restaurantId);
-    if (!pick) { aiError("A IA não devolveu uma sugestão válida."); return; }
+  function renderSmartResult(r) {
+    const pick = r.restaurantId && restById(r.restaurantId);
     const alts = (r.alternatives || [])
       .map((a) => ({ rest: restById(a.restaurantId), reason: a.reason }))
-      .filter((a) => a.rest && a.rest.id !== pick.id)
+      .filter((a) => a.rest && (!pick || a.rest.id !== pick.id))
       .slice(0, 3);
-    const cat = catFor(pick);
-    document.getElementById("ai-body").innerHTML = `
+    const f = r.filters || {};
+    const hasFilters = (f.categories && f.categories.length) || (f.regions && f.regions.length) ||
+      (f.price && f.price.length) || (typeof f.text === "string" && f.text);
+    const pickHtml = pick ? `
       <div class="ai-pick" data-ai-open="${esc(pick.id)}">
-        <span class="ai-pick-cat" style="background:var(${cat.varName})"></span>
+        <span class="ai-pick-cat" style="background:var(${catFor(pick).varName})"></span>
         <div class="ai-pick-main">
           <div class="ai-pick-name">${esc(pick.name)}</div>
           <div class="ai-pick-loc">${esc(pick.town)} · ${esc(pick.region)}</div>
           <div class="ai-pick-reason">${esc(r.reason || "")}</div>
         </div>
         ${icon("chevron-right")}
-      </div>
+      </div>` : "";
+    document.getElementById("ai-body").innerHTML = `
+      ${r.reply ? `<p class="ai-reply">${esc(r.reply)}</p>` : ""}
+      ${pickHtml}
       ${alts.length ? `<div class="ai-alts-title">Também podes gostar</div>
-      <div class="ai-alts">${alts.map((a) => `
-        <button class="ai-alt" data-ai-open="${esc(a.rest.id)}">
-          <span class="ai-alt-name">${esc(a.rest.name)}</span>
-          <span class="ai-alt-reason">${esc(a.reason || "")}</span>
-        </button>`).join("")}</div>` : ""}`;
+        <div class="ai-alts">${alts.map((a) => `
+          <button class="ai-alt" data-ai-open="${esc(a.rest.id)}">
+            <span class="ai-alt-name">${esc(a.rest.name)}</span>
+            <span class="ai-alt-reason">${esc(a.reason || "")}</span>
+          </button>`).join("")}</div>` : ""}
+      <div class="ai-actions-row">
+        ${hasFilters ? `<button class="btn btn-ghost btn-sm" data-ai-filter>${icon("search")} Filtrar a lista</button>` : ""}
+        <button class="btn btn-ghost btn-sm" data-ai-again>${icon("sparkles")} Nova pergunta</button>
+      </div>`;
     document.querySelectorAll("#ai-body [data-ai-open]").forEach((el) =>
-      el.addEventListener("click", () => {
-        const rest = restById(el.dataset.aiOpen);
-        if (rest) { hideAi(); onSelect(rest); }
-      })
-    );
+      el.addEventListener("click", () => { const rest = restById(el.dataset.aiOpen); if (rest) { hideAi(); onSelect(rest); } }));
+    const fb = document.querySelector("#ai-body [data-ai-filter]");
+    if (fb) fb.addEventListener("click", () => { applyNlFilters(r.filters); hideAi(); });
+    const ag = document.querySelector("#ai-body [data-ai-again]");
+    if (ag) ag.addEventListener("click", () => renderAiComposer());
   }
 
   // ---------- Taste profile ----------
@@ -1533,7 +1545,7 @@ const App = (() => {
         <button class="linklike taste-update" data-taste-update>Atualizar perfil de gosto</button>
       </div>`;
     const sg = document.querySelector("#ai-body [data-taste-suggest]");
-    if (sg) sg.addEventListener("click", runSuggest);
+    if (sg) sg.addEventListener("click", () => { hideAi(); runSmartSuggest(); });
     const up = document.querySelector("#ai-body [data-taste-update]");
     if (up) up.addEventListener("click", runTasteProfile);
   }
@@ -1570,24 +1582,7 @@ const App = (() => {
     } catch (e) { /* silent — retry next session */ }
   }
 
-  // Natural-language search: a query → structured filters applied to the UI.
-  async function runNlSearch() {
-    if (!AIModule.available() || !UserData.isCloud()) return;
-    const input = document.getElementById("search-input");
-    const query = input.value.trim();
-    if (!query) return;
-    const btn = document.getElementById("nl-search-btn");
-    if (btn) btn.classList.add("busy");
-    try {
-      const regions = [...new Set(state.restaurants.map((r) => r.region))].sort();
-      const f = await AIModule.nlSearch({ query, regions });
-      applyNlFilters(f);
-    } catch (e) {
-      /* keep the literal search; NL is a bonus */
-    }
-    if (btn) btn.classList.remove("busy");
-  }
-
+  // Apply structured filters (from the chatbot) to the list UI.
   function applyNlFilters(f) {
     if (!f) return;
     if (Array.isArray(f.categories) && f.categories.length) {
@@ -2322,11 +2317,11 @@ const App = (() => {
   function wireEvents() {
     document.getElementById("search-input").addEventListener("input", render);
 
-    // AI: "Sugere-me" (header) + natural-language search + modal close. The
-    // controls only make sense when the backend is reachable and signed in.
+    // AI: single "Pergunta-me" chatbot (header) — replaces the old "Sugere-me",
+    // "Sugestão aleatória" and the ✨ search. Only when backend is reachable.
     const aiBtn = document.getElementById("ai-suggest-btn");
     if (aiBtn) {
-      if (AIModule.available()) aiBtn.addEventListener("click", runSuggest);
+      if (AIModule.available()) aiBtn.addEventListener("click", runSmartSuggest);
       else aiBtn.classList.add("hidden");
     }
     document.querySelectorAll("[data-close-ai]").forEach((el) => el.addEventListener("click", hideAi));
@@ -2345,21 +2340,10 @@ const App = (() => {
     if (groupInput) groupInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") { e.preventDefault(); confirmGroup(); }
     });
-    const nlBtn = document.getElementById("nl-search-btn");
-    if (nlBtn) {
-      if (AIModule.available()) {
-        nlBtn.classList.remove("hidden");
-        nlBtn.addEventListener("click", runNlSearch);
-        document.getElementById("search-input").addEventListener("keydown", (e) => {
-          if (e.key === "Enter") { e.preventDefault(); runNlSearch(); }
-        });
-      }
-    }
 
     document.getElementById("hide-visited-checkbox").addEventListener("change", render);
     document.getElementById("only-priority-checkbox").addEventListener("change", render);
     document.querySelectorAll("#price-filters input").forEach((el) => el.addEventListener("change", render));
-    document.getElementById("pick-random-btn").addEventListener("click", pickRandom);
     document.getElementById("sidebar-toggle").addEventListener("click", () =>
       openSidebar(!document.getElementById("sidebar").classList.contains("open"))
     );

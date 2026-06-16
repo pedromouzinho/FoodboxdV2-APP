@@ -147,6 +147,54 @@ const ACTIONS = {
     return structured({ model: MODELS.recommend, system, user, tool, maxTokens: 1200 });
   },
 
+  // Free-text "chatbot" suggestion: the user types what/where they feel like; uses
+  // taste + their list + proximity. May also return filters to apply to the list.
+  async smartSuggest(uid, body) {
+    const catalog = Array.isArray(body.catalog) ? body.catalog.slice(0, 400) : [];
+    const tool = {
+      name: "sugerir",
+      description: "Responde ao pedido com uma recomendação do catálogo (+ alternativas) e, se fizer sentido, filtros para a lista.",
+      input_schema: {
+        type: "object",
+        properties: {
+          reply: { type: "string", description: "1–2 frases, resposta direta ao pedido, português europeu, sem emojis." },
+          restaurantId: { type: "string" },
+          reason: { type: "string", description: "1–2 frases, pessoal e concreta." },
+          alternatives: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: { restaurantId: { type: "string" }, reason: { type: "string" } },
+              required: ["restaurantId", "reason"]
+            }
+          },
+          filters: {
+            type: "object",
+            description: "Opcional: filtros a aplicar à lista do utilizador quando o pedido é sobretudo de pesquisa/filtragem.",
+            properties: {
+              categories: { type: "array", items: { type: "string", enum: CATEGORIES } },
+              regions: { type: "array", items: { type: "string" } },
+              price: { type: "array", items: { type: "integer", enum: [1, 2, 3, 4] } },
+              text: { type: "string" }
+            }
+          }
+        },
+        required: ["reply", "restaurantId", "reason", "alternatives"]
+      }
+    };
+    const system = cachedSystem(
+      "És o concierge do Foodboxd. O utilizador escreve em linguagem natural o que lhe apetece (tipo de comida, ocasião, companhia, distância…). Recomenda a partir do CATÁLOGO (usa só ids existentes), considerando o pedido, o PERFIL DE GOSTO, as avaliações/visitas e a PROXIMIDADE (campo distKm quando existir — prioriza perto). Responde curto e concreto em português europeu, sem emojis. Se o pedido for sobretudo filtrar a lista, preenche também `filters`.",
+      catalog
+    );
+    const user = [
+      { type: "text", text: "PEDIDO: " + (body.query || "(sem texto — sugere algo bom para agora, perto)") },
+      { type: "text", text: "PERFIL DE GOSTO: " + JSON.stringify(body.taste || {}) },
+      { type: "text", text: "PERFIL (agregado): " + JSON.stringify(body.profile || {}) },
+      { type: "text", text: "PROXIMIDADE: " + (body.near ? "tem localização — usa distKm e prioriza perto" : "sem localização") }
+    ];
+    return structured({ model: MODELS.recommend, system, user, tool, maxTokens: 1200 });
+  },
+
   // Build a "taste profile" from the user's records + Google Maps searches to
   // discover new places that match it.
   async tasteProfile(uid, body) {
