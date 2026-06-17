@@ -10,6 +10,7 @@ const AddRestaurantModule = (() => {
   // "wishlist" = um sítio onde quero ir (fica prioritário); "experience" = já fui
   // (abre logo a experiência para avaliar). Define o comportamento pós-adição.
   let mode = "wishlist";
+  let pendingGeoConfirm = false; // second submit click confirms an out-of-region pin
 
   function slugify(text) {
     return text
@@ -83,6 +84,7 @@ const AddRestaurantModule = (() => {
 
   function open(m) {
     mode = m === "experience" ? "experience" : "wishlist";
+    pendingGeoConfirm = false;
     if (titleEl) titleEl.textContent = mode === "experience" ? "Adicionar experiência" : "Adicionar à wishlist";
     if (introEl) introEl.textContent = mode === "experience"
       ? "Um sítio onde já foste — depois avalias e registas a visita."
@@ -97,6 +99,7 @@ const AddRestaurantModule = (() => {
   function close() {
     modal.classList.add("hidden");
     form.reset();
+    pendingGeoConfirm = false;
     regionInput.value = "";
     locateStatus.textContent = "";
     statusEl.textContent = "";
@@ -181,6 +184,24 @@ const AddRestaurantModule = (() => {
         );
         submitBtn.disabled = false;
         return;
+      }
+
+      // Geo sanity-check: warn (once) if the pin falls outside the region the
+      // place will be filed under. The effective region mirrors buildRestaurantFromForm.
+      if (!pendingGeoConfirm && typeof GeoValidate !== "undefined") {
+        const effectiveRegion = regionInput.value.trim()
+          || (coords && coords.region)
+          || (typeof Geocode !== "undefined" && Geocode.regionForTown ? (Geocode.regionForTown(townInput.value.trim()) || "") : "");
+        try {
+          const check = GeoValidate.isWithinRegion(effectiveRegion, coords.lat, coords.lng);
+          if (check && !check.ok) {
+            setStatus(`Esta localização parece estar fora de ${effectiveRegion || "Portugal"}. Carrega novamente para guardar mesmo assim.`, "warning");
+            pendingGeoConfirm = true;
+            submitBtn.textContent = "Guardar mesmo assim";
+            submitBtn.disabled = false;
+            return;
+          }
+        } catch (e) { /* fail-open: never block saving on a validation error */ }
       }
 
       const restaurant = buildRestaurantFromForm(coords);
