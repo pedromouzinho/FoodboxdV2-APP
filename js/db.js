@@ -210,7 +210,6 @@ const DB = (() => {
       photoURL: data.photoURL || "",
       visited: data.visited || [],
       priority: data.priority || [],
-      priorityAt: data.priorityAt || {},
       ratings: data.ratings || {},
       history: data.history || {},
       onboarded: data.onboarded === true,
@@ -240,7 +239,6 @@ const DB = (() => {
       photoURL: f.photoURL || "",
       visited: f.visited || [],
       priority: f.priority || [],
-      priorityAt: f.priorityAt || {},
       ratings: f.ratings || {},
       history: f.history || {}
     };
@@ -279,7 +277,7 @@ const DB = (() => {
       sharedQ ? runUserQuery(sharedQ, token) : Promise.resolve([]),
       myUid ? fetchUserDoc(myUid, token).then((f) => (f ? [{
         uid: myUid, displayName: f.displayName || "", photoURL: f.photoURL || "",
-        visited: f.visited || [], priority: f.priority || [], priorityAt: f.priorityAt || {}, ratings: f.ratings || {}, history: f.history || {}
+        visited: f.visited || [], priority: f.priority || [], ratings: f.ratings || {}, history: f.history || {}
       }] : [])).catch(() => []) : Promise.resolve([])
     ]);
     const byUid = new Map();

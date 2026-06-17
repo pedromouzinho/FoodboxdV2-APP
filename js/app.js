@@ -11,7 +11,7 @@ const CATEGORIES = {
 };
 
 const App = (() => {
-  const state = { restaurants: [], currentDetail: null, currentScreen: "mapa", criticasView: "mine", criticasSort: "recent", amigosTab: "atividade", amigosFilter: "all" };
+  const state = { restaurants: [], currentDetail: null, currentScreen: "mapa", criticasView: "mine", criticasSort: "recent", amigosTab: "atividade" };
 
   function esc(str) {
     return String(str == null ? "" : str).replace(/[&<>"']/g, (c) =>
@@ -180,24 +180,12 @@ const App = (() => {
     });
   }
 
-  // Drop a real photo into a `.ph` placeholder — but only once it has actually
-  // loaded, so a blocked/expired URL (e.g. Google photos rejected in the
-  // installed PWA) leaves the clean placeholder instead of a broken-image icon.
+  // Drop a real Google photo into a `.ph` placeholder once we have its URL.
   function setThumbPhoto(phEl, url) {
     if (!phEl || !url) return;
-    const img = new Image();
-    img.referrerPolicy = "no-referrer"; // avoids 403s on Google/CDN image hosts in PWA context
-    img.alt = "";
-    img.decoding = "async";
-    img.style.cssText = "width:100%;height:100%;object-fit:cover";
-    img.onload = () => {
-      phEl.removeAttribute("data-label");
-      phEl.style.background = "none";
-      phEl.innerHTML = "";
-      phEl.appendChild(img);
-    };
-    img.onerror = () => { /* keep the clean .ph placeholder */ };
-    img.src = url;
+    phEl.removeAttribute("data-label");
+    phEl.style.background = "none";
+    phEl.innerHTML = `<img src="${esc(url)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover">`;
   }
   // Fill a `.ph` thumbnail: a community "cover" photo (override) wins; otherwise
   // fall back to the cached Google photo.
@@ -806,7 +794,6 @@ const App = (() => {
     const photos = await DB.fetchPhotos(r.id);
     if (state.currentDetail !== r) return;
     const mine = me ? photos.filter((p) => p.uid === me.uid) : [];
-    // SEC-001: only show photos from people I'm actually allowed to see.
     const others = me ? photos.filter((p) => p.uid !== me.uid && UserData.canSeeUser(p.uid)) : [];
     if (myGrid) paintPhotoGrid(myGrid, mine, me ? "Ainda não adicionou fotos." : "Inicie sessão para adicionar fotos.");
     if (friendsGrid) paintPhotoGrid(friendsGrid, others, "Ainda não há fotos de amigos.");
@@ -854,7 +841,7 @@ const App = (() => {
   function photoTile(p) {
     const source = p.source || "user";
     const badge = source === "google" ? "Google" : (p.author || "");
-    return `<button type="button" class="photo-tile" data-photo-url="${esc(p.url)}" data-photo-source="${esc(source)}" data-photo-badge="${esc(badge)}" data-photo-uid="${esc(p.uid || "")}" title="${esc(p.author || "")}">
+    return `<button type="button" class="photo-tile" data-photo-url="${esc(p.url)}" data-photo-source="${source}" data-photo-badge="${esc(badge)}" data-photo-uid="${esc(p.uid || "")}" title="${esc(p.author || "")}">
       <img src="${esc(p.url)}" alt="" loading="lazy" />
     </button>`;
   }
@@ -945,7 +932,7 @@ const App = (() => {
 
     // hero photo
     if (data.photos && data.photos[0]) {
-      document.getElementById("detail-hero").innerHTML = `<img src="${esc(data.photos[0])}" alt="${esc(r.name)}" referrerpolicy="no-referrer" />`;
+      document.getElementById("detail-hero").innerHTML = `<img src="${esc(data.photos[0])}" alt="${esc(r.name)}" />`;
     }
 
     // Call / Website CTAs (number + site come from Google)
@@ -999,7 +986,7 @@ const App = (() => {
     if (data.photos && data.photos.length > 1) {
       galleryEl.innerHTML =
         `<div class="detail-section-title" style="margin-bottom:8px">Fotos</div>` +
-        `<div class="gallery">${data.photos.slice(1, 6).map((p) => `<img class="gallery-img" data-photo-url="${esc(p)}" src="${esc(p)}" alt="" loading="lazy" referrerpolicy="no-referrer">`).join("")}</div>`;
+        `<div class="gallery">${data.photos.slice(1, 6).map((p) => `<img class="gallery-img" data-photo-source="google" data-photo-badge="Google" data-photo-url="${esc(p)}" src="${esc(p)}" alt="" loading="lazy">`).join("")}</div>`;
     }
 
     // hours
@@ -1945,11 +1932,9 @@ const App = (() => {
     });
     const feed = document.getElementById("amigos-feed");
     const lb = document.getElementById("amigos-leaderboard");
-    const filter = document.getElementById("amigos-filter");
     const onLeaderboard = state.amigosTab === "leaderboard";
     if (feed) feed.hidden = onLeaderboard;
     if (lb) lb.hidden = !onLeaderboard;
-    if (filter) filter.hidden = onLeaderboard; // filter only applies to the feed
     if (onLeaderboard) renderAmigosLeaderboard();
     else renderAmigosFeed();
   }
@@ -2214,7 +2199,7 @@ const App = (() => {
       (g.priority || []).forEach((id) => {
         const r = byId.get(id);
         if (!r) return;
-        items.push({ type: "priority", when: (g.priorityAt && g.priorityAt[id]) || "", g, r });
+        items.push({ type: "priority", when: "", g, r });
       });
     });
     return items.sort((a, b) => (a.when < b.when ? 1 : -1));
@@ -2256,14 +2241,10 @@ const App = (() => {
     const stars = it.type === "rating" && it.stars ? `<div class="feed-stars">${starsDisplay(it.stars)}</div>` : "";
     const note = it.type === "rating" && it.note ? `<p class="feed-note">“${esc(it.note)}”</p>` : "";
     const when = it.when ? esc(fmtDateTime(it.when)) : "";
-    // Shared photos (distinct from the restaurant's own cover) — each opens the
-    // viewer (preview + share + download) via the global [data-photo-url] handler.
-    const photos = it.type === "upload" && it.photos && it.photos.length
-      ? `<div class="feed-photos">${it.photos.map((p) =>
-          `<button type="button" class="feed-photo" data-photo-url="${esc(p.url)}"><img src="${esc(p.url)}" alt="" loading="lazy"></button>`
-        ).join("")}</div>`
-      : "";
-    return `<div class="feed-item">
+    const thumb = it.type === "upload" && it.photos[0]
+      ? `<img src="${esc(it.photos[0].url)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
+      : `<div class="ph" data-label="foto"></div>`;
+    return `<button type="button" class="feed-item" data-feed-rest="${esc(it.r.id)}">
       <div class="feed-top">
         ${avatar(it.g.displayName, it.g.photoURL)}
         <div class="feed-top-text">
@@ -2271,19 +2252,17 @@ const App = (() => {
           ${when ? `<span class="feed-time">${when}</span>` : ""}
         </div>
       </div>
-      ${photos}
-      <button type="button" class="feed-rest" data-feed-rest="${esc(it.r.id)}">
-        <div class="rcard-thumb" style="width:48px;height:48px"><div class="ph" data-label="foto"></div></div>
+      <div class="feed-rest">
+        <div class="rcard-thumb" style="width:52px;height:52px">${thumb}</div>
         <div class="feed-rest-info">
           <span class="rcard-cat" style="color:var(${cat.varName}-ink)">${esc(cat.label)}</span>
           <span class="feed-rest-name">${esc(it.r.name)}</span>
           <span class="rcard-loc">${icon("pin")} ${esc(it.r.town)} · ${esc(it.r.region)}</span>
         </div>
-        ${icon("chevron-right")}
-      </button>
+      </div>
       ${stars}
       ${note}
-    </div>`;
+    </button>`;
   }
 
   function paintFeed(el, feed) {
@@ -2295,8 +2274,8 @@ const App = (() => {
     el.querySelectorAll("[data-feed-rest]").forEach((b) => {
       const r = state.restaurants.find((x) => x.id === b.dataset.feedRest);
       b.addEventListener("click", () => { if (r) openOnTab(r, "amigos"); });
-      const ph = b.querySelector(".ph"); // the restaurant's own cover, not the shared photo
-      if (r && ph) fillThumbPhoto(ph, r);
+      const ph = b.querySelector(".ph");
+      if (r && ph) fillThumbPhoto(ph, r); // real photo (else keep placeholder)
     });
   }
 
@@ -2309,12 +2288,11 @@ const App = (() => {
       return;
     }
     const reqId = ++amigosReqId;
-    const ftr = (arr) => (state.amigosFilter === "all" ? arr : arr.filter((it) => it.type === state.amigosFilter));
     const base = buildFriendsFeed();
     // Paint group activity instantly, then fold in friends' photos.
-    if (base.length) paintFeed(el, ftr(base));
+    if (base.length) paintFeed(el, base);
     else if (DB.isAvailable()) el.innerHTML = `<div class="skeleton" style="height:64px"></div>`;
-    else paintFeed(el, ftr(base));
+    else paintFeed(el, base);
     if (!DB.isAvailable()) return;
     let photoItems = [];
     try {
@@ -2322,7 +2300,7 @@ const App = (() => {
     } catch (e) { photoItems = []; }
     if (reqId !== amigosReqId) return;
     const merged = base.concat(photoItems).sort((a, b) => (a.when < b.when ? 1 : -1));
-    paintFeed(el, ftr(merged));
+    paintFeed(el, merged);
   }
 
   // ----- Amigos leaderboard: rank everyone by number of visits (no network) -----
@@ -2534,16 +2512,6 @@ const App = (() => {
     );
     document.querySelectorAll("#amigos-tabs .chip-tab").forEach((b) =>
       b.addEventListener("click", () => { state.amigosTab = b.dataset.atab; renderAmigosScreen(); })
-    );
-    document.querySelectorAll("#amigos-filter .chip-sort").forEach((b) =>
-      b.addEventListener("click", () => {
-        state.amigosFilter = b.dataset.afilter;
-        document.querySelectorAll("#amigos-filter .chip-sort").forEach((x) => {
-          const on = x.dataset.afilter === state.amigosFilter;
-          x.classList.toggle("active", on); x.setAttribute("aria-pressed", String(on));
-        });
-        renderAmigosFeed();
-      })
     );
     document.querySelectorAll("[data-a2hs-close]").forEach((el) => el.addEventListener("click", hideA2HS));
 

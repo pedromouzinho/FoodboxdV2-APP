@@ -1674,34 +1674,75 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .chip-sort[aria-pressed="false"] { opacity: 1; color: var(--text-faint); }
 .critique-quote { font-size: var(--fs-base); color: var(--text-muted); margin: 0; line-height: 1.45; font-style: italic; }
 
-/* Amigos feed v2: shared photos shown distinctly, the restaurant is a tappable card */
-.feed-item { cursor: default; }
-.feed-rest {
-  width: 100%; border: none; cursor: pointer; color: var(--text); text-align: left;
-  display: flex; align-items: center; gap: var(--sp-3);
-  background: var(--surface-2); border-radius: var(--r-md); padding: var(--sp-2);
-}
-.feed-rest > .icon { margin-left: auto; flex: none; width: 18px; height: 18px; color: var(--text-faint); }
-.feed-rest:active { transform: scale(0.99); }
-.feed-photos { display: grid; gap: 4px; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
-.feed-photo {
-  border: none; padding: 0; margin: 0; cursor: pointer; background: var(--surface-2);
-  border-radius: var(--r-md); overflow: hidden; aspect-ratio: 1; max-height: 280px;
-}
-.feed-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-/* Chip filter bar (Amigos feed): horizontal scroll, no wrap */
-.chip-bar { display: flex; gap: var(--sp-2); overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; padding-bottom: 2px; }
-.chip-bar::-webkit-scrollbar { display: none; }
-.chip-bar[hidden] { display: none; }
-.chip-bar .chip-sort { flex: 0 0 auto; scroll-snap-align: start; }
+/* ---- Feed de amigos: chips de filtro (Feature 2) ---- */
+.feed-filters.chip-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  padding-bottom: 2px;
+  margin-left: calc(var(--sp-4) * -1);
+  margin-right: calc(var(--sp-4) * -1);
+  padding-left: var(--sp-4);
+  padding-right: var(--sp-4);
+}
+.feed-filters.chip-tabs::-webkit-scrollbar { display: none; }
+.feed-filters .chip-tab {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
 
-/* Photo source badge in the community gallery (whose photo / Google) */
-.photo-tile { position: relative; }
-.photo-tile[data-photo-badge]:not([data-photo-badge=""])::after {
+/* ---- Geo validation warning (Feature 3) ---- */
+.geo-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--warn, #c35c2c) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--warn, #c35c2c) 35%, var(--border));
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  animation: geo-warn-in var(--t, .2s) ease-out;
+}
+.geo-warn[hidden] { display: none; }
+@keyframes geo-warn-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---- Fotos: distincao user vs Google (Feature 4) ---- */
+.photo-tile[data-photo-source="user"] {
+  box-shadow: inset 0 0 0 2px var(--accent, #4a7c59);
+  border-radius: var(--r-md);
+}
+.photo-tile[data-photo-source="google"] {
+  box-shadow: inset 0 0 0 2px var(--text-muted, #888);
+  border-radius: var(--r-md);
+  opacity: 0.85;
+}
+.photo-tile[data-photo-source]::after {
   content: attr(data-photo-badge);
-  position: absolute; left: 4px; bottom: 4px; max-width: calc(100% - 8px);
-  font-size: 9px; font-weight: 600; line-height: 1; padding: 3px 5px; border-radius: 6px;
-  background: color-mix(in srgb, var(--surface) 82%, transparent); color: var(--text-muted);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: var(--r-pill, 99px);
+  color: #fff;
+  pointer-events: none;
 }
+.photo-tile[data-photo-source="user"]::after {
+  background: var(--accent, #4a7c59);
+}
+.photo-tile[data-photo-source="google"]::after {
+  background: var(--text-muted, #888);
+}
+
+/* Feed item hidden state (for filter toggling) */
+.feed-item[hidden] { display: none !important; }
