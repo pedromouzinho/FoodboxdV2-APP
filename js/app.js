@@ -180,12 +180,24 @@ const App = (() => {
     });
   }
 
-  // Drop a real Google photo into a `.ph` placeholder once we have its URL.
+  // Drop a real photo into a `.ph` placeholder — but only once it has actually
+  // loaded, so a blocked/expired URL (e.g. Google photos rejected in the
+  // installed PWA) leaves the clean placeholder instead of a broken-image icon.
   function setThumbPhoto(phEl, url) {
     if (!phEl || !url) return;
-    phEl.removeAttribute("data-label");
-    phEl.style.background = "none";
-    phEl.innerHTML = `<img src="${esc(url)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover">`;
+    const img = new Image();
+    img.referrerPolicy = "no-referrer"; // avoids 403s on Google/CDN image hosts in PWA context
+    img.alt = "";
+    img.decoding = "async";
+    img.style.cssText = "width:100%;height:100%;object-fit:cover";
+    img.onload = () => {
+      phEl.removeAttribute("data-label");
+      phEl.style.background = "none";
+      phEl.innerHTML = "";
+      phEl.appendChild(img);
+    };
+    img.onerror = () => { /* keep the clean .ph placeholder */ };
+    img.src = url;
   }
   // Fill a `.ph` thumbnail: a community "cover" photo (override) wins; otherwise
   // fall back to the cached Google photo.
@@ -933,7 +945,7 @@ const App = (() => {
 
     // hero photo
     if (data.photos && data.photos[0]) {
-      document.getElementById("detail-hero").innerHTML = `<img src="${esc(data.photos[0])}" alt="${esc(r.name)}" />`;
+      document.getElementById("detail-hero").innerHTML = `<img src="${esc(data.photos[0])}" alt="${esc(r.name)}" referrerpolicy="no-referrer" />`;
     }
 
     // Call / Website CTAs (number + site come from Google)
@@ -987,7 +999,7 @@ const App = (() => {
     if (data.photos && data.photos.length > 1) {
       galleryEl.innerHTML =
         `<div class="detail-section-title" style="margin-bottom:8px">Fotos</div>` +
-        `<div class="gallery">${data.photos.slice(1, 6).map((p) => `<img class="gallery-img" data-photo-url="${esc(p)}" src="${esc(p)}" alt="" loading="lazy">`).join("")}</div>`;
+        `<div class="gallery">${data.photos.slice(1, 6).map((p) => `<img class="gallery-img" data-photo-url="${esc(p)}" src="${esc(p)}" alt="" loading="lazy" referrerpolicy="no-referrer">`).join("")}</div>`;
     }
 
     // hours
