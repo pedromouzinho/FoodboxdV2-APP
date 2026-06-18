@@ -81,6 +81,40 @@ const PlacesModule = (() => {
     });
   }
 
+  // Discover NEW places from Google Maps by free-text query (e.g. the taste-
+  // driven searches the AI proposes). Resolves to a compact array of candidates,
+  // or [] on any failure. `opts.location` ({lat,lng}) biases results to a zone.
+  function textSearch(query, opts) {
+    return new Promise((resolve) => {
+      if (!service || !query) return resolve([]);
+      const limit = (opts && opts.limit) || 6;
+      const request = { query };
+      if (opts && opts.location && typeof opts.location.lat === "number") {
+        request.location = new google.maps.LatLng(opts.location.lat, opts.location.lng);
+        request.radius = (opts.radiusKm || 20) * 1000;
+      }
+      service.textSearch(request, (results, status) => {
+        if (status !== google.maps.places.PlacesServiceStatus.OK || !results) return resolve([]);
+        const out = results
+          .slice(0, limit)
+          .map((p) => ({
+            placeId: p.place_id,
+            name: p.name,
+            address: p.formatted_address || p.vicinity || "",
+            lat: p.geometry && p.geometry.location ? p.geometry.location.lat() : null,
+            lng: p.geometry && p.geometry.location ? p.geometry.location.lng() : null,
+            rating: typeof p.rating === "number" ? p.rating : null,
+            userRatingsTotal: p.user_ratings_total || 0,
+            priceLevelNum: typeof p.price_level === "number" ? p.price_level : null,
+            priceLevel: priceLabel(p.price_level),
+            types: p.types || []
+          }))
+          .filter((p) => p.name && p.lat != null);
+        resolve(out);
+      });
+    });
+  }
+
   // Inline rating + open-now for a sidebar card meta element.
   async function enrichCard(restaurant, metaEl) {
     if (!metaEl) return null;
@@ -100,5 +134,5 @@ const PlacesModule = (() => {
     return data;
   }
 
-  return { init, isAvailable, fetchDetails, enrichCard };
+  return { init, isAvailable, fetchDetails, textSearch, enrichCard };
 })();

@@ -1231,6 +1231,16 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .taste-maps { display: flex; flex-direction: column; gap: var(--sp-2); }
 .taste-map { justify-content: flex-start; text-align: left; }
 .taste-map .icon { width: 15px; height: 15px; flex-shrink: 0; }
+.ai-discover { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ai-discover-item { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
+.ai-discover-main { flex: 1; min-width: 0; }
+.ai-discover-name { font-weight: 600; font-size: 0.95rem; }
+.ai-discover-loc { color: var(--text-muted); font-size: 0.8rem; margin-top: 1px; }
+.ai-discover-meta { color: var(--text-muted); font-size: 0.8rem; margin-top: 3px; display: flex; align-items: center; gap: 4px; }
+.ai-discover-meta .icon { width: 13px; height: 13px; vertical-align: -2px; }
+.ai-discover-add { flex-shrink: 0; white-space: nowrap; }
+.ai-discover-add.added { color: var(--text-muted); opacity: 0.8; }
+.ai-discover-add .icon { width: 14px; height: 14px; }
 .taste-suggest { margin-top: var(--sp-2); }
 .taste-suggest .icon { width: 16px; height: 16px; }
 

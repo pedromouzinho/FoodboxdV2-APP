@@ -177,13 +177,25 @@ const ACTIONS = {
               price: { type: "array", items: { type: "integer", enum: [1, 2, 3, 4] } },
               text: { type: "string" }
             }
+          },
+          discoverQueries: {
+            type: "array",
+            description: "1 a 3 pesquisas para o Google Maps que tragam sítios NOVOS (fora do catálogo) à medida do pedido e do PERFIL DE GOSTO. Inclui sempre a localidade/zona na query para dar bons resultados (ex.: 'marisqueira fresca perto de Setúbal'). Deixa vazio se o pedido for só sobre a lista existente.",
+            items: {
+              type: "object",
+              properties: {
+                label: { type: "string", description: "Rótulo curto (3–5 palavras)." },
+                query: { type: "string", description: "Texto de pesquisa para o Google Maps." }
+              },
+              required: ["label", "query"]
+            }
           }
         },
         required: ["reply", "restaurantId", "reason", "alternatives"]
       }
     };
     const system = cachedSystem(
-      "És o concierge do Foodboxd. O utilizador escreve em linguagem natural o que lhe apetece (tipo de comida, ocasião, companhia, distância…). Recomenda a partir do CATÁLOGO (usa só ids existentes), considerando o pedido, o PERFIL DE GOSTO, as avaliações/visitas e a PROXIMIDADE (campo distKm quando existir — prioriza perto). Responde curto e concreto em português europeu, sem emojis. Se o pedido for sobretudo filtrar a lista, preenche também `filters`.",
+      "És o concierge do Foodboxd. O utilizador escreve em linguagem natural o que lhe apetece (tipo de comida, ocasião, companhia, distância…). Recomenda a partir do CATÁLOGO (usa só ids existentes), considerando o pedido, o PERFIL DE GOSTO, as avaliações/visitas e a PROXIMIDADE (campo distKm quando existir — prioriza perto). Responde curto e concreto em português europeu, sem emojis. Além da escolha do catálogo, propõe em `discoverQueries` 1 a 3 pesquisas ao Google Maps para descobrir sítios NOVOS (que ainda não estão no catálogo) alinhados com o pedido e o gosto — usa sempre a localidade/zona na query. Se o pedido for sobretudo filtrar a lista, preenche também `filters`.",
       catalog
     );
     const user = [

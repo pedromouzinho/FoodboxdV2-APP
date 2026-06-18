@@ -47,6 +47,8 @@ Sem bundler. `index.html` carrega os scripts por ordem. Cada módulo é um IIFE
   `saveCamera/restoreCamera`.
 - `js/places.js` — PlacesModule: `fetchDetails(r)` (Places: rating, reviews,
   fotos, telefone, horário…); cache em localStorage 1 semana. `isAvailable()`.
+  `textSearch(query,{location,limit})` → descobre sítios NOVOS no Google Maps
+  (usado pelas sugestões IA para ir além do catálogo).
 - `js/geocode.js` — Geocode: `locate(name,town)` → `{lat,lng,region}`. Mapeia
   distrito→região (NUTS‑II) via `REGION_BY_DISTRICT` e tem fallback por
   localidade (`regionForTown`) para evitar que falhas de geocoding caiam
@@ -208,10 +210,15 @@ all; write se `auth && file começa por uid + imagem + <6MB`; delete se auth.
     `PlacesModule.fetchDetails`; badge = comunidade não verificada sem telefone
     Google em cache/detalhe).
 11. **Camada de IA (Claude via Vertex AI)** — backend `functions/` (função `ai`)
-    + `js/ai.js`. 6 ações com modelos tiered: `recommend` (Opus, "Sugere-me" na
-    topbar, considera ratings/pratos/visitas + "perto de mim"), `planner` (Sonnet,
-    notas nas paragens), `summarizeReviews`/`draftReview`/`nlSearch`/`categorize`
-    (Haiku). Auth por Firebase ID token, rate-limit por uid, `tool_use` para JSON,
+    + `js/ai.js`. Ações com modelos tiered: `recommend`/`smartSuggest` (Opus,
+    "Pergunta-me" na topbar, considera ratings/pratos/visitas + "perto de mim"),
+    `tasteProfile` (Sonnet, perfil de gosto durável), `planner` (Sonnet, notas
+    nas paragens), `summarizeReviews`/`draftReview`/`nlSearch`/`categorize`
+    (Haiku). **Descoberta de sítios NOVOS no Google Maps:** `smartSuggest`
+    devolve `discoverQueries` e `tasteProfile` devolve `mapsQueries` — o cliente
+    corre-as via `PlacesModule.textSearch`, filtra o que já está no catálogo e
+    deixa adicionar à wishlist com um toque (`addDiscoveredPlace`). Auth por
+    Firebase ID token, rate-limit por uid, `tool_use` para JSON,
     prompt caching do catálogo. Setup/IAM/deploy em `AI_SETUP.md`. **Fornecedor
     selecionável** (`AI_PROVIDER`): **em produção usa a API direta da Anthropic**
     (`@anthropic-ai/sdk`, key em `functions/.env` gitignored) porque o Vertex
