@@ -10,7 +10,7 @@ const AddRestaurantModule = (() => {
   // "wishlist" = um sítio onde quero ir (fica prioritário); "experience" = já fui
   // (abre logo a experiência para avaliar). Define o comportamento pós-adição.
   let mode = "wishlist";
-  let pendingGeoConfirm = false;
+  let pendingGeoConfirm = false; // second submit click confirms an out-of-region pin
 
   function slugify(text) {
     return text
@@ -186,22 +186,22 @@ const AddRestaurantModule = (() => {
         return;
       }
 
-      // Geo validation: warn if coords fall outside declared region (non-blocking)
+      // Geo sanity-check: warn (once) if the pin falls outside the region the
+      // place will be filed under. The effective region mirrors buildRestaurantFromForm.
       if (!pendingGeoConfirm && typeof GeoValidate !== "undefined") {
-        const declaredRegion = regionInput ? regionInput.value.trim() : "";
+        const effectiveRegion = regionInput.value.trim()
+          || (coords && coords.region)
+          || (typeof Geocode !== "undefined" && Geocode.regionForTown ? (Geocode.regionForTown(townInput.value.trim()) || "") : "");
         try {
-          const check = GeoValidate.isWithinRegion(declaredRegion, coords.lat, coords.lng);
+          const check = GeoValidate.isWithinRegion(effectiveRegion, coords.lat, coords.lng);
           if (check && !check.ok) {
-            setStatus(
-              `Esta localização parece estar fora de ${declaredRegion || "Portugal"}. Carrega novamente para guardar mesmo assim.`,
-              "warning"
-            );
+            setStatus(`Esta localização parece estar fora de ${effectiveRegion || "Portugal"}. Carrega novamente para guardar mesmo assim.`, "warning");
             pendingGeoConfirm = true;
             submitBtn.textContent = "Guardar mesmo assim";
             submitBtn.disabled = false;
             return;
           }
-        } catch (e) { /* fail-open: ignore validation errors */ }
+        } catch (e) { /* fail-open: never block saving on a validation error */ }
       }
 
       const restaurant = buildRestaurantFromForm(coords);

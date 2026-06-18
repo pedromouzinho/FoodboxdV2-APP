@@ -19,10 +19,13 @@ const PlacesModule = (() => {
   }
 
   // Resolve full details for a restaurant (cached). Resolves to data or null.
-  function fetchDetails(restaurant) {
+  function fetchDetails(restaurant, opts) {
     return new Promise((resolve) => {
-      const cached = Storage.getCachedPlace(restaurant.id);
-      if (cached) return resolve(cached);
+      const force = opts && opts.force; // bypass + overwrite cache (e.g. expired photo URLs)
+      if (!force) {
+        const cached = Storage.getCachedPlace(restaurant.id);
+        if (cached) return resolve(cached);
+      }
       if (!service) return resolve(null);
 
       service.findPlaceFromQuery(

@@ -21,7 +21,7 @@ const UserData = (() => {
   let tasteGenDay = ""; // YYYY-MM-DD of the last background taste-profile run
 
   // my marks (used in cloud mode)
-  let mine = { visited: new Set(), priority: new Set(), ratings: {}, history: {}, priorityAt: {} };
+  let mine = { visited: new Set(), priority: new Set(), priorityAt: {}, ratings: {}, history: {} };
   let group = []; // the active social view: [{ uid, displayName, photoURL, visited:[], priority:[], ratings:{}, history:{} }]
 
   // Groups: every signed-in user is loaded into `allUsers`; `group` is `allUsers`
@@ -66,9 +66,9 @@ const UserData = (() => {
       mine = {
         visited: new Set(doc.visited || []),
         priority: new Set(doc.priority || []),
+        priorityAt: doc.priorityAt || {},
         ratings: doc.ratings || {},
-        history: doc.history || {},
-        priorityAt: doc.priorityAt || {}
+        history: doc.history || {}
       };
       // Prefer a custom profile photo saved in the cloud over Google's, so it
       // survives the next sign-in.
@@ -110,7 +110,7 @@ const UserData = (() => {
     uid = displayName = photoURL = "";
     getToken = null;
     onboarded = false;
-    mine = { visited: new Set(), priority: new Set(), ratings: {}, history: {}, priorityAt: {} };
+    mine = { visited: new Set(), priority: new Set(), priorityAt: {}, ratings: {}, history: {} };
     group = [];
     allUsers = [];
     myGroups = [];
@@ -175,7 +175,7 @@ const UserData = (() => {
       photoURL,
       visited: [...mine.visited],
       priority: [...mine.priority],
-        priorityAt: mine.priorityAt,
+      priorityAt: mine.priorityAt,
       ratings: mine.ratings,
       history: mine.history
     };
@@ -203,6 +203,7 @@ const UserData = (() => {
         photoURL,
         visited: [...mine.visited],
         priority: [...mine.priority],
+        priorityAt: mine.priorityAt,
         ratings: mine.ratings,
         history: mine.history,
         onboarded,
@@ -347,13 +348,8 @@ const UserData = (() => {
   }
   function setPriority(id, on) {
     if (!cloud) return;
-    if (on) {
-      mine.priority.add(id);
-      if (!mine.priorityAt[id]) mine.priorityAt[id] = new Date().toISOString();
-    } else {
-      mine.priority.delete(id);
-      delete mine.priorityAt[id];
-    }
+    if (on) { mine.priority.add(id); if (!mine.priorityAt[id]) mine.priorityAt[id] = new Date().toISOString(); }
+    else { mine.priority.delete(id); delete mine.priorityAt[id]; }
     scheduleSave();
   }
   function getRating(id) {
@@ -411,6 +407,14 @@ const UserData = (() => {
   function priorityBy(id) {
     return group.filter((g) => (g.priority || []).includes(id));
   }
+  // SEC-001: may I see this user's content? True for myself or anyone in my full
+  // visible set (allUsers already respects the audience rules) — not just the
+  // active group view, so a group filter doesn't wrongly hide visible friends.
+  function canSeeUser(targetUid) {
+    if (!cloud || !targetUid) return false;
+    if (targetUid === uid) return true;
+    return allUsers.some((u) => u.uid === targetUid);
+  }
   // Ratings from the group (incl. me) for this restaurant.
   function ratingsFor(id) {
     return group
@@ -426,20 +430,6 @@ const UserData = (() => {
     const rs = ratingsFor(id).filter((r) => r.stars > 0);
     if (!rs.length) return null;
     return rs.reduce((s, r) => s + r.stars, 0) / rs.length;
-  }
-
-  // Wishlist timestamp getter
-  function priorityAt(id) {
-    return (cloud && mine.priorityAt && mine.priorityAt[id]) || null;
-  }
-
-  // SEC-001 fix: check if a uid is visible to me (in current group/allUsers).
-  // Photos collection is public by Firestore rules, so client-side filtering
-  // is needed to respect the user's audienceGlobal/visibleTo preferences.
-  function canSeeUser(targetUid) {
-    if (!cloud || !targetUid) return false;
-    if (targetUid === uid) return true;
-    return group.some((g) => g.uid === targetUid);
   }
 
   return {
@@ -482,7 +472,6 @@ const UserData = (() => {
     getSharing,
     setSharing,
     leaveGroup,
-    canSeeUser,
-    priorityAt
+    canSeeUser
   };
 })();
