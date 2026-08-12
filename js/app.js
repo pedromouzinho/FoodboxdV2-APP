@@ -1501,10 +1501,10 @@ const App = (() => {
         near: !!near
       });
       if (!r) { aiError("Não consegui agora."); return; }
-      renderSmartResult(r);
+      renderSmartResult(r, near);
     } catch (e) { aiError(e.message); }
   }
-  function renderSmartResult(r) {
+  function renderSmartResult(r, near) {
     const pick = r.restaurantId && restById(r.restaurantId);
     const alts = (r.alternatives || [])
       .map((a) => ({ rest: restById(a.restaurantId), reason: a.reason }))
@@ -1532,6 +1532,7 @@ const App = (() => {
             <span class="ai-alt-name">${esc(a.rest.name)}</span>
             <span class="ai-alt-reason">${esc(a.reason || "")}</span>
           </button>`).join("")}</div>` : ""}
+      ${(r.discoverQueries && r.discoverQueries.length) ? `<div class="taste-discover" data-ai-discover></div>` : ""}
       <div class="ai-actions-row">
         ${hasFilters ? `<button class="btn btn-ghost btn-sm" data-ai-filter>${icon("search")} Filtrar a lista</button>` : ""}
         <button class="btn btn-ghost btn-sm" data-ai-again>${icon("sparkles")} Nova pergunta</button>
@@ -1542,6 +1543,8 @@ const App = (() => {
     if (fb) fb.addEventListener("click", () => { applyNlFilters(r.filters); hideAi(); });
     const ag = document.querySelector("#ai-body [data-ai-again]");
     if (ag) ag.addEventListener("click", () => renderAiComposer());
+    const disc = document.querySelector("#ai-body [data-ai-discover]");
+    if (disc) renderDiscoveries(disc, r.discoverQueries, near);
   }
 
   // ---------- Taste profile ----------
@@ -1579,10 +1582,6 @@ const App = (() => {
     }
   }
 
-  function mapsSearchUrl(query) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
-  }
-
   function renderTaste(p) {
     const chips = (arr) => (arr || []).map((x) => `<span class="taste-chip">${esc(x)}</span>`).join("");
     document.getElementById("ai-body").innerHTML = `
@@ -1592,13 +1591,7 @@ const App = (() => {
         ${p.dishes && p.dishes.length ? `<div class="taste-row"><span class="taste-label">Pratos</span><div class="taste-chips">${chips(p.dishes)}</div></div>` : ""}
         ${p.vibe ? `<div class="taste-row"><span class="taste-label">Ambiente</span><span class="taste-val">${esc(p.vibe)}</span></div>` : ""}
         ${p.price ? `<div class="taste-row"><span class="taste-label">Preço</span><span class="taste-val">${esc(p.price)}</span></div>` : ""}
-        ${(p.mapsQueries && p.mapsQueries.length) ? `
-          <div class="taste-discover">
-            <div class="taste-label">${icon("pin")} Descobrir no Google Maps</div>
-            <div class="taste-maps">${p.mapsQueries.map((q) =>
-              `<a class="btn btn-ghost btn-sm taste-map" href="${esc(mapsSearchUrl(q.query))}" target="_blank" rel="noopener">${icon("external")} ${esc(q.label || q.query)}</a>`
-            ).join("")}</div>
-          </div>` : ""}
+        ${(p.mapsQueries && p.mapsQueries.length) ? `<div class="taste-discover" data-taste-discover></div>` : ""}
         <button class="btn btn-primary btn-block taste-suggest" data-taste-suggest>${icon("sparkles")} Pede-me uma sugestão</button>
         <button class="linklike taste-update" data-taste-update>Atualizar perfil de gosto</button>
       </div>`;
@@ -1606,6 +1599,8 @@ const App = (() => {
     if (sg) sg.addEventListener("click", () => { hideAi(); runSmartSuggest(); });
     const up = document.querySelector("#ai-body [data-taste-update]");
     if (up) up.addEventListener("click", runTasteProfile);
+    const disc = document.querySelector("#ai-body [data-taste-discover]");
+    if (disc && p.mapsQueries && p.mapsQueries.length) renderDiscoveries(disc, p.mapsQueries, null);
   }
 
   // Open the saved taste profile (from the profile modal). Generates it if none.
@@ -1660,6 +1655,124 @@ const App = (() => {
     }
     if (typeof f.text === "string") document.getElementById("search-input").value = f.text;
     render();
+  }
+
+  // ---------- Discover NEW places from Google Maps (taste-driven) ----------
+  // The AI proposes search queries (taste profile + "Pergunta-me"); we run them
+  // through Google Places text search, drop anything already on the user's list,
+  // and let them add the rest to their wishlist with one tap.
+  function normName(s) {
+    return String(s || "")
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  }
+  function slug(s) {
+    return String(s || "")
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  }
+  // Best-effort town from a Google formatted address ("Rua X, 1234-567 Évora, Portugal").
+  function townFromAddress(addr) {
+    const parts = String(addr || "").split(",").map((p) => p.trim())
+      .filter((p) => p && !/portugal/i.test(p));
+    if (!parts.length) return "";
+    const last = parts[parts.length - 1].replace(/\d{4}-\d{3}/g, "").replace(/\d+/g, "").trim();
+    return last || parts[parts.length - 1];
+  }
+
+  // Run the queries, dedupe against the catalog + each other. Resolves to [].
+  async function placesDiscover(queries, near) {
+    if (!Array.isArray(queries) || !queries.length) return [];
+    if (typeof PlacesModule === "undefined" || !PlacesModule.isAvailable()) return [];
+    const loc = near && typeof near.lat === "number" ? { lat: near.lat, lng: near.lng } : null;
+    const lists = await Promise.all(
+      queries.slice(0, 4).map((q) =>
+        PlacesModule.textSearch(q.query, { location: loc, limit: 4 }).catch(() => []))
+    );
+    const known = new Set(state.restaurants.map((r) => normName(r.name)));
+    const seen = new Set();
+    const out = [];
+    for (const list of lists) {
+      for (const p of list) {
+        const key = p.placeId || normName(p.name);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        if (known.has(normName(p.name))) continue; // already in the app
+        out.push(p);
+      }
+    }
+    return out.slice(0, 8);
+  }
+
+  function discoverCardHtml(p, i) {
+    const meta = [];
+    if (p.rating) meta.push(`${icon("star")} ${p.rating.toFixed(1)} (${p.userRatingsTotal})`);
+    if (p.priceLevel) meta.push(p.priceLevel);
+    const loc = townFromAddress(p.address);
+    return `<div class="ai-discover-item">
+      <div class="ai-discover-main">
+        <div class="ai-discover-name">${esc(p.name)}</div>
+        ${loc ? `<div class="ai-discover-loc">${esc(loc)}</div>` : ""}
+        ${meta.length ? `<div class="ai-discover-meta">${meta.join(" · ")}</div>` : ""}
+      </div>
+      <button class="btn btn-ghost btn-sm ai-discover-add" data-discover-add="${i}">${icon("plus")} Adicionar</button>
+    </div>`;
+  }
+
+  async function renderDiscoveries(host, queries, near) {
+    if (!host) return;
+    const heading = `<div class="taste-label">${icon("pin")} Novas descobertas no Google Maps</div>`;
+    if (typeof PlacesModule === "undefined" || !PlacesModule.isAvailable() || !Array.isArray(queries) || !queries.length) {
+      host.innerHTML = ""; return;
+    }
+    host.innerHTML = `${heading}<div class="ai-loading"><span class="ai-spinner"></span> A procurar sítios novos…</div>`;
+    let places = [];
+    try { places = await placesDiscover(queries, near); } catch (e) { places = []; }
+    if (!places.length) {
+      host.innerHTML = `${heading}<p class="muted ai-hint">Sem sítios novos para já — já tens os bons da zona na tua lista.</p>`;
+      return;
+    }
+    host.innerHTML = `${heading}<div class="ai-discover">${places.map((p, i) => discoverCardHtml(p, i)).join("")}</div>`;
+    host.querySelectorAll("[data-discover-add]").forEach((btn) =>
+      btn.addEventListener("click", () => addDiscoveredPlace(places[parseInt(btn.dataset.discoverAdd, 10)], btn)));
+  }
+
+  // Add a discovered Google place to the (shared) list as a wishlist entry.
+  async function addDiscoveredPlace(p, btn) {
+    if (!p) return;
+    if (!UserData.isCloud()) { showSigninModal(); return; }
+    if (btn) { btn.disabled = true; btn.innerHTML = "A adicionar…"; }
+    try {
+      const town = townFromAddress(p.address);
+      const region = (typeof Geocode !== "undefined" && Geocode.regionForTown(town)) || "Portugal";
+      const category = suggestCategory(p.types, p.priceLevelNum) || "tradicional";
+      const restaurant = {
+        id: `${slug(p.name)}-${slug(town)}`.replace(/-$/, "") || slug(p.name),
+        name: p.name,
+        town: town || "",
+        region,
+        category,
+        lat: p.lat,
+        lng: p.lng,
+        notes: "",
+        tags: [category],
+        mapsQuery: town ? `${p.name}, ${town}, Portugal` : `${p.name}, Portugal`,
+        verified: true,
+        addedByUid: UserData.me().uid,
+        addedByName: UserData.me().displayName
+      };
+      let saved = restaurant;
+      if (DB.isAvailable()) {
+        const token = window.FirebaseAuth ? await window.FirebaseAuth.getToken() : null;
+        saved = await DB.add(restaurant, token);
+      } else {
+        Storage.addCustomRestaurant(restaurant);
+      }
+      onRestaurantAdded(saved, { priority: true, silent: true });
+      if (btn) { btn.innerHTML = `${icon("check")} Na tua wishlist`; btn.classList.add("added"); }
+    } catch (e) {
+      if (btn) { btn.disabled = false; btn.innerHTML = `${icon("plus")} Adicionar`; }
+    }
   }
 
   // Summarize the Google reviews already on screen for a restaurant.
@@ -2590,6 +2703,7 @@ const App = (() => {
     buildRegionFilters();
     if (opts.priority) UserData.setPriority(r.id, true); // wishlist: quero ir
     render();
+    if (opts.silent) return; // added in the background (e.g. an AI discovery) — don't steal focus
     if (opts.tab) openOnTab(r, opts.tab); // experiência: abre para avaliar
     else onSelect(r);
   }
