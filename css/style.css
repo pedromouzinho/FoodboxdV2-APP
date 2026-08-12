@@ -1715,3 +1715,6 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
   background: color-mix(in srgb, var(--surface) 82%, transparent); color: var(--text-muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+
+/* Distância real nas sugestões da IA (nunca apresentar longe como "perto") */
+.ai-alt-dist { font-size: var(--fs-xs); color: var(--text-faint); font-weight: 500; }

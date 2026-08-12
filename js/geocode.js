@@ -138,5 +138,24 @@ const Geocode = (() => {
     return firstAny;
   }
 
-  return { init, locate, regionForTown };
+  // Reverse-geocode coordinates into a usable area name ("Évora", "Setúbal") so
+  // discovery searches can be anchored to where the user actually is.
+  function reverse(lat, lng) {
+    return new Promise((resolve) => {
+      if (!googleGeocoder || typeof lat !== "number" || typeof lng !== "number") return resolve(null);
+      googleGeocoder.geocode({ location: { lat, lng } }, (results, status) => {
+        if (status !== google.maps.GeocoderStatus.OK || !results || !results[0]) return resolve(null);
+        const comps = results[0].address_components || [];
+        const pick = (type) => {
+          const c = comps.find((x) => (x.types || []).includes(type));
+          return c ? c.long_name : "";
+        };
+        const town = pick("locality") || pick("postal_town") || pick("administrative_area_level_2") || "";
+        const region = regionFromComponents(comps) || "";
+        resolve({ town, region, label: [town, region].filter(Boolean).join(", ") });
+      });
+    });
+  }
+
+  return { init, locate, reverse, regionForTown };
 })();

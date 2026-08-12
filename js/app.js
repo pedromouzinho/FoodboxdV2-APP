@@ -1484,27 +1484,39 @@ const App = (() => {
     if (send) send.addEventListener("click", go);
     if (ta) { ta.focus(); ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); go(); } }); }
   }
+  // How far "perto" may stretch. Kept modest so the model can't pass off a place
+  // 100 km away as nearby — when nothing in the list qualifies it discovers new ones.
+  const NEAR_MAX_KM = 25;
+
   async function submitSmartSuggest(query) {
-    aiLoading("A pensar na melhor escolha…");
+    aiLoading("A pensar na melhor escolha\u2026");
     let near = null;
     if (navigator.geolocation) {
       near = await new Promise((res) => navigator.geolocation.getCurrentPosition(
         (p) => res({ lat: p.coords.latitude, lng: p.coords.longitude }), () => res(null),
         { timeout: 6000, maximumAge: 300000 }));
     }
+    // Name the area we're in so discovery searches are anchored to the right place.
+    let area = "";
+    if (near && typeof Geocode !== "undefined" && Geocode.reverse) {
+      try { const a = await Geocode.reverse(near.lat, near.lng); if (a && a.label) area = a.label; } catch (e) { /* optional */ }
+    }
+    if (!area) { const n = aiNear(); area = [n.town, n.region].filter(Boolean).join(", "); }
     try {
       const r = await AIModule.smartSuggest({
         query,
         catalog: aiCatalog(near),
         profile: aiProfile(),
         taste: UserData.getTasteProfile() || undefined,
-        near: !!near
+        near: !!near,
+        maxKm: NEAR_MAX_KM,
+        area
       });
-      if (!r) { aiError("Não consegui agora."); return; }
-      renderSmartResult(r, near);
+      if (!r) { aiError("N\u00e3o consegui agora."); return; }
+      renderSmartResult(r, near, { query, area });
     } catch (e) { aiError(e.message); }
   }
-  function renderSmartResult(r, near) {
+  function renderSmartResult(r, near, ctx) {
     const pick = r.restaurantId && restById(r.restaurantId);
     const alts = (r.alternatives || [])
       .map((a) => ({ rest: restById(a.restaurantId), reason: a.reason }))
@@ -1513,26 +1525,40 @@ const App = (() => {
     const f = r.filters || {};
     const hasFilters = (f.categories && f.categories.length) || (f.regions && f.regions.length) ||
       (f.price && f.price.length) || (typeof f.text === "string" && f.text);
+    // Real distance, so "perto" is never a claim we can't back up.
+    const distOf = (rest) => (near && typeof rest.lat === "number" && typeof rest.lng === "number")
+      ? distKm(near, { lat: rest.lat, lng: rest.lng }) : null;
+    const distLabel = (d) => (d == null ? "" : (d < 1 ? "a menos de 1 km" : `a ${Math.round(d)} km`));
+    const pickDist = pick ? distOf(pick) : null;
     const pickHtml = pick ? `
       <div class="ai-pick" data-ai-open="${esc(pick.id)}">
         <span class="ai-pick-cat" style="background:var(${catFor(pick).varName})"></span>
         <div class="ai-pick-main">
           <div class="ai-pick-name">${esc(pick.name)}</div>
-          <div class="ai-pick-loc">${esc(pick.town)} · ${esc(pick.region)}</div>
+          <div class="ai-pick-loc">${esc(pick.town)} \u00b7 ${esc(pick.region)}${pickDist != null ? ` \u00b7 ${esc(distLabel(pickDist))}` : ""}</div>
           <div class="ai-pick-reason">${esc(r.reason || "")}</div>
         </div>
         ${icon("chevron-right")}
       </div>` : "";
+    // Discovery is a first-class result: always offered, and it leads when the
+    // list has nothing that genuinely fits (e.g. nothing actually nearby).
+    let queries = Array.isArray(r.discoverQueries) ? r.discoverQueries.filter((q) => q && q.query) : [];
+    if (!queries.length && ctx && (ctx.query || ctx.area)) {
+      const q = [ctx.query, ctx.area].filter(Boolean).join(" ");
+      queries = [{ label: "Sítios novos", query: q || "restaurantes" }];
+    }
     document.getElementById("ai-body").innerHTML = `
       ${r.reply ? `<p class="ai-reply">${esc(r.reply)}</p>` : ""}
       ${pickHtml}
       ${alts.length ? `<div class="ai-alts-title">Também podes gostar</div>
-        <div class="ai-alts">${alts.map((a) => `
-          <button class="ai-alt" data-ai-open="${esc(a.rest.id)}">
-            <span class="ai-alt-name">${esc(a.rest.name)}</span>
+        <div class="ai-alts">${alts.map((a) => {
+          const d = distOf(a.rest);
+          return `<button class="ai-alt" data-ai-open="${esc(a.rest.id)}">
+            <span class="ai-alt-name">${esc(a.rest.name)}${d != null ? ` <span class="ai-alt-dist">${esc(distLabel(d))}</span>` : ""}</span>
             <span class="ai-alt-reason">${esc(a.reason || "")}</span>
-          </button>`).join("")}</div>` : ""}
-      ${(r.discoverQueries && r.discoverQueries.length) ? `<div class="taste-discover" data-ai-discover></div>` : ""}
+          </button>`;
+        }).join("")}</div>` : ""}
+      ${queries.length ? `<div class="taste-discover" data-ai-discover></div>` : ""}
       <div class="ai-actions-row">
         ${hasFilters ? `<button class="btn btn-ghost btn-sm" data-ai-filter>${icon("search")} Filtrar a lista</button>` : ""}
         <button class="btn btn-ghost btn-sm" data-ai-again>${icon("sparkles")} Nova pergunta</button>
@@ -1544,7 +1570,7 @@ const App = (() => {
     const ag = document.querySelector("#ai-body [data-ai-again]");
     if (ag) ag.addEventListener("click", () => renderAiComposer());
     const disc = document.querySelector("#ai-body [data-ai-discover]");
-    if (disc) renderDiscoveries(disc, r.discoverQueries, near);
+    if (disc) renderDiscoveries(disc, queries, near);
   }
 
   // ---------- Taste profile ----------
@@ -1698,9 +1724,12 @@ const App = (() => {
         if (seen.has(key)) continue;
         seen.add(key);
         if (known.has(normName(p.name))) continue; // already in the app
+        if (loc && typeof p.lat === "number") p.distKm = distKm(loc, { lat: p.lat, lng: p.lng });
         out.push(p);
       }
     }
+    // With a real location, closest first — "perto" has to mean perto.
+    if (loc) out.sort((a, b) => (a.distKm == null ? 1e9 : a.distKm) - (b.distKm == null ? 1e9 : b.distKm));
     return out.slice(0, 8);
   }
 
@@ -1708,6 +1737,7 @@ const App = (() => {
     const meta = [];
     if (p.rating) meta.push(`${icon("star")} ${p.rating.toFixed(1)} (${p.userRatingsTotal})`);
     if (p.priceLevel) meta.push(p.priceLevel);
+    if (typeof p.distKm === "number") meta.push(p.distKm < 1 ? "&lt; 1 km" : `${Math.round(p.distKm)} km`);
     const loc = townFromAddress(p.address);
     return `<div class="ai-discover-item">
       <div class="ai-discover-main">

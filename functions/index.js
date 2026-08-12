@@ -151,21 +151,35 @@ const ACTIONS = {
   // taste + their list + proximity. May also return filters to apply to the list.
   async smartSuggest(uid, body) {
     const catalog = Array.isArray(body.catalog) ? body.catalog.slice(0, 400) : [];
+    const maxKm = typeof body.maxKm === "number" ? body.maxKm : 25;
     const tool = {
       name: "sugerir",
-      description: "Responde ao pedido com uma recomendação do catálogo (+ alternativas) e, se fizer sentido, filtros para a lista.",
+      description: "Responde ao pedido: recomenda do catálogo do utilizador SE fizer sentido, e propõe sempre pesquisas para descobrir sítios NOVOS no Google Maps.",
       input_schema: {
         type: "object",
         properties: {
           reply: { type: "string", description: "1–2 frases, resposta direta ao pedido, português europeu, sem emojis." },
-          restaurantId: { type: "string" },
-          reason: { type: "string", description: "1–2 frases, pessoal e concreta." },
+          restaurantId: { type: "string", description: "OPCIONAL. Id do catálogo. Deixa vazio se nada no catálogo servir mesmo o pedido (ex.: pediu perto e tudo o que tens está longe)." },
+          reason: { type: "string", description: "1–2 frases, pessoal e concreta. Só quando há restaurantId." },
           alternatives: {
             type: "array",
+            description: "Até 3 alternativas do catálogo que respeitem as mesmas regras (proximidade incluída). Pode vir vazio.",
             items: {
               type: "object",
               properties: { restaurantId: { type: "string" }, reason: { type: "string" } },
               required: ["restaurantId", "reason"]
+            }
+          },
+          discoverQueries: {
+            type: "array",
+            description: "2 a 4 pesquisas Google Maps para encontrar sítios NOVOS que sirvam o pedido, na zona certa. Usa termos naturais (ex.: 'marisqueira em Setúbal').",
+            items: {
+              type: "object",
+              properties: {
+                label: { type: "string", description: "Rótulo curto (2–4 palavras)." },
+                query: { type: "string", description: "Termo de pesquisa para o Google Maps." }
+              },
+              required: ["label", "query"]
             }
           },
           filters: {
@@ -179,20 +193,30 @@ const ACTIONS = {
             }
           }
         },
-        required: ["reply", "restaurantId", "reason", "alternatives"]
+        required: ["reply", "discoverQueries"]
       }
     };
     const system = cachedSystem(
-      "És o concierge do Foodboxd. O utilizador escreve em linguagem natural o que lhe apetece (tipo de comida, ocasião, companhia, distância…). Recomenda a partir do CATÁLOGO (usa só ids existentes), considerando o pedido, o PERFIL DE GOSTO, as avaliações/visitas e a PROXIMIDADE (campo distKm quando existir — prioriza perto). Responde curto e concreto em português europeu, sem emojis. Se o pedido for sobretudo filtrar a lista, preenche também `filters`.",
+      "És o concierge do Foodboxd. O utilizador escreve o que lhe apetece (tipo de comida, ocasião, companhia, distância). " +
+      "Tens duas fontes: (a) o CATÁLOGO dele e (b) sítios NOVOS que a app procura no Google Maps a partir das tuas `discoverQueries`. " +
+      "REGRA DE DISTÂNCIA (crítica): o campo distKm é a distância real em km. Se o pedido implicar proximidade ('perto', 'aqui', 'ao pé', 'hoje'), " +
+      "só podes usar restaurantId se esse sítio tiver distKm <= LIMITE_KM. Se nada no catálogo cumprir, deixa restaurantId VAZIO, " +
+      "diz numa frase que na lista dele não há nada mesmo perto, e propõe descobertas novas na zona onde ele está. " +
+      "NUNCA apresentes como 'perto' um sítio a dezenas de km. " +
+      "Preenche SEMPRE discoverQueries com pesquisas para sítios novos que sirvam o pedido, ancoradas na ZONA indicada (ou na zona do pedido). " +
+      "Considera o PERFIL DE GOSTO (cozinhas, pratos, ambiente, preço) nas descobertas. " +
+      "Responde curto e concreto em português europeu, sem emojis. Se o pedido for sobretudo filtrar a lista, preenche também `filters`.",
       catalog
     );
     const user = [
       { type: "text", text: "PEDIDO: " + (body.query || "(sem texto — sugere algo bom para agora, perto)") },
+      { type: "text", text: "LIMITE_KM (proximidade): " + maxKm },
+      { type: "text", text: "ZONA DO UTILIZADOR: " + (body.area || "desconhecida") },
       { type: "text", text: "PERFIL DE GOSTO: " + JSON.stringify(body.taste || {}) },
       { type: "text", text: "PERFIL (agregado): " + JSON.stringify(body.profile || {}) },
-      { type: "text", text: "PROXIMIDADE: " + (body.near ? "tem localização — usa distKm e prioriza perto" : "sem localização") }
+      { type: "text", text: "PROXIMIDADE: " + (body.near ? `tem localização — distKm é fiável; aplica o LIMITE_KM de ${maxKm} km` : "sem localização — usa a zona do pedido/lista e não inventes proximidade") }
     ];
-    return structured({ model: MODELS.recommend, system, user, tool, maxTokens: 1200 });
+    return structured({ model: MODELS.recommend, system, user, tool, maxTokens: 1400 });
   },
 
   // Build a "taste profile" from the user's records + Google Maps searches to
