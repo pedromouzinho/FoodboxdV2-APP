@@ -1549,6 +1549,8 @@ const App = (() => {
     }
     document.getElementById("ai-body").innerHTML = `
       ${r.reply ? `<p class="ai-reply">${esc(r.reply)}</p>` : ""}
+      ${queries.length ? `<div class="taste-discover" data-ai-discover></div>` : ""}
+      ${pick ? `<div class="ai-alts-title">Da tua lista</div>` : ""}
       ${pickHtml}
       ${alts.length ? `<div class="ai-alts-title">Também podes gostar</div>
         <div class="ai-alts">${alts.map((a) => {
@@ -1558,7 +1560,6 @@ const App = (() => {
             <span class="ai-alt-reason">${esc(a.reason || "")}</span>
           </button>`;
         }).join("")}</div>` : ""}
-      ${queries.length ? `<div class="taste-discover" data-ai-discover></div>` : ""}
       <div class="ai-actions-row">
         ${hasFilters ? `<button class="btn btn-ghost btn-sm" data-ai-filter>${icon("search")} Filtrar a lista</button>` : ""}
         <button class="btn btn-ghost btn-sm" data-ai-again>${icon("sparkles")} Nova pergunta</button>
@@ -1570,7 +1571,7 @@ const App = (() => {
     const ag = document.querySelector("#ai-body [data-ai-again]");
     if (ag) ag.addEventListener("click", () => renderAiComposer());
     const disc = document.querySelector("#ai-body [data-ai-discover]");
-    if (disc) renderDiscoveries(disc, queries, near);
+    if (disc) renderDiscoveries(disc, queries, near, ctx);
   }
 
   // ---------- Taste profile ----------
@@ -1733,7 +1734,7 @@ const App = (() => {
     return out.slice(0, 8);
   }
 
-  function discoverCardHtml(p, i) {
+  function discoverCardHtml(p, i, reason) {
     const meta = [];
     if (p.rating) meta.push(`${icon("star")} ${p.rating.toFixed(1)} (${p.userRatingsTotal})`);
     if (p.priceLevel) meta.push(p.priceLevel);
@@ -1744,27 +1745,65 @@ const App = (() => {
         <div class="ai-discover-name">${esc(p.name)}</div>
         ${loc ? `<div class="ai-discover-loc">${esc(loc)}</div>` : ""}
         ${meta.length ? `<div class="ai-discover-meta">${meta.join(" · ")}</div>` : ""}
+        ${reason ? `<div class="ai-discover-reason">${esc(reason)}</div>` : ""}
       </div>
       <button class="btn btn-ghost btn-sm ai-discover-add" data-discover-add="${i}">${icon("plus")} Adicionar</button>
     </div>`;
   }
 
-  async function renderDiscoveries(host, queries, near) {
+  async function renderDiscoveries(host, queries, near, ctx) {
     if (!host) return;
-    const heading = `<div class="taste-label">${icon("pin")} Novas descobertas no Google Maps</div>`;
+    const heading = `<div class="taste-label">${icon("sparkles")} Sítios novos para ti</div>`;
     if (typeof PlacesModule === "undefined" || !PlacesModule.isAvailable() || !Array.isArray(queries) || !queries.length) {
       host.innerHTML = ""; return;
     }
-    host.innerHTML = `${heading}<div class="ai-loading"><span class="ai-spinner"></span> A procurar sítios novos…</div>`;
+    host.innerHTML = `${heading}<div class="ai-loading"><span class="ai-spinner"></span> A procurar sítios novos\u2026</div>`;
     let places = [];
     try { places = await placesDiscover(queries, near); } catch (e) { places = []; }
     if (!places.length) {
       host.innerHTML = `${heading}<p class="muted ai-hint">Sem sítios novos para já — já tens os bons da zona na tua lista.</p>`;
       return;
     }
-    host.innerHTML = `${heading}<div class="ai-discover">${places.map((p, i) => discoverCardHtml(p, i)).join("")}</div>`;
+
+    // Second pass: the taste profile decides which of these real places are worth
+    // it, and why. Without it these would be raw Google results, not a suggestion.
+    let ranked = null;
+    if (AIModule.available() && UserData.isCloud()) {
+      host.innerHTML = `${heading}<div class="ai-loading"><span class="ai-spinner"></span> A cruzar com o teu gosto\u2026</div>`;
+      try {
+        ranked = await AIModule.rankDiscoveries({
+          query: (ctx && ctx.query) || "",
+          area: (ctx && ctx.area) || "",
+          taste: UserData.getTasteProfile() || undefined,
+          profile: aiProfile(),
+          candidates: places.map((p, i) => ({
+            i, name: p.name, town: townFromAddress(p.address),
+            rating: p.rating, reviews: p.userRatingsTotal,
+            price: p.priceLevel || undefined,
+            distKm: typeof p.distKm === "number" ? Math.round(p.distKm * 10) / 10 : undefined,
+            types: (p.types || []).slice(0, 4)
+          }))
+        });
+      } catch (e) { ranked = null; }
+    }
+
+    let items;
+    if (ranked && Array.isArray(ranked.picks) && ranked.picks.length) {
+      items = ranked.picks
+        .map((k) => ({ p: places[k.i], reason: k.reason }))
+        .filter((x) => x.p);
+    } else {
+      items = places.map((p) => ({ p, reason: "" })); // fall back to the raw finds
+    }
+    if (!items.length) {
+      host.innerHTML = `${heading}<p class="muted ai-hint">Nada de novo que encaixe mesmo no teu gosto por agora.</p>`;
+      return;
+    }
+    const intro = ranked && ranked.intro ? `<p class="ai-hint discover-intro">${esc(ranked.intro)}</p>` : "";
+    host.innerHTML = `${heading}${intro}<div class="ai-discover">${
+      items.map((x, i) => discoverCardHtml(x.p, i, x.reason)).join("")}</div>`;
     host.querySelectorAll("[data-discover-add]").forEach((btn) =>
-      btn.addEventListener("click", () => addDiscoveredPlace(places[parseInt(btn.dataset.discoverAdd, 10)], btn)));
+      btn.addEventListener("click", () => addDiscoveredPlace(items[parseInt(btn.dataset.discoverAdd, 10)].p, btn)));
   }
 
   // Add a discovered Google place to the (shared) list as a wishlist entry.

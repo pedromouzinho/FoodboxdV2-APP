@@ -219,6 +219,54 @@ const ACTIONS = {
     return structured({ model: MODELS.recommend, system, user, tool, maxTokens: 1400 });
   },
 
+  // Second pass over real Google Maps candidates: the taste profile decides which
+  // NEW places are worth it and why. Without this the discoveries are just raw
+  // search results — this is what makes them a recommendation.
+  async rankDiscoveries(uid, body) {
+    const candidates = Array.isArray(body.candidates) ? body.candidates.slice(0, 24) : [];
+    if (!candidates.length) return { intro: "", picks: [] };
+    const tool = {
+      name: "escolher",
+      description: "Escolhe, entre os CANDIDATOS reais do Google Maps, os que valem mesmo a pena para este utilizador.",
+      input_schema: {
+        type: "object",
+        properties: {
+          intro: { type: "string", description: "1 frase a ligar as escolhas ao gosto dele. Português europeu, sem emojis." },
+          picks: {
+            type: "array",
+            description: "Até 5, do melhor para o pior. Deixa de fora o que não encaixa mesmo (não enchas).",
+            items: {
+              type: "object",
+              properties: {
+                i: { type: "integer", description: "Índice do candidato na lista fornecida." },
+                reason: { type: "string", description: "1 frase concreta: porque é que ESTE encaixa no gosto/pedido dele." }
+              },
+              required: ["i", "reason"]
+            }
+          }
+        },
+        required: ["intro", "picks"]
+      }
+    };
+    const system = [{
+      type: "text",
+      text: "És o concierge do Foodboxd a avaliar sítios NOVOS (que ele ainda não tem na lista), vindos do Google Maps. " +
+        "Cruza cada candidato com o PERFIL DE GOSTO (cozinhas, pratos, ambiente, preço) e com o PEDIDO. " +
+        "Prioriza encaixe no gosto; usa a avaliação/nº de reviews como sinal de qualidade e distKm para a proximidade. " +
+        "Descarta o que não serve (cadeias genéricas, tipo de comida errado, longe quando ele pediu perto). " +
+        "Justifica cada escolha em 1 frase concreta e pessoal. Português europeu, sem emojis. " +
+        "Se nenhum candidato prestar, devolve picks vazio."
+    }];
+    const user = [
+      { type: "text", text: "PEDIDO: " + (body.query || "(sem texto — o que vale a pena por perto)") },
+      { type: "text", text: "PERFIL DE GOSTO: " + JSON.stringify(body.taste || {}) },
+      { type: "text", text: "PERFIL (agregado): " + JSON.stringify(body.profile || {}) },
+      { type: "text", text: "ZONA: " + (body.area || "desconhecida") },
+      { type: "text", text: "CANDIDATOS (JSON, o índice é o campo i): " + JSON.stringify(candidates) }
+    ];
+    return structured({ model: MODELS.planner, system, user, tool, maxTokens: 1000 });
+  },
+
   // Build a "taste profile" from the user's records + Google Maps searches to
   // discover new places that match it.
   async tasteProfile(uid, body) {

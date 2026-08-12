@@ -1718,3 +1718,7 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 
 /* Distância real nas sugestões da IA (nunca apresentar longe como "perto") */
 .ai-alt-dist { font-size: var(--fs-xs); color: var(--text-faint); font-weight: 500; }
+
+/* Descobertas justificadas pelo perfil de gosto */
+.discover-intro { margin: 2px 0 var(--sp-2); font-size: var(--fs-sm); line-height: 1.45; }
+.ai-discover-reason { font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.4; margin-top: 3px; }

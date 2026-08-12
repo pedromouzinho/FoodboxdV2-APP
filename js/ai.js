@@ -31,6 +31,7 @@ const AIModule = (() => {
     available: () => !!(window.FirebaseAuth && window.FirebaseAuth.configured),
     recommend: (p) => call("recommend", p),
     smartSuggest: (p) => call("smartSuggest", p),
+    rankDiscoveries: (p) => call("rankDiscoveries", p),
     tasteProfile: (p) => call("tasteProfile", p),
     planner: (p) => call("planner", p),
     summarizeReviews: (p) => call("summarizeReviews", p),
