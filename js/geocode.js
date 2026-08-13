@@ -102,7 +102,9 @@ const Geocode = (() => {
           resolve({
             lat: loc.lat(), lng: loc.lng(),
             region: regionFromComponents(comps) || regionForTown(query),
-            country: countryFromComponents(comps) || ""
+            country: countryFromComponents(comps) || "",
+            formatted: results[0].formatted_address || "",
+            partial: results[0].partial_match === true
           });
         } else {
           resolve(null);
@@ -125,7 +127,9 @@ const Geocode = (() => {
         return {
           lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon),
           region: (isPortugal(country) ? (regionForDistrict(district) || regionForTown(query)) : country),
-          country
+          country,
+          formatted: data[0].display_name || "",
+          partial: false
         };
       }
     } catch (e) {
@@ -134,10 +138,21 @@ const Geocode = (() => {
     return null;
   }
 
-  // Resolve coordinates for "name, town". Portugal stays the default (ambiguous
-  // towns like "Oura" must not drift), but it is no longer forced: if nothing in
-  // Portugal fits we search worldwide, so foreign places land where they belong
-  // instead of on the nearest Portuguese match.
+  // Does this hit actually correspond to the town that was typed? Forcing a country
+  // onto the query makes geocoders return a fuzzy match somewhere else entirely
+  // ("Salamanca, Portugal" -> a field near Abrantes), so we check the answer instead
+  // of trusting the first one back.
+  function matchesTown(res, town) {
+    const t = normalizePlaceName(town);
+    if (!t) return true;
+    const hay = normalizePlaceName(res && res.formatted);
+    if (!hay) return !(res && res.partial);
+    return hay.includes(t);
+  }
+
+  // Resolve coordinates for "name, town". Portugal is tried first (ambiguous towns
+  // like "Oura" must not drift) but never forced: a result is only accepted when it
+  // really is the town that was typed, so foreign places land where they belong.
   async function locate(name, town, expectedRegion) {
     const typed = (expectedRegion && expectedRegion.trim()) || "";
     const known = typed || regionForTown(town);
@@ -158,18 +173,21 @@ const Geocode = (() => {
     queries.push(`${town}, Portugal`);
     queries.push(`${town}`);          // worldwide
 
-    let firstAny = null;
+    let firstAny = null;   // last-resort, even if it looks wrong
+    let townHit = null;    // right town, but not the region we expected
     for (const q of queries) {
       const res = await run(q);
       if (!res) continue;
       if (!firstAny) firstAny = res;
-      if (!known) return res;
+      if (!matchesTown(res, town)) continue; // wrong place — keep looking
+      if (!townHit) townHit = res;
+      if (!known) return res;                // nothing to reconcile: it's the town
       if (res.region && normalizePlaceName(res.region) === normalizePlaceName(known)) return res;
-      // A confident foreign hit beats forcing a Portuguese region we only guessed.
-      if (!typed && res.country && !isPortugal(res.country)) return res;
+      if (!typed && res.country && !isPortugal(res.country)) return res; // confident foreign hit
     }
-    if (firstAny && known && !firstAny.region) firstAny.region = known;
-    return firstAny;
+    const best = townHit || firstAny;
+    if (best && known && !best.region) best.region = known;
+    return best;
   }
 
   // Reverse-geocode coordinates into a usable area name ("Évora", "Setúbal") so
