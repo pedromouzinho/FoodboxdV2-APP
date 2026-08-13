@@ -474,15 +474,46 @@ const App = (() => {
   }
 
   // ---------- Personal marks (priority / rating / note / visit history) ----------
+  // "Fui com": pick friends who came along. Only people already on the app, since
+  // each of them has to confirm before the visit lands in their own logbook.
+  function companionPickerHtml() {
+    if (!UserData.isCloud()) return "";
+    const friends = UserData.others();
+    if (!friends.length) return "";
+    return `<div class="exp-step companions">
+      <span class="rate-label">Fui com</span>
+      <div class="companion-chips" data-companions>${friends.map((f) => `
+        <button type="button" class="companion-chip" data-companion="${esc(f.uid)}" aria-pressed="false">
+          ${avatar(f.displayName, f.photoURL, "avatar-xs")}<span>${esc(f.displayName || "Amigo")}</span>
+        </button>`).join("")}</div>
+    </div>`;
+  }
+  function selectedCompanions(root) {
+    const host = (root || document).querySelector("[data-companions]");
+    if (!host) return [];
+    return [...host.querySelectorAll('[data-companion][aria-pressed="true"]')].map((b) => b.dataset.companion);
+  }
+
+  // Turn companion uids into names ("Leonor e Miguel"), skipping anyone we can't see.
+  function companionNames(uids) {
+    if (!uids || !uids.length) return "";
+    const byUid = new Map(UserData.everyone().map((g) => [g.uid, g.displayName || "Amigo"]));
+    const names = uids.map((u) => byUid.get(u)).filter(Boolean);
+    if (!names.length) return "";
+    if (names.length === 1) return names[0];
+    return names.slice(0, -1).join(", ") + " e " + names[names.length - 1];
+  }
   function visitListHtml(r) {
     const hist = UserData.getHistory(r.id).slice().reverse();
     if (!hist.length) return `<span class="muted history-summary">Sem visitas registadas</span>`;
     return hist
-      .map(
-        (iso) =>
-          `<div class="visit-entry"><span>${icon("check-circle")} ${fmtDate(iso)}</span>` +
-          `<button type="button" class="icon-btn visit-del" data-del-visit="${esc(iso)}" aria-label="Remover visita">${icon("x")}</button></div>`
-      )
+      .map((entry) => {
+        const iso = UserData.visitDate(entry);
+        const who = companionNames(UserData.visitWith(entry));
+        return `<div class="visit-entry"><span>${icon("check-circle")} ${fmtDate(iso)}` +
+          `${who ? `<span class="visit-with">com ${esc(who)}</span>` : ""}</span>` +
+          `<button type="button" class="icon-btn visit-del" data-del-visit="${esc(iso)}" aria-label="Remover visita">${icon("x")}</button></div>`;
+      })
       .join("");
   }
 
@@ -529,6 +560,7 @@ const App = (() => {
           : ""}
       </div>
       <div class="visit-history">
+        ${companionPickerHtml()}
         <button class="btn btn-primary btn-block" data-add-visit${hasStars ? "" : " disabled"}>${icon("check-circle")} Marcar visita de hoje</button>
         ${hasStars ? "" : `<span class="muted exp-hint">Dá a tua nota para registar a experiência.</span>`}
         <div class="visit-list" data-visit-list>${visitListHtml(r)}</div>
@@ -563,11 +595,21 @@ const App = (() => {
       const draftBtn = tail.querySelector("[data-ai-draft]");
       if (draftBtn && noteEl) draftBtn.addEventListener("click", () => runDraftReview(r, noteEl, draftBtn));
 
+      tail.querySelectorAll("[data-companion]").forEach((btn) =>
+        btn.addEventListener("click", () => {
+          btn.setAttribute("aria-pressed", btn.getAttribute("aria-pressed") === "true" ? "false" : "true");
+        })
+      );
+
       const submitBtn = tail.querySelector("[data-add-visit]");
       if (submitBtn) submitBtn.addEventListener("click", () => {
         if (!((UserData.getRating(r.id) || {}).stars)) return; // gated on a rating
-        UserData.addVisit(r.id, new Date().toISOString());
+        const withUids = selectedCompanions(tail);
+        const iso = new Date().toISOString();
+        UserData.addVisit(r.id, iso, withUids);
         setVisited(r.id, true);
+        // Each tagged friend gets an invite; only they can write their own logbook.
+        if (withUids.length) sendVisitInvites(r, iso, withUids);
         renderMyMarks(r);
         renderAmigos(r);
         showSuccess(r.name);
@@ -1707,6 +1749,12 @@ const App = (() => {
     return last || parts[parts.length - 1];
   }
 
+  // Google formatted addresses end with the country ("…, Évora, Portugal").
+  function countryFromAddress(addr) {
+    const parts = String(addr || "").split(",").map((x) => x.trim()).filter(Boolean);
+    return parts.length ? parts[parts.length - 1] : "Portugal";
+  }
+
   // Run the queries, dedupe against the catalog + each other. Resolves to [].
   async function placesDiscover(queries, near) {
     if (!Array.isArray(queries) || !queries.length) return [];
@@ -1813,7 +1861,9 @@ const App = (() => {
     if (btn) { btn.disabled = true; btn.innerHTML = "A adicionar…"; }
     try {
       const town = townFromAddress(p.address);
-      const region = (typeof Geocode !== "undefined" && Geocode.regionForTown(town)) || "Portugal";
+      const country = countryFromAddress(p.address);
+      const foreign = typeof Geocode !== "undefined" && Geocode.isPortugal ? !Geocode.isPortugal(country) : false;
+      const region = (foreign ? country : (typeof Geocode !== "undefined" && Geocode.regionForTown(town))) || "Portugal";
       const category = suggestCategory(p.types, p.priceLevelNum) || "tradicional";
       const restaurant = {
         id: `${slug(p.name)}-${slug(town)}`.replace(/-$/, "") || slug(p.name),
@@ -1825,7 +1875,8 @@ const App = (() => {
         lng: p.lng,
         notes: "",
         tags: [category],
-        mapsQuery: town ? `${p.name}, ${town}, Portugal` : `${p.name}, Portugal`,
+        country,
+        mapsQuery: town ? `${p.name}, ${town}, ${country}` : `${p.name}, ${country}`,
         verified: true,
         addedByUid: UserData.me().uid,
         addedByName: UserData.me().displayName
@@ -2137,10 +2188,22 @@ const App = (() => {
     const feed = document.getElementById("amigos-feed");
     const lb = document.getElementById("amigos-leaderboard");
     const filter = document.getElementById("amigos-filter");
+    const invitesEl = document.getElementById("amigos-invites");
     const onLeaderboard = state.amigosTab === "leaderboard";
     if (feed) feed.hidden = onLeaderboard;
     if (lb) lb.hidden = !onLeaderboard;
     if (filter) filter.hidden = onLeaderboard; // filter only applies to the feed
+    if (invitesEl) {
+      if (onLeaderboard) invitesEl.hidden = true;
+      else {
+        renderInvites(invitesEl); // paint what we have, then refresh
+        loadPendingInvites().then(() => {
+          if (state.currentScreen === "amigos" && state.amigosTab !== "leaderboard") {
+            renderInvites(document.getElementById("amigos-invites"));
+          }
+        });
+      }
+    }
     if (onLeaderboard) renderAmigosLeaderboard();
     else renderAmigosFeed();
   }
@@ -2202,7 +2265,7 @@ const App = (() => {
       const hist = UserData.getHistory(r.id);
       const visited = UserData.isVisited(r.id);
       if (!rating && !hist.length && !visited) continue;
-      const lastVisit = hist.length ? hist[hist.length - 1] : null;
+      const lastVisit = hist.length ? UserData.visitDate(hist[hist.length - 1]) : null;
       out.push({
         r,
         stars: rating ? rating.stars : 0,
@@ -2387,6 +2450,77 @@ const App = (() => {
     }
   }
 
+  // ----- Joint visits: invites out, invites in -----
+  let pendingInvites = [];
+
+  async function sendVisitInvites(r, iso, toUids) {
+    if (!DB.isAvailable() || !UserData.isCloud()) return;
+    const me = UserData.me();
+    const token = window.FirebaseAuth ? await window.FirebaseAuth.getToken() : null;
+    await Promise.all(toUids.map((toUid) =>
+      DB.createVisitInvite({
+        fromUid: me.uid, fromName: me.displayName, fromPhoto: me.photoURL,
+        toUid, restaurantId: r.id, restaurantName: r.name, date: iso
+      }, token).catch(() => {})
+    ));
+  }
+
+  async function loadPendingInvites() {
+    if (!DB.isAvailable() || !UserData.isCloud()) { pendingInvites = []; return pendingInvites; }
+    try {
+      const token = window.FirebaseAuth ? await window.FirebaseAuth.getToken() : null;
+      const all = await DB.fetchVisitInvites(UserData.me().uid, token);
+      pendingInvites = all.filter((i) => i.status === "pending");
+    } catch (e) { pendingInvites = []; }
+    return pendingInvites;
+  }
+
+  function inviteCardHtml(inv) {
+    const r = state.restaurants.find((x) => x.id === inv.restaurantId);
+    return `<div class="invite-card" data-invite="${esc(inv.id)}">
+      <div class="invite-main">
+        ${avatar(inv.fromName, inv.fromPhoto)}
+        <div class="invite-text">
+          <span class="invite-who"><b>${esc(inv.fromName)}</b> diz que foste com ele a <b>${esc(inv.restaurantName || (r && r.name) || "um sítio")}</b></span>
+          <span class="feed-time">${esc(fmtDateTime(inv.date))}</span>
+        </div>
+      </div>
+      <div class="invite-actions">
+        <button class="btn btn-ghost btn-sm" data-invite-no="${esc(inv.id)}">Não fui</button>
+        <button class="btn btn-primary btn-sm" data-invite-yes="${esc(inv.id)}">${icon("check")} Confirmar</button>
+      </div>
+    </div>`;
+  }
+
+  async function respondInvite(id, accept) {
+    const inv = pendingInvites.find((i) => i.id === id);
+    if (!inv) return;
+    const token = window.FirebaseAuth ? await window.FirebaseAuth.getToken() : null;
+    try {
+      // Accepting writes the visit into MY doc — the sender never could.
+      if (accept) {
+        UserData.addVisit(inv.restaurantId, inv.date, [inv.fromUid]);
+        setVisited(inv.restaurantId, true);
+      }
+      await DB.respondVisitInvite(id, accept ? "accepted" : "declined", token);
+      pendingInvites = pendingInvites.filter((i) => i.id !== id);
+      renderAmigosScreen();
+      refreshOpenDetail();
+    } catch (e) { /* leave it pending so it can be retried */ }
+  }
+
+  function renderInvites(host) {
+    if (!host) return;
+    if (!pendingInvites.length) { host.innerHTML = ""; host.hidden = true; return; }
+    host.hidden = false;
+    host.innerHTML = `<div class="taste-label">${icon("users")} Idas para confirmar</div>` +
+      pendingInvites.map(inviteCardHtml).join("");
+    host.querySelectorAll("[data-invite-yes]").forEach((b) =>
+      b.addEventListener("click", () => respondInvite(b.dataset.inviteYes, true)));
+    host.querySelectorAll("[data-invite-no]").forEach((b) =>
+      b.addEventListener("click", () => respondInvite(b.dataset.inviteNo, false)));
+  }
+
   // ----- Amigos: activity feed across all restaurants (from group data) -----
   function buildFriendsFeed() {
     const items = [];
@@ -2400,7 +2534,9 @@ const App = (() => {
       Object.entries(g.history || {}).forEach(([id, dates]) => {
         const r = byId.get(id);
         if (!r) return;
-        (dates || []).forEach((d) => items.push({ type: "visit", when: d, g, r }));
+        (dates || []).forEach((d) => items.push({
+          type: "visit", when: UserData.visitDate(d), g, r, with: UserData.visitWith(d)
+        }));
       });
       (g.priority || []).forEach((id) => {
         const r = byId.get(id);
@@ -2441,7 +2577,10 @@ const App = (() => {
     const who = esc(it.g.displayName || "Amigo");
     let verb;
     if (it.type === "rating") verb = "avaliou";
-    else if (it.type === "visit") verb = "visitou";
+    else if (it.type === "visit") {
+      const who = companionNames(it.with);
+      verb = who ? `visitou com ${who}` : "visitou";
+    }
     else if (it.type === "upload") verb = it.photos.length > 1 ? `partilhou ${it.photos.length} fotos` : "partilhou uma foto";
     else verb = "quer ir a";
     const stars = it.type === "rating" && it.stars ? `<div class="feed-stars">${starsDisplay(it.stars)}</div>` : "";
@@ -2530,7 +2669,7 @@ const App = (() => {
         } else {
           visits = 0;
           Object.values(g.history || {}).forEach((dates) =>
-            (dates || []).forEach((d) => { if (inPeriod(d)) visits++; })
+            (dates || []).forEach((d) => { if (inPeriod(UserData.visitDate(d))) visits++; })
           );
         }
         let ratings = 0, starSum = 0;

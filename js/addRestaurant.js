@@ -134,8 +134,11 @@ const AddRestaurantModule = (() => {
     const name = nameInput.value.trim();
     const town = townInput.value.trim();
     const inferredRegion = typeof Geocode !== "undefined" ? Geocode.regionForTown(town) : null;
-    // Prefer a region the user typed; else geocoding; else infer from known towns.
-    const region = regionInput.value.trim() || (coords && coords.region) || inferredRegion || "Portugal";
+    // Country comes from geocoding; Portugal only as the last resort. Foreign
+    // places use their country as the region, so they group and filter naturally.
+    const country = (coords && coords.country) || "Portugal";
+    const foreign = typeof Geocode !== "undefined" && Geocode.isPortugal ? !Geocode.isPortugal(country) : false;
+    const region = regionInput.value.trim() || (coords && coords.region) || (foreign ? country : inferredRegion) || "Portugal";
     const category = categorySelect.value;
     const notes = notesInput.value.trim();
     const lat = coords ? coords.lat : parseFloat(latInput.value);
@@ -146,12 +149,13 @@ const AddRestaurantModule = (() => {
       name,
       town,
       region,
+      country,
       category,
       lat: isNaN(lat) ? null : lat,
       lng: isNaN(lng) ? null : lng,
       notes,
       tags: [category],
-      mapsQuery: `${name}, ${town}, Portugal`
+      mapsQuery: `${name}, ${town}, ${country}`
     };
   }
 
@@ -193,9 +197,10 @@ const AddRestaurantModule = (() => {
           || (coords && coords.region)
           || (typeof Geocode !== "undefined" && Geocode.regionForTown ? (Geocode.regionForTown(townInput.value.trim()) || "") : "");
         try {
-          const check = GeoValidate.isWithinRegion(effectiveRegion, coords.lat, coords.lng);
+          const check = GeoValidate.isWithinRegion(effectiveRegion, coords.lat, coords.lng, coords.country);
           if (check && !check.ok) {
-            setStatus(`Esta localização parece estar fora de ${effectiveRegion || "Portugal"}. Carrega novamente para guardar mesmo assim.`, "warning");
+            const where = effectiveRegion || coords.country || "Portugal";
+            setStatus(`Esta localização parece estar fora de ${where}. Carrega novamente para guardar mesmo assim.`, "warning");
             pendingGeoConfirm = true;
             submitBtn.textContent = "Guardar mesmo assim";
             submitBtn.disabled = false;

@@ -1722,3 +1722,28 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 /* Descobertas justificadas pelo perfil de gosto */
 .discover-intro { margin: 2px 0 var(--sp-2); font-size: var(--fs-sm); line-height: 1.45; }
 .ai-discover-reason { font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.4; margin-top: 3px; }
+
+/* Ida conjunta: escolher quem foi e confirmar convites */
+.companions { gap: var(--sp-2); }
+.companion-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.companion-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 34px; padding: 0 var(--sp-3) 0 4px; border-radius: var(--r-pill);
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--text-muted); font-size: var(--fs-sm); font-weight: 600; cursor: pointer;
+  transition: all 0.15s var(--ease);
+}
+.companion-chip[aria-pressed="true"] { color: var(--primary-ink); background: var(--primary); border-color: var(--primary); }
+.visit-with { color: var(--text-faint); font-size: var(--fs-xs); margin-left: 6px; }
+
+.invites { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4) 0; }
+.invites[hidden] { display: none; }
+.invite-card {
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-radius: var(--r-lg); padding: var(--sp-3);
+}
+.invite-main { display: flex; align-items: center; gap: var(--sp-2); }
+.invite-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.invite-who { font-size: var(--fs-base); line-height: 1.4; }
+.invite-actions { display: flex; gap: var(--sp-2); justify-content: flex-end; }

@@ -73,6 +73,24 @@ service cloud.firestore {
         )
       );
     }
+    // Joint-visit invites. A user records a visit and tags friends who came along;
+    // each tagged friend gets an invite they can accept (which then writes the visit
+    // into their OWN doc — nobody can write another person's userData).
+    match /visitInvites/{doc} {
+      allow create: if request.auth != null
+                    && request.resource.data.fromUid == request.auth.uid
+                    && request.resource.data.status == 'pending';
+      allow read: if request.auth != null
+                  && (request.auth.uid == resource.data.fromUid
+                   || request.auth.uid == resource.data.toUid);
+      // Only the recipient responds, and only the status/respondedAt may change.
+      allow update: if request.auth != null
+                    && request.auth.uid == resource.data.toUid
+                    && request.resource.data.diff(resource.data)
+                         .affectedKeys().hasOnly(['status', 'respondedAt'])
+                    && request.resource.data.status in ['accepted', 'declined'];
+      allow delete: if request.auth != null && request.auth.uid == resource.data.fromUid;
+    }
     // Photo metadata per restaurant (the file itself lives in Cloud Storage).
     // Anyone can read; only signed-in users can add, and only the uploader can
     // remove their own.

@@ -15,9 +15,9 @@ const PlannerModule = (() => {
     return !!geocoder;
   }
 
-  function geocodeAddress(address) {
+  function geocodeAddress(address, country) {
     return new Promise((resolve, reject) => {
-      geocoder.geocode({ address: `${address}, Portugal` }, (results, status) => {
+      geocoder.geocode({ address: `${address}, ${country || "Portugal"}` }, (results, status) => {
         if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
           resolve(results[0].geometry.location);
         } else {

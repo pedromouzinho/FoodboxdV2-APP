@@ -365,14 +365,24 @@ const UserData = (() => {
     }
     scheduleSave();
   }
+  // A visit entry is either a plain ISO string (legacy) or { date, with:[uid] }.
+  // These two helpers are the only place that difference is allowed to matter —
+  // they also normalize friends' docs, which can hold either shape.
+  function visitDate(entry) {
+    return typeof entry === "string" ? entry : ((entry && entry.date) || "");
+  }
+  function visitWith(entry) {
+    return (entry && typeof entry === "object" && Array.isArray(entry.with)) ? entry.with : [];
+  }
   function getHistory(id) {
     return (cloud && mine.history[id]) || [];
   }
-  function addVisit(id, isoDate) {
+  function addVisit(id, isoDate, withUids) {
     if (!cloud) return;
+    const companions = Array.isArray(withUids) ? withUids.filter(Boolean) : [];
     const list = mine.history[id] || [];
-    list.push(isoDate);
-    list.sort();
+    list.push(companions.length ? { date: isoDate, with: companions } : isoDate);
+    list.sort((a, b) => (visitDate(a) < visitDate(b) ? -1 : 1));
     mine.history[id] = list;
     mine.visited.add(id); // a recorded visit implies visited
     scheduleSave();
@@ -380,7 +390,7 @@ const UserData = (() => {
   function removeVisit(id, isoDate) {
     if (!cloud) return;
     const list = mine.history[id] || [];
-    const idx = list.indexOf(isoDate);
+    const idx = list.findIndex((e) => visitDate(e) === isoDate);
     if (idx >= 0) list.splice(idx, 1);
     if (list.length) mine.history[id] = list;
     else delete mine.history[id];
@@ -388,7 +398,7 @@ const UserData = (() => {
   }
   function lastVisit(id) {
     const h = getHistory(id);
-    return h.length ? h[h.length - 1] : null;
+    return h.length ? visitDate(h[h.length - 1]) : null;
   }
 
   // ---- group queries ----
@@ -450,6 +460,8 @@ const UserData = (() => {
     getRating,
     setRating,
     getHistory,
+    visitDate,
+    visitWith,
     addVisit,
     removeVisit,
     lastVisit,

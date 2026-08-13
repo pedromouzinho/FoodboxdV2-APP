@@ -78,12 +78,13 @@ const DB = (() => {
       name: f.name,
       town: f.town,
       region: f.region || inferredRegion || "Portugal",
+      country: f.country || "Portugal",
       category: f.category || "tradicional",
       lat: f.lat,
       lng: f.lng,
       notes: f.notes || "",
       tags: f.tags || [f.category || "tradicional"],
-      mapsQuery: f.mapsQuery || `${f.name}, ${f.town}, Portugal`,
+      mapsQuery: f.mapsQuery || `${f.name}, ${f.town}, ${f.country || "Portugal"}`,
       createdAt: f.createdAt || "",
       addedByUid: f.addedByUid || "",
       addedByName: f.addedByName || "",
@@ -114,6 +115,7 @@ const DB = (() => {
       name: encodeValue(restaurant.name),
       town: encodeValue(restaurant.town),
       region: encodeValue(restaurant.region),
+      country: encodeValue(restaurant.country || "Portugal"),
       category: encodeValue(restaurant.category),
       lat: encodeValue(restaurant.lat),
       lng: encodeValue(restaurant.lng),
@@ -285,6 +287,58 @@ const DB = (() => {
     const byUid = new Map();
     parts.flat().forEach((u) => { if (u && u.uid) byUid.set(u.uid, u); });
     return [...byUid.values()];
+  }
+
+  // ---- Joint-visit invites (visitInvites/{autoId}) ----
+  function decodeInvite(doc) {
+    const f = decodeFields(doc);
+    return {
+      id: doc.name.split("/").pop(),
+      fromUid: f.fromUid || "", fromName: f.fromName || "Amigo", fromPhoto: f.fromPhoto || "",
+      toUid: f.toUid || "", restaurantId: f.restaurantId || "", restaurantName: f.restaurantName || "",
+      date: f.date || "", status: f.status || "pending", createdAt: f.createdAt || ""
+    };
+  }
+  async function createVisitInvite(invite, token) {
+    if (!ready) throw new Error("Cloud database not configured.");
+    const fields = encodeFields({
+      fromUid: invite.fromUid, fromName: invite.fromName || "", fromPhoto: invite.fromPhoto || "",
+      toUid: invite.toUid, restaurantId: invite.restaurantId, restaurantName: invite.restaurantName || "",
+      date: invite.date, status: "pending", createdAt: new Date().toISOString()
+    });
+    const res = await fetch(`${docsBase}/visitInvites?${keyQ()}`, {
+      method: "POST", headers: authHeaders(token), body: JSON.stringify({ fields })
+    });
+    if (!res.ok) throw new Error(`Could not invite (${res.status}).`);
+    return decodeInvite(await res.json());
+  }
+  // Only filters by recipient — the status is filtered client-side so this stays a
+  // single-field query and needs no composite index.
+  async function fetchVisitInvites(myUid, token) {
+    if (!ready || !myUid) return [];
+    try {
+      const body = { structuredQuery: {
+        from: [{ collectionId: "visitInvites" }],
+        where: { fieldFilter: { field: { fieldPath: "toUid" }, op: "EQUAL", value: { stringValue: myUid } } },
+        limit: 50
+      } };
+      const res = await fetch(`${docsBase}:runQuery?${keyQ()}`, {
+        method: "POST", headers: authHeaders(token), body: JSON.stringify(body)
+      });
+      if (!res.ok) return [];
+      const rows = await res.json();
+      return (rows || []).filter((r) => r.document).map((r) => decodeInvite(r.document));
+    } catch (e) { return []; }
+  }
+  async function respondVisitInvite(id, status, token) {
+    if (!ready) throw new Error("Cloud database not configured.");
+    const fields = encodeFields({ status, respondedAt: new Date().toISOString() });
+    const mask = "updateMask.fieldPaths=status&updateMask.fieldPaths=respondedAt";
+    const res = await fetch(`${docsBase}/visitInvites/${encodeURIComponent(id)}?${mask}&${keyQ()}`, {
+      method: "PATCH", headers: authHeaders(token), body: JSON.stringify({ fields })
+    });
+    if (!res.ok) throw new Error(`Could not respond (${res.status}).`);
+    return true;
   }
 
   // ---- Groups (groups/{autoId}) ----
@@ -649,6 +703,9 @@ const DB = (() => {
     fetchUserDoc,
     saveUserDoc,
     fetchAllUsers,
+    createVisitInvite,
+    fetchVisitInvites,
+    respondVisitInvite,
     createGroup,
     fetchMyGroups,
     fetchGroupByCode,

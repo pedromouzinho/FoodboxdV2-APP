@@ -33,10 +33,14 @@ const GeoValidate = (() => {
     return lat >= box.latMin && lat <= box.latMax && lng >= box.lngMin && lng <= box.lngMax;
   }
 
-  function isWithinRegion(region, lat, lng) {
+  // `country` (optional): anything outside Portugal is out of scope for these
+  // boxes, so we accept it rather than flagging every foreign place as wrong.
+  function isWithinRegion(region, lat, lng, country) {
     if (typeof lat !== "number" || typeof lng !== "number" || isNaN(lat) || isNaN(lng)) {
       return { ok: true, reason: "no-coords" };
     }
+    const ck = normalizeKey(country);
+    if (ck && ck !== "portugal") return { ok: true, reason: "foreign", expected: country };
     const key = normalizeKey(region);
     if (!key || key === "portugal") {
       return inBox(PORTUGAL_BOUNDS, lat, lng) ? { ok: true } : { ok: false, reason: "outside-portugal" };

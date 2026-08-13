@@ -73,8 +73,21 @@ const Geocode = (() => {
     }
     return Object.entries(REGION_BY_TOWN).find(([town]) => key.includes(town))?.[1] || null;
   }
+  function countryFromComponents(components) {
+    if (!components) return null;
+    const c = components.find((x) => (x.types || []).includes("country"));
+    return c ? (c.long_name || c.short_name) : null;
+  }
+  function isPortugal(country) {
+    const k = normalizePlaceName(country);
+    return !k || k === "portugal";
+  }
+  // Portuguese places bucket into the app's NUTS-II regions; foreign ones use the
+  // country itself as the region, so they group and filter without any new code.
   function regionFromComponents(components) {
     if (!components) return null;
+    const country = countryFromComponents(components);
+    if (!isPortugal(country)) return country;
     const admin1 = components.find((c) => (c.types || []).includes("administrative_area_level_1"));
     if (!admin1) return null;
     return regionForDistrict(admin1.long_name || admin1.short_name);
@@ -85,7 +98,12 @@ const Geocode = (() => {
       googleGeocoder.geocode({ address: query }, (results, status) => {
         if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
           const loc = results[0].geometry.location;
-          resolve({ lat: loc.lat(), lng: loc.lng(), region: regionFromComponents(results[0].address_components) || regionForTown(query) });
+          const comps = results[0].address_components;
+          resolve({
+            lat: loc.lat(), lng: loc.lng(),
+            region: regionFromComponents(comps) || regionForTown(query),
+            country: countryFromComponents(comps) || ""
+          });
         } else {
           resolve(null);
         }
@@ -103,7 +121,12 @@ const Geocode = (() => {
       if (data && data[0]) {
         const a = data[0].address || {};
         const district = a.state || a.county || a.region || a.state_district || "";
-        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), region: regionForDistrict(district) || regionForTown(query) };
+        const country = a.country || "";
+        return {
+          lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon),
+          region: (isPortugal(country) ? (regionForDistrict(district) || regionForTown(query)) : country),
+          country
+        };
       }
     } catch (e) {
       /* ignore network/parse errors and fall through */
@@ -111,28 +134,39 @@ const Geocode = (() => {
     return null;
   }
 
-  // Resolve coordinates for "name, town". Ambiguous town names (e.g. "Oura"
-  // exists in both Algarve and the north) used to land on the wrong one, so we
-  // bias the query with the expected region (typed, or inferred from the town)
-  // and prefer a result whose region actually matches it.
+  // Resolve coordinates for "name, town". Portugal stays the default (ambiguous
+  // towns like "Oura" must not drift), but it is no longer forced: if nothing in
+  // Portugal fits we search worldwide, so foreign places land where they belong
+  // instead of on the nearest Portuguese match.
   async function locate(name, town, expectedRegion) {
-    const known = (expectedRegion && expectedRegion.trim()) || regionForTown(town);
+    const typed = (expectedRegion && expectedRegion.trim()) || "";
+    const known = typed || regionForTown(town);
+    const knownIsForeign = !!typed && !REGION_BY_DISTRICT[normalizePlaceName(typed)] && !isPortugal(typed);
     const run = googleGeocoder ? viaGoogle : viaNominatim;
+
     const queries = [];
-    if (known) {
+    if (knownIsForeign) {
+      // The person told us the country/region — trust it and skip the Portugal pass.
+      queries.push(`${name}, ${town}, ${typed}`);
+      queries.push(`${town}, ${typed}`);
+    } else if (known) {
       queries.push(`${name}, ${town}, ${known}, Portugal`);
       queries.push(`${town}, ${known}, Portugal`);
     }
     queries.push(`${name}, ${town}, Portugal`);
+    queries.push(`${name}, ${town}`); // worldwide
     queries.push(`${town}, Portugal`);
+    queries.push(`${town}`);          // worldwide
 
     let firstAny = null;
     for (const q of queries) {
       const res = await run(q);
       if (!res) continue;
-      if (!firstAny) firstAny = res; // region-biased query comes first, so this is already a good guess
+      if (!firstAny) firstAny = res;
       if (!known) return res;
       if (res.region && normalizePlaceName(res.region) === normalizePlaceName(known)) return res;
+      // A confident foreign hit beats forcing a Portuguese region we only guessed.
+      if (!typed && res.country && !isPortugal(res.country)) return res;
     }
     if (firstAny && known && !firstAny.region) firstAny.region = known;
     return firstAny;
@@ -152,10 +186,11 @@ const Geocode = (() => {
         };
         const town = pick("locality") || pick("postal_town") || pick("administrative_area_level_2") || "";
         const region = regionFromComponents(comps) || "";
-        resolve({ town, region, label: [town, region].filter(Boolean).join(", ") });
+        const country = countryFromComponents(comps) || "";
+        resolve({ town, region, country, label: [town, region].filter(Boolean).join(", ") });
       });
     });
   }
 
-  return { init, locate, reverse, regionForTown };
+  return { init, locate, reverse, regionForTown, isPortugal };
 })();
