@@ -219,6 +219,23 @@ const App = (() => {
     }).catch(() => {});
   }
 
+  // Self-healing pins: geocoding a place with the wrong country (or an ambiguous
+  // town) can drop it far from reality. Once Google resolves the actual place we
+  // compare its coordinates with ours and, when they disagree badly, fix the pin
+  // for everyone. Small differences are ignored — a pin is not a doorstep.
+  const PIN_FIX_KM = 3;
+  function maybeFixPin(r, data) {
+    if (!r || !data || typeof data.lat !== "number" || typeof data.lng !== "number") return;
+    if (typeof r.lat === "number" && typeof r.lng === "number") {
+      if (distKm({ lat: r.lat, lng: r.lng }, { lat: data.lat, lng: data.lng }) < PIN_FIX_KM) return;
+    }
+    r.lat = data.lat;
+    r.lng = data.lng;
+    if (DB.isAvailable()) DB.setGeoOverride(r.id, data.lat, data.lng).catch(() => {});
+    render(); // re-runs renderMarkers with the corrected coordinates
+    if (state.currentDetail === r) MapModule.focusRestaurant(r);
+  }
+
   // Apply a shared override to a restaurant. Cloud overrides are objects
   // ({category, photoURL}); the local-storage fallback is a bare category string.
   function applyOverride(r, ov) {
@@ -226,6 +243,7 @@ const App = (() => {
     if (typeof ov === "string") { r.category = ov; return; }
     if (ov.category) r.category = ov.category;
     if (ov.photoURL) r.photoURL = ov.photoURL;
+    if (typeof ov.lat === "number" && typeof ov.lng === "number") { r.lat = ov.lat; r.lng = ov.lng; }
   }
 
   function buildCard(r) {
@@ -988,6 +1006,7 @@ const App = (() => {
 
     const data = await PlacesModule.fetchDetails(r);
     if (state.currentDetail !== r) return;
+    maybeFixPin(r, data);
     if (!data) {
       statsEl.innerHTML = `<p class="hint">Sem dados do Google para este sítio ainda.</p>`;
       reviewsEl.innerHTML = "";

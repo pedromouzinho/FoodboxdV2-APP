@@ -3,7 +3,7 @@
 const Storage = {
   VISITED_KEY: "portugalRestaurants.visited",
   CUSTOM_KEY: "portugalRestaurants.custom",
-  PLACES_CACHE_KEY: "portugalRestaurants.placesCache",
+  PLACES_CACHE_KEY: "portugalRestaurants.placesCache.v2",
   OVERRIDES_KEY: "portugalRestaurants.overrides",
 
   getVisited() {

@@ -161,7 +161,8 @@ const DB = (() => {
         const o = {};
         if (f.category) o.category = f.category;
         if (f.photoURL) o.photoURL = f.photoURL;
-        if (o.category || o.photoURL) map[id] = o;
+        if (typeof f.lat === "number" && typeof f.lng === "number") { o.lat = f.lat; o.lng = f.lng; }
+        if (Object.keys(o).length) map[id] = o;
       });
       return map;
     } catch (e) {
@@ -186,6 +187,18 @@ const DB = (() => {
     return true;
   }
   function setOverride(id, category) { return patchOverride(id, "category", category); }
+  // Correct a pin. The restaurants collection is read-only in the rules, so shared
+  // fixes live in overrides — same as category and the cover photo.
+  async function setGeoOverride(id, lat, lng) {
+    if (!ready) throw new Error("Cloud database not configured.");
+    const fields = { lat: encodeValue(lat), lng: encodeValue(lng), updatedAt: { timestampValue: new Date().toISOString() } };
+    const mask = "updateMask.fieldPaths=lat&updateMask.fieldPaths=lng&updateMask.fieldPaths=updatedAt";
+    const res = await fetch(`${docsBase}/overrides/${encodeURIComponent(id)}?${mask}&${keyQ()}`, {
+      method: "PATCH", headers: authHeaders(), body: JSON.stringify({ fields })
+    });
+    if (!res.ok) throw new Error(`Could not save (${res.status}).`);
+    return true;
+  }
   function setPhotoOverride(id, url) { return patchOverride(id, "photoURL", url); }
 
   // ---- Per-user data (userData/{uid}) ----
@@ -700,6 +713,7 @@ const DB = (() => {
     fetchOverrides,
     setOverride,
     setPhotoOverride,
+    setGeoOverride,
     fetchUserDoc,
     saveUserDoc,
     fetchAllUsers,
