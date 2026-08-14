@@ -258,7 +258,12 @@
       <button class="icon-btn detail-close" data-close-detail aria-label="Fechar">
         <svg class="icon"><use href="#i-x"/></svg>
       </button>
-      <div id="detail-hero" class="detail-hero"></div>
+      <div class="detail-hero-wrap">
+        <div id="detail-hero" class="detail-hero"></div>
+        <button id="hero-cover-btn" class="hero-photo-btn hidden" type="button">
+          <svg class="icon"><use href="#i-camera"/></svg> Mudar foto
+        </button>
+      </div>
       <div id="detail-body" class="detail-body"></div>
     </div>
   </section>
@@ -437,6 +442,25 @@
       <input id="group-input" class="note-input" autocomplete="off" />
       <p class="form-status" data-group-status></p>
       <button class="btn btn-primary btn-block" data-group-confirm>Confirmar</button>
+    </div>
+  </div>
+
+  <!-- Restaurant cover chooser: pick/upload the photo everyone sees -->
+  <div id="cover-modal" class="modal hidden">
+    <div class="modal-scrim" data-close-cover></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Foto do restaurante">
+      <button class="icon-btn modal-close" data-close-cover aria-label="Fechar">
+        <svg class="icon"><use href="#i-x"/></svg>
+      </button>
+      <h2 class="modal-title">Foto do restaurante</h2>
+      <p class="modal-intro">A foto que toda a gente vê nos cartões e na ficha.</p>
+      <label class="btn btn-primary btn-block">
+        <svg class="icon"><use href="#i-camera"/></svg> Carregar foto
+        <input type="file" accept="image/*" data-cover-input hidden />
+      </label>
+      <p class="form-status" data-cover-status></p>
+      <div class="cover-grid" data-cover-grid></div>
+      <button class="btn btn-ghost btn-block" data-cover-google hidden>Usar foto do Google</button>
     </div>
   </div>
 

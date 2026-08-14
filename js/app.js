@@ -366,6 +366,9 @@ const App = (() => {
     const body = document.getElementById("detail-body");
 
     hero.innerHTML = `<svg class="icon placeholder-icon" style="color:var(${cat.varName})"><use href="#i-utensils"/></svg>`;
+    if (r.photoURL) setHeroPhoto(r, r.photoURL); // the chosen cover, before Google answers
+    const heroCoverBtn = document.getElementById("hero-cover-btn");
+    if (heroCoverBtn) heroCoverBtn.classList.toggle("hidden", !(UserData.isCloud() && DB.isAvailable()));
     body.innerHTML = `
       <div class="detail-head">
         <h2>${esc(r.name)}</h2>
@@ -1014,10 +1017,9 @@ const App = (() => {
       return;
     }
 
-    // hero photo
-    if (data.photos && data.photos[0]) {
-      document.getElementById("detail-hero").innerHTML = `<img src="${esc(data.photos[0])}" alt="${esc(r.name)}" />`;
-    }
+    // hero photo — the chosen cover wins over Google's first photo
+    const heroUrl = r.photoURL || (data.photos && data.photos[0]);
+    if (heroUrl) setHeroPhoto(r, heroUrl);
 
     // Call / Website CTAs (number + site come from Google)
     const actions = body.querySelector("[data-actions]");
@@ -1392,18 +1394,43 @@ const App = (() => {
     const m = document.getElementById("photo-viewer");
     return m && !m.classList.contains("hidden");
   }
-  function openPhotoViewer(url) {
+  function openPhotoViewer(url, source) {
     const m = document.getElementById("photo-viewer");
     if (!m || !url) return;
     viewerUrl = url;
     const img = m.querySelector("[data-viewer-img]");
     if (img) img.src = url;
-    // "Set as the restaurant's photo" only when we opened from a restaurant's
-    // gallery and can write (signed in).
+    // "Foto do restaurante" only from a restaurant's gallery, signed in, and never
+    // for Google photos — their URLs expire, which would silently break the cover.
     const coverBtn = m.querySelector("[data-viewer-cover]");
-    if (coverBtn) coverBtn.classList.toggle("hidden", !(state.currentDetail && UserData.isCloud() && DB.isAvailable()));
+    if (coverBtn) coverBtn.classList.toggle("hidden",
+      !(state.currentDetail && UserData.isCloud() && DB.isAvailable()) || source === "google");
     m.classList.remove("hidden");
   }
+  // Swap the detail hero photo in only once it loads (broken/expired URLs keep
+  // the category placeholder instead of a broken-image icon).
+  function setHeroPhoto(r, url) {
+    const hero = document.getElementById("detail-hero");
+    if (!hero || !url) return;
+    const img = new Image();
+    img.alt = r.name;
+    img.onload = () => { if (state.currentDetail === r) { hero.innerHTML = ""; hero.appendChild(img); } };
+    img.src = url;
+  }
+
+  // The shared cover write, used by the photo viewer AND the cover chooser.
+  // An empty url clears the override -> back to the Google photo.
+  async function setRestaurantCoverUrl(r, url) {
+    if (!r || !UserData.isCloud()) return false;
+    await DB.setPhotoOverride(r.id, url || "");
+    r.photoURL = url || "";
+    if (url) setHeroPhoto(r, url);
+    render();
+    refreshOpenDetail();
+    refreshActiveDataScreen();
+    return true;
+  }
+
   // Set the tapped community photo as this restaurant's cover (shared override).
   async function setRestaurantCover(url) {
     const r = state.currentDetail;
@@ -1411,16 +1438,66 @@ const App = (() => {
     const btn = document.querySelector("[data-viewer-cover]");
     if (btn) { btn.disabled = true; btn.classList.add("busy"); }
     try {
-      await DB.setPhotoOverride(r.id, url);
-      r.photoURL = url;
+      await setRestaurantCoverUrl(r, url);
       hidePhotoViewer();
-      render();
-      refreshOpenDetail();
-      refreshActiveDataScreen();
     } catch (e) {
       if (btn) btn.textContent = "Não foi possível.";
     } finally {
       if (btn) { btn.disabled = false; btn.classList.remove("busy"); }
+    }
+  }
+
+  // ---------- Cover chooser (the "Mudar foto" button on the hero) ----------
+  function hideCoverModal() { document.getElementById("cover-modal").classList.add("hidden"); }
+  async function openCoverModal() {
+    const r = state.currentDetail;
+    if (!r || !UserData.isCloud()) { showSigninModal(); return; }
+    const m = document.getElementById("cover-modal");
+    const grid = m.querySelector("[data-cover-grid]");
+    const status = m.querySelector("[data-cover-status]");
+    const googleBtn = m.querySelector("[data-cover-google]");
+    status.textContent = "";
+    googleBtn.hidden = !r.photoURL; // only when a custom cover is set
+    m.classList.remove("hidden");
+    grid.innerHTML = `<div class="skeleton" style="height:70px;grid-column:1/-1"></div>`;
+    let photos = [];
+    try {
+      const me = UserData.me();
+      photos = (await DB.fetchPhotos(r.id)).filter((p) => p.uid === me.uid || UserData.canSeeUser(p.uid));
+    } catch (e) { photos = []; }
+    if (state.currentDetail !== r) return;
+    grid.innerHTML = photos.length
+      ? photos.map((p, i) => `<button type="button" class="cover-tile${p.url === r.photoURL ? " current" : ""}" data-cover-pick="${i}">
+          <img src="${esc(p.url)}" alt="" loading="lazy" />${p.url === r.photoURL ? `<span class="cover-current">${icon("check")}</span>` : ""}
+        </button>`).join("")
+      : `<p class="muted cover-empty">Ainda não há fotos da comunidade — carrega uma tua.</p>`;
+    grid.querySelectorAll("[data-cover-pick]").forEach((btn) =>
+      btn.addEventListener("click", async () => {
+        status.textContent = "A definir…";
+        try { await setRestaurantCoverUrl(r, photos[parseInt(btn.dataset.coverPick, 10)].url); hideCoverModal(); }
+        catch (e) { status.textContent = "Não foi possível. Tenta de novo."; }
+      }));
+  }
+  async function coverUpload(file) {
+    const r = state.currentDetail;
+    const m = document.getElementById("cover-modal");
+    const status = m.querySelector("[data-cover-status]");
+    if (!r || !file || !UserData.isCloud() || !(window.FirebaseStorage && window.FirebaseStorage.configured)) return;
+    if (!/^image\//.test(file.type)) { status.textContent = "Selecione uma imagem."; return; }
+    if (file.size > 6 * 1024 * 1024) { status.textContent = "Imagem demasiado grande (máx. 6 MB)."; return; }
+    status.textContent = "A enviar…";
+    try {
+      const me = UserData.me();
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const path = `restaurants/${slugifyId(r.id)}/${me.uid}-${Date.now()}.${ext}`;
+      const url = await window.FirebaseStorage.upload(path, file);
+      const fb = window.FirebaseAuth;
+      const token = fb ? await fb.getToken() : null;
+      await DB.addPhoto({ restaurantId: r.id, uid: me.uid, author: me.displayName, url, path }, token); // into the gallery too
+      await setRestaurantCoverUrl(r, url);
+      hideCoverModal();
+    } catch (e) {
+      status.textContent = "Não foi possível enviar. As fotos já estão ativadas no Firebase?";
     }
   }
   function hidePhotoViewer() {
@@ -2952,7 +3029,7 @@ const App = (() => {
     // Photo viewer: open on any [data-photo-url] tap; wire its actions.
     document.addEventListener("click", (e) => {
       const t = e.target.closest("[data-photo-url]");
-      if (t) { e.preventDefault(); openPhotoViewer(t.dataset.photoUrl); }
+      if (t) { e.preventDefault(); openPhotoViewer(t.dataset.photoUrl, t.dataset.photoSource); }
     });
     document.querySelectorAll("[data-close-viewer]").forEach((el) => el.addEventListener("click", hidePhotoViewer));
     const vDl = document.querySelector("[data-viewer-download]");
@@ -2961,6 +3038,20 @@ const App = (() => {
     if (vSh) vSh.addEventListener("click", () => sharePhoto(viewerUrl));
     const vCover = document.querySelector("[data-viewer-cover]");
     if (vCover) vCover.addEventListener("click", () => setRestaurantCover(viewerUrl));
+    const heroBtn = document.getElementById("hero-cover-btn");
+    if (heroBtn) heroBtn.addEventListener("click", openCoverModal);
+    document.querySelectorAll("[data-close-cover]").forEach((el) => el.addEventListener("click", hideCoverModal));
+    const coverInput = document.querySelector("#cover-modal [data-cover-input]");
+    if (coverInput) coverInput.addEventListener("change", () => {
+      const f = coverInput.files && coverInput.files[0]; coverInput.value = "";
+      coverUpload(f);
+    });
+    const coverGoogle = document.querySelector("#cover-modal [data-cover-google]");
+    if (coverGoogle) coverGoogle.addEventListener("click", async () => {
+      const r = state.currentDetail;
+      if (!r) return;
+      try { await setRestaurantCoverUrl(r, ""); hideCoverModal(); PlacesModule.fetchDetails(r).then((d) => { if (d && d.photos && d.photos[0]) setHeroPhoto(r, d.photos[0]); }); } catch (e) { /* keep modal open */ }
+    });
 
     wireDetailSwipe();
     wirePullToRefresh();
