@@ -6,7 +6,7 @@
 
 const AddRestaurantModule = (() => {
   let modal, form, closeBtn, locateBtn, locateStatus, copyJsonBtn, submitBtn, statusEl, aiSuggestBtn, titleEl, introEl;
-  let nameInput, townInput, regionInput, categorySelect, notesInput, latInput, lngInput;
+  let nameInput, townInput, regionInput, categorySelect, notesInput, latInput, lngInput, stylesWrap;
   // "wishlist" = um sítio onde quero ir (fica prioritário); "experience" = já fui
   // (abre logo a experiência para avaliar). Define o comportamento pós-adição.
   let mode = "wishlist";
@@ -38,6 +38,21 @@ const AddRestaurantModule = (() => {
     regionInput = document.getElementById("form-region");
     categorySelect = document.getElementById("form-category");
     notesInput = document.getElementById("form-notes");
+    stylesWrap = document.getElementById("form-styles");
+    if (stylesWrap && typeof STYLES !== "undefined") {
+      stylesWrap.innerHTML = "";
+      Object.entries(STYLES).forEach(([key, st]) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip";
+        chip.dataset.styleKey = key;
+        chip.textContent = st.label;
+        chip.setAttribute("aria-pressed", "false");
+        chip.addEventListener("click", () =>
+          chip.setAttribute("aria-pressed", chip.getAttribute("aria-pressed") === "true" ? "false" : "true"));
+        stylesWrap.appendChild(chip);
+      });
+    }
     latInput = document.getElementById("form-lat");
     lngInput = document.getElementById("form-lng");
 
@@ -73,7 +88,11 @@ const AddRestaurantModule = (() => {
         town: townInput.value.trim(),
         googleTypes: []
       });
-      if (out && out.category) categorySelect.value = out.category;
+      if (out && out.cuisine) categorySelect.value = out.cuisine;
+      if (out && Array.isArray(out.styles) && stylesWrap) {
+        stylesWrap.querySelectorAll("[data-style-key]").forEach((c) =>
+          c.setAttribute("aria-pressed", String(out.styles.includes(c.dataset.styleKey))));
+      }
       if (out && out.specialty && !notesInput.value.trim()) notesInput.value = out.specialty;
     } catch (e) {
       locateStatus.textContent = e.message;
@@ -139,7 +158,11 @@ const AddRestaurantModule = (() => {
     const country = (coords && coords.country) || "Portugal";
     const foreign = typeof Geocode !== "undefined" && Geocode.isPortugal ? !Geocode.isPortugal(country) : false;
     const region = regionInput.value.trim() || (coords && coords.region) || (foreign ? country : inferredRegion) || "Portugal";
-    const category = categorySelect.value;
+    const cuisine = categorySelect.value; // the select now holds the CUISINE
+    const styles = stylesWrap
+      ? [...stylesWrap.querySelectorAll('[data-style-key][aria-pressed="true"]')].map((c) => c.dataset.styleKey)
+      : [];
+    const category = typeof legacyCategoryFor === "function" ? legacyCategoryFor(cuisine, styles) : "tradicional";
     const notes = notesInput.value.trim();
     const lat = coords ? coords.lat : parseFloat(latInput.value);
     const lng = coords ? coords.lng : parseFloat(lngInput.value);
@@ -151,10 +174,12 @@ const AddRestaurantModule = (() => {
       region,
       country,
       category,
+      cuisine,
+      styles,
       lat: isNaN(lat) ? null : lat,
       lng: isNaN(lng) ? null : lng,
       notes,
-      tags: [category],
+      tags: [cuisine].concat(styles),
       mapsQuery: `${name}, ${town}, ${country}`
     };
   }

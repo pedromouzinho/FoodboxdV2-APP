@@ -52,7 +52,7 @@ const MapModule = (() => {
   // an inline SVG rather than a Maps symbol + text label, so it renders the same
   // on every platform.
   function getMarkerIcon(category, visited, priority) {
-    const color = (CATEGORIES[category] && CATEGORIES[category].hex) || "#555555";
+    const color = (CUISINES[category] && CUISINES[category].hex) || "#555555";
     const fill = visited ? color : "#ffffff";
     const stroke = visited ? "#ffffff" : color;
     const width = visited ? 2 : 2.5;
@@ -102,12 +102,67 @@ const MapModule = (() => {
         position: { lat: restaurant.lat, lng: restaurant.lng },
         map,
         title: restaurant.name,
-        icon: getMarkerIcon(restaurant.category, visited, priority),
+        icon: getMarkerIcon(typeof cuisineOf === "function" ? cuisineOf(restaurant) : restaurant.category, visited, priority),
         zIndex: markerZIndex(visited, priority)
       });
       marker.addListener("click", () => onClick(restaurant));
       markers.set(restaurant.id, marker);
     });
+  }
+
+  // ---- Temporary search results (the map magnifier) ----
+  // Deliberately different from your own pins: grey, hollow, dashed, and on top —
+  // they are places you are only LOOKING at, and vanish when the search closes.
+  let searchMarkers = [];
+  function searchMarkerIcon() {
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 26 26" width="34" height="34">` +
+      `<g transform="translate(1,1)"><path d="${PIN_PATH}" fill="#ffffff" stroke="#6b6259" ` +
+      `stroke-width="2" stroke-dasharray="3 2.4" stroke-linejoin="round"/></g>` +
+      `<circle cx="12" cy="10" r="2.6" fill="#6b6259"/></svg>`;
+    return {
+      url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+      scaledSize: new google.maps.Size(34, 34),
+      anchor: new google.maps.Point(17, 32.7)
+    };
+  }
+  function setSearchMarkers(places, onClick) {
+    if (!available) return;
+    clearSearchMarkers();
+    (places || []).forEach((p) => {
+      if (typeof p.lat !== "number") return;
+      const marker = new google.maps.Marker({
+        position: { lat: p.lat, lng: p.lng },
+        map, title: p.name, icon: searchMarkerIcon(), zIndex: 10
+      });
+      marker.addListener("click", () => onClick && onClick(p));
+      searchMarkers.push(marker);
+    });
+  }
+  function clearSearchMarkers() {
+    searchMarkers.forEach((m) => m.setMap(null));
+    searchMarkers = [];
+  }
+  // Centre + a radius that covers what's actually on screen, so "search this area"
+  // means this area.
+  function getViewport() {
+    if (!available || !map) return null;
+    const c = map.getCenter();
+    if (!c) return null;
+    const b = map.getBounds();
+    let radiusKm = 5;
+    if (b) {
+      const ne = b.getNorthEast();
+      const dLat = Math.abs(ne.lat() - c.lat()) * 111;
+      const dLng = Math.abs(ne.lng() - c.lng()) * 111 * Math.cos((c.lat() * Math.PI) / 180);
+      radiusKm = Math.max(1, Math.min(50, Math.sqrt(dLat * dLat + dLng * dLng)));
+    }
+    return { lat: c.lat(), lng: c.lng(), radiusKm };
+  }
+
+  function panTo(lat, lng) {
+    if (!available || typeof lat !== "number") return;
+    map.panTo({ lat, lng });
   }
 
   function setMarkerState(id, category, state) {
@@ -189,6 +244,10 @@ const MapModule = (() => {
     highlightMarker,
     renderMarkers,
     setMarkerState,
+    setSearchMarkers,
+    clearSearchMarkers,
+    getViewport,
+    panTo,
     openInfoWindow,
     focusRestaurant,
     saveCamera,

@@ -33,7 +33,8 @@ const UserData = (() => {
   // Activity sharing scope. Default (and legacy docs): visible to everyone.
   let audienceGlobal = true;
   let shareGroupIds = []; // when not global, the group ids I chose to share with
-  let visibleTo = []; // derived uids allowed to read my activity (the rules use this)
+  let visibleTo = []; // legacy: kept so older docs aren't broken by a rewrite
+  let following = []; // uids I follow — the source of my feed from now on
 
   let onChange = null; // called after async loads complete
   let saveTimer = null;
@@ -88,6 +89,7 @@ const UserData = (() => {
         Storage.getVisited().forEach((id) => mine.visited.add(id));
         await persistNow();
       }
+      DB.upsertProfile(uid, { displayName, photoURL }, token).catch(() => {});
       await reloadGroup();
       // visibleTo is derived from current group membership — recompute and
       // re-persist if the snapshot drifted (e.g. someone joined a shared group).
@@ -120,6 +122,7 @@ const UserData = (() => {
     audienceGlobal = true;
     shareGroupIds = [];
     visibleTo = [];
+    following = [];
     if (onChange) onChange();
   }
 
@@ -130,10 +133,14 @@ const UserData = (() => {
     }
     try {
       const token = await getToken();
-      const [users, groups] = await Promise.all([
-        DB.fetchAllUsers(token, uid),
+      const [followIds, groups] = await Promise.all([
+        DB.fetchFollowing(uid, token),
         DB.fetchMyGroups(uid, token)
       ]);
+      following = followIds;
+      // Everyone I follow, plus me. One read each — the rules can't validate a
+      // bulk query against a follow edge.
+      const users = await DB.fetchUsersByIds(followIds, token);
       allUsers = users;
       myGroups = groups;
       // Drop a stale active group (e.g. removed remotely).
@@ -311,7 +318,12 @@ const UserData = (() => {
     }
     if (!myGroups.some((x) => x.id === g.id)) myGroups.push(g);
     activeGroupId = g.id;
-    applyGroupFilter();
+    // A group is a shortcut for "these people": joining follows them all, so the
+    // feed keeps working in a follow-based world.
+    await Promise.all((g.members || [])
+      .filter((m) => m !== uid && !following.includes(m))
+      .map((m) => DB.followUser(uid, m, token).then(() => { following.push(m); }).catch(() => {})));
+    await reloadGroup();
     await persistNow();
     if (onChange) onChange();
     return g;
@@ -417,13 +429,33 @@ const UserData = (() => {
   function priorityBy(id) {
     return group.filter((g) => (g.priority || []).includes(id));
   }
+  // ---- following ----
+  function getFollowing() { return following.slice(); }
+  function isFollowing(targetUid) { return following.includes(targetUid); }
+  async function follow(targetUid) {
+    if (!cloud || !targetUid || targetUid === uid) return;
+    const token = await getToken();
+    await DB.followUser(uid, targetUid, token);
+    if (!following.includes(targetUid)) following.push(targetUid);
+    await reloadGroup();
+    if (onChange) onChange();
+  }
+  async function unfollow(targetUid) {
+    if (!cloud || !targetUid) return;
+    const token = await getToken();
+    await DB.unfollowUser(uid, targetUid, token);
+    following = following.filter((u) => u !== targetUid);
+    await reloadGroup();
+    if (onChange) onChange();
+  }
+
   // SEC-001: may I see this user's content? True for myself or anyone in my full
   // visible set (allUsers already respects the audience rules) — not just the
   // active group view, so a group filter doesn't wrongly hide visible friends.
   function canSeeUser(targetUid) {
     if (!cloud || !targetUid) return false;
     if (targetUid === uid) return true;
-    return allUsers.some((u) => u.uid === targetUid);
+    return following.includes(targetUid);
   }
   // Ratings from the group (incl. me) for this restaurant.
   function ratingsFor(id) {
@@ -484,6 +516,10 @@ const UserData = (() => {
     getSharing,
     setSharing,
     leaveGroup,
-    canSeeUser
+    canSeeUser,
+    getFollowing,
+    isFollowing,
+    follow,
+    unfollow
   };
 })();

@@ -86,6 +86,8 @@ const DB = (() => {
       region: region || inferredRegion || "Portugal",
       country: country || "Portugal",
       category: f.category || "tradicional",
+      cuisine: f.cuisine || "",
+      styles: Array.isArray(f.styles) ? f.styles : [],
       lat: f.lat,
       lng: f.lng,
       notes: f.notes || "",
@@ -123,6 +125,8 @@ const DB = (() => {
       region: encodeValue(restaurant.region),
       country: encodeValue(restaurant.country || "Portugal"),
       category: encodeValue(restaurant.category),
+      cuisine: encodeValue(restaurant.cuisine || ""),
+      styles: encodeValue(restaurant.styles || []),
       lat: encodeValue(restaurant.lat),
       lng: encodeValue(restaurant.lng),
       notes: encodeValue(restaurant.notes || ""),
@@ -166,6 +170,8 @@ const DB = (() => {
         const f = decodeFields(doc);
         const o = {};
         if (f.category) o.category = f.category;
+        if (f.cuisine) o.cuisine = f.cuisine;
+        if (Array.isArray(f.styles)) o.styles = f.styles;
         if (f.photoURL) o.photoURL = f.photoURL;
         if (typeof f.lat === "number" && typeof f.lng === "number") { o.lat = f.lat; o.lng = f.lng; }
         if (Object.keys(o).length) map[id] = o;
@@ -206,6 +212,21 @@ const DB = (() => {
     return true;
   }
   function setPhotoOverride(id, url) { return patchOverride(id, "photoURL", url); }
+  // Cuisine + styles travel together (the restaurants collection is read-only).
+  async function setAxesOverride(id, cuisine, styles) {
+    if (!ready) throw new Error("Cloud database not configured.");
+    const fields = {
+      cuisine: encodeValue(cuisine || ""),
+      styles: encodeValue(styles || []),
+      updatedAt: { timestampValue: new Date().toISOString() }
+    };
+    const mask = "updateMask.fieldPaths=cuisine&updateMask.fieldPaths=styles&updateMask.fieldPaths=updatedAt";
+    const res = await fetch(`${docsBase}/overrides/${encodeURIComponent(id)}?${mask}&${keyQ()}`, {
+      method: "PATCH", headers: authHeaders(), body: JSON.stringify({ fields })
+    });
+    if (!res.ok) throw new Error(`Could not save (${res.status}).`);
+    return true;
+  }
 
   // ---- Per-user data (userData/{uid}) ----
   // Stored shape: { displayName, photoURL, visited:[id], priority:[id],
@@ -306,6 +327,89 @@ const DB = (() => {
     const byUid = new Map();
     parts.flat().forEach((u) => { if (u && u.uid) byUid.set(u.uid, u); });
     return [...byUid.values()];
+  }
+
+  // ---- Follows + public profiles ----
+  // Reading someone's activity is gated on a follow edge, and rules can't run
+  // exists() inside a query — so people you follow are read one doc at a time.
+  function followId(followerUid, targetUid) { return `${followerUid}_${targetUid}`; }
+
+  async function followUser(followerUid, targetUid, token) {
+    if (!ready) throw new Error("Cloud database not configured.");
+    const fields = encodeFields({ followerUid, targetUid, createdAt: new Date().toISOString() });
+    const res = await fetch(`${docsBase}/follows/${encodeURIComponent(followId(followerUid, targetUid))}?${keyQ()}`, {
+      method: "PATCH", headers: authHeaders(token), body: JSON.stringify({ fields })
+    });
+    if (!res.ok) throw new Error(`Could not follow (${res.status}).`);
+    return true;
+  }
+  async function unfollowUser(followerUid, targetUid, token) {
+    if (!ready) throw new Error("Cloud database not configured.");
+    const res = await fetch(`${docsBase}/follows/${encodeURIComponent(followId(followerUid, targetUid))}?${keyQ()}`, {
+      method: "DELETE", headers: authHeaders(token)
+    });
+    if (!res.ok && res.status !== 404) throw new Error(`Could not unfollow (${res.status}).`);
+    return true;
+  }
+  async function queryFollows(field, uid, token) {
+    if (!ready || !uid) return [];
+    try {
+      const body = { structuredQuery: {
+        from: [{ collectionId: "follows" }],
+        where: { fieldFilter: { field: { fieldPath: field }, op: "EQUAL", value: { stringValue: uid } } },
+        limit: 500
+      } };
+      const res = await fetch(`${docsBase}:runQuery?${keyQ()}`, {
+        method: "POST", headers: authHeaders(token), body: JSON.stringify(body)
+      });
+      if (!res.ok) return [];
+      const rows = await res.json();
+      return (rows || []).filter((r) => r.document).map((r) => decodeFields(r.document));
+    } catch (e) { return []; }
+  }
+  const fetchFollowing = (uid, token) => queryFollows("followerUid", uid, token).then((l) => l.map((f) => f.targetUid).filter(Boolean));
+  const fetchFollowers = (uid, token) => queryFollows("targetUid", uid, token).then((l) => l.map((f) => f.followerUid).filter(Boolean));
+
+  // One `get` per person — allowed by the rules, and cheap for a follow list.
+  async function fetchUsersByIds(uids, token) {
+    if (!ready || !uids || !uids.length) return [];
+    const out = await Promise.all(uids.map(async (uid) => {
+      try {
+        const res = await fetch(`${docsBase}/userData/${encodeURIComponent(uid)}?${keyQ()}`, { headers: authHeaders(token) });
+        if (!res.ok) return null; // not followed / no doc yet
+        return decodeUserDoc(await res.json());
+      } catch (e) { return null; }
+    }));
+    return out.filter(Boolean);
+  }
+
+  function decodeProfile(doc) {
+    const f = decodeFields(doc);
+    return { uid: doc.name.split("/").pop(), displayName: f.displayName || "", photoURL: f.photoURL || "" };
+  }
+  async function upsertProfile(uid, profile, token) {
+    if (!ready) return false;
+    const fields = encodeFields({
+      displayName: profile.displayName || "", photoURL: profile.photoURL || "",
+      updatedAt: new Date().toISOString()
+    });
+    const res = await fetch(`${docsBase}/profiles/${encodeURIComponent(uid)}?${keyQ()}`, {
+      method: "PATCH", headers: authHeaders(token), body: JSON.stringify({ fields })
+    });
+    return res.ok;
+  }
+  // Small user base: fetch the page and filter client-side (Firestore has no
+  // substring search).
+  async function searchProfiles(term, token) {
+    if (!ready) return [];
+    try {
+      const res = await fetch(`${docsBase}/profiles?${keyQ()}&pageSize=300`, { headers: authHeaders(token) });
+      if (!res.ok) return [];
+      const data = await res.json();
+      const all = (data.documents || []).map(decodeProfile);
+      const q = String(term || "").trim().toLowerCase();
+      return q ? all.filter((p) => (p.displayName || "").toLowerCase().includes(q)) : all;
+    } catch (e) { return []; }
   }
 
   // ---- Joint-visit invites (visitInvites/{autoId}) ----
@@ -720,9 +824,17 @@ const DB = (() => {
     setOverride,
     setPhotoOverride,
     setGeoOverride,
+    setAxesOverride,
     fetchUserDoc,
     saveUserDoc,
     fetchAllUsers,
+    followUser,
+    unfollowUser,
+    fetchFollowing,
+    fetchFollowers,
+    fetchUsersByIds,
+    upsertProfile,
+    searchProfiles,
     createVisitInvite,
     fetchVisitInvites,
     respondVisitInvite,

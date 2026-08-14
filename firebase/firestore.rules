@@ -25,13 +25,35 @@ service cloud.firestore {
     // with specific people you've added to `visibleTo` (the members of the groups
     // you chose to share with). Queries must be constrained to match this.
     match /userData/{uid} {
-      allow read: if request.auth != null && (
+      // Your activity is visible to you and to whoever follows you. `exists()`
+      // cannot run inside a query, so bulk listing is off: the client reads the
+      // docs of the people it follows one by one.
+      allow get: if request.auth != null && (
         request.auth.uid == uid
-        || !('audienceGlobal' in resource.data)
-        || resource.data.audienceGlobal == true
-        || ('visibleTo' in resource.data && request.auth.uid in resource.data.visibleTo)
+        || exists(/databases/$(database)/documents/follows/$(request.auth.uid + '_' + uid))
       );
+      allow list: if false;
       allow write: if request.auth != null && request.auth.uid == uid;
+      // ROLLBACK (pre-follow model): replace the two rules above with
+      // allow read: if request.auth != null && (request.auth.uid == uid
+      //   || !('audienceGlobal' in resource.data) || resource.data.audienceGlobal == true
+      //   || ('visibleTo' in resource.data && request.auth.uid in resource.data.visibleTo));
+    }
+    // Public identity, so people can be found and followed without exposing any
+    // activity. Deliberately minimal: name + photo.
+    match /profiles/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    // follows/{followerUid}_{targetUid} — deterministic id, so following and
+    // unfollowing are idempotent and need no queries to check.
+    match /follows/{edge} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.followerUid == request.auth.uid
+                    && edge == request.auth.uid + '_' + request.resource.data.targetUid;
+      allow delete: if request.auth != null && resource.data.followerUid == request.auth.uid;
+      allow update: if false;
     }
     // Shared comments per restaurant. Anyone can read; only signed-in users
     // can post, and only the author can edit or delete their own.

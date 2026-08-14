@@ -3,12 +3,57 @@
 // signed in) per-person priority/ratings/notes/history, the group view and
 // shared comments.
 
-const CATEGORIES = {
-  tradicional: { label: "Tradicional", varName: "--c-tradicional", hex: "#b06a36" },
-  petiscos: { label: "Petiscos", varName: "--c-petiscos", hex: "#c14b34" },
-  pastelaria: { label: "Doces", varName: "--c-pastelaria", hex: "#c25b86" },
-  "fine-dining": { label: "Fine Dining", varName: "--c-fine-dining", hex: "#5d7b4a" }
+// Two independent axes. CUISINE is what people crave ("apetece-me japonês") and
+// drives the pin colour; STYLE is the format/occasion and can stack.
+const CUISINES = {
+  portuguesa:    { label: "Portuguesa",   varName: "--c-portuguesa",    hex: "#b06a36" },
+  mariscos:      { label: "Mariscos",     varName: "--c-mariscos",      hex: "#3f7d8c" },
+  churrasco:     { label: "Churrasco",    varName: "--c-churrasco",     hex: "#a33f2c" },
+  italiana:      { label: "Italiana",     varName: "--c-italiana",      hex: "#5d7b4a" },
+  japonesa:      { label: "Japonesa",     varName: "--c-japonesa",      hex: "#8c4a6b" },
+  asiatica:      { label: "Asiática",     varName: "--c-asiatica",      hex: "#c07a1f" },
+  indiana:       { label: "Indiana",      varName: "--c-indiana",       hex: "#9c5518" },
+  americana:     { label: "Americana",    varName: "--c-americana",     hex: "#6b5642" },
+  mexicana:      { label: "Mexicana",     varName: "--c-mexicana",      hex: "#c14b34" },
+  mediterranica: { label: "Mediterrânica",varName: "--c-mediterranica", hex: "#4e8b6b" },
+  vegetariana:   { label: "Vegetariana",  varName: "--c-vegetariana",   hex: "#6b8f3a" },
+  doces:         { label: "Doces",        varName: "--c-doces",         hex: "#c25b86" },
+  cafe:          { label: "Café & Brunch",varName: "--c-cafe",          hex: "#8a6f4e" }
 };
+const STYLES = {
+  tasca: { label: "Tasca" },
+  petiscos: { label: "Petiscos" },
+  "fine-dining": { label: "Fine dining" },
+  casual: { label: "Casual" },
+  takeaway: { label: "Take-away" }
+};
+// Old single-field values map onto the new axes (kept for docs written before the
+// split, and for clients still running the previous build).
+const LEGACY_CATEGORY = {
+  tradicional: { cuisine: "portuguesa", styles: ["tasca"] },
+  petiscos: { cuisine: "portuguesa", styles: ["petiscos"] },
+  pastelaria: { cuisine: "doces", styles: [] },
+  "fine-dining": { cuisine: "portuguesa", styles: ["fine-dining"] }
+};
+// A restaurant always answers both axes, whatever shape its document is in.
+function cuisineOf(r) {
+  if (r && r.cuisine && CUISINES[r.cuisine]) return r.cuisine;
+  const legacy = r && LEGACY_CATEGORY[r.category];
+  return legacy ? legacy.cuisine : "portuguesa";
+}
+function stylesOf(r) {
+  if (r && Array.isArray(r.styles) && r.styles.length) return r.styles.filter((k) => STYLES[k]);
+  const legacy = r && LEGACY_CATEGORY[r.category];
+  return legacy ? legacy.styles : [];
+}
+// Legacy field kept in sync so an older client still shows something sane.
+function legacyCategoryFor(cuisine, styles) {
+  const st = styles || [];
+  if (cuisine === "doces" || cuisine === "cafe") return "pastelaria";
+  if (st.includes("fine-dining")) return "fine-dining";
+  if (st.includes("petiscos")) return "petiscos";
+  return "tradicional";
+}
 
 const App = (() => {
   const state = { restaurants: [], currentDetail: null, currentScreen: "mapa", criticasView: "mine", criticasSort: "recent", amigosTab: "atividade", amigosFilter: "all" };
@@ -22,7 +67,10 @@ const App = (() => {
     return `<svg class="icon${cls ? " " + cls : ""}"><use href="#i-${name}"/></svg>`;
   }
   function catFor(r) {
-    return CATEGORIES[r.category] || { label: r.category, varName: "--text-muted", hex: "#888" };
+    return CUISINES[cuisineOf(r)] || { label: "Outros", varName: "--text-muted", hex: "#888" };
+  }
+  function styleLabels(r) {
+    return stylesOf(r).map((k) => (STYLES[k] || {}).label).filter(Boolean);
   }
   function hasGooglePhone(r) {
     const cached = Storage.getCachedPlace(r.id);
@@ -52,6 +100,20 @@ const App = (() => {
     if (isNaN(d)) return "";
     return d.toLocaleDateString("pt-PT", { day: "2-digit", month: "short", year: "numeric" });
   }
+  // Today as YYYY-MM-DD in LOCAL time (toISOString would roll over near midnight).
+  function todayLocalISODate() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+  // A date-only input becomes an ISO stamp at LOCAL NOON, so the day can't drift
+  // across timezones when it's read back.
+  function isoFromDateInput(value) {
+    if (!value) return new Date().toISOString();
+    const [y, m, d] = value.split("-").map(Number);
+    if (!y || !m || !d) return new Date().toISOString();
+    return new Date(y, m - 1, d, 12, 0, 0).toISOString();
+  }
+
   // Date + time of day (for the friends activity feed).
   function fmtDateTime(iso) {
     if (!iso) return "";
@@ -64,24 +126,53 @@ const App = (() => {
 
   // Suggest one of our categories from Google place types + price level.
   // Returns null when there isn't enough signal to suggest anything.
-  function suggestCategory(types, priceLevelNum) {
+  // Google's types are coarse, so this is only a first guess — the AI `categorize`
+  // action refines it, and the person can always correct both axes by hand.
+  function suggestAxes(types, priceLevelNum) {
     const t = types || [];
     const has = (x) => t.includes(x);
-    if (has("bakery")) return "pastelaria";
-    if (has("bar") || has("meal_takeaway") || has("meal_delivery")) return "petiscos";
-    if (has("cafe") && !has("restaurant")) return "pastelaria";
-    if (has("restaurant") || has("food")) {
-      if (typeof priceLevelNum === "number" && priceLevelNum >= 4) return "fine-dining";
-      return "tradicional";
-    }
-    return null;
+    const styles = [];
+    let cuisine = null;
+    if (has("bakery")) cuisine = "doces";
+    else if (has("cafe") && !has("restaurant")) cuisine = "cafe";
+    if (has("meal_takeaway") || has("meal_delivery")) styles.push("takeaway");
+    if (has("bar")) styles.push("petiscos");
+    if (typeof priceLevelNum === "number" && priceLevelNum >= 4) styles.push("fine-dining");
+    if (!cuisine && (has("restaurant") || has("food"))) cuisine = "portuguesa";
+    if (!cuisine && !styles.length) return null;
+    return { cuisine: cuisine || "portuguesa", styles };
+  }
+  function suggestCategory(types, priceLevelNum) {
+    const axes = suggestAxes(types, priceLevelNum);
+    return axes ? legacyCategoryFor(axes.cuisine, axes.styles) : null;
   }
 
   // ---------- Filters ----------
+  function buildStyleFilters() {
+    const wrap = document.getElementById("style-filters");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    Object.entries(STYLES).forEach(([key, st]) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.dataset.style = key;
+      chip.setAttribute("aria-pressed", "false"); // styles narrow down; off by default
+      chip.textContent = st.label;
+      chip.addEventListener("click", () => {
+        chip.setAttribute("aria-pressed", chip.getAttribute("aria-pressed") === "true" ? "false" : "true");
+        render();
+      });
+      wrap.appendChild(chip);
+    });
+  }
+  function selectedStyles() {
+    return [...document.querySelectorAll('#style-filters .chip[aria-pressed="true"]')].map((c) => c.dataset.style);
+  }
   function buildCategoryFilters() {
     const wrap = document.getElementById("category-filters");
     wrap.innerHTML = "";
-    Object.entries(CATEGORIES).forEach(([key, cat]) => {
+    Object.entries(CUISINES).forEach(([key, cat]) => {
       const chip = document.createElement("button");
       chip.className = "chip";
       chip.type = "button";
@@ -127,13 +218,18 @@ const App = (() => {
 
   function getFiltered() {
     const cats = selectedCategories();
+    const styles = selectedStyles();
     const regions = selectedRegions();
     const prices = selectedPrices();
     const q = document.getElementById("search-input").value.trim().toLowerCase();
     const hideVisited = document.getElementById("hide-visited-checkbox").checked;
     const onlyPriority = document.getElementById("only-priority-checkbox").checked;
     return state.restaurants.filter((r) => {
-      if (!cats.includes(r.category)) return false;
+      if (!cats.includes(cuisineOf(r))) return false;
+      if (styles.length) {
+        const rs = stylesOf(r);
+        if (!styles.every((k) => rs.includes(k))) return false; // all chosen styles must hold
+      }
       if (onlyPriority && !UserData.isPriority(r.id)) return false;
       if (regions.length && !regions.includes(r.region)) return false;
       // Price comes from Google (cached). Unknown price always passes; filter
@@ -242,6 +338,8 @@ const App = (() => {
     if (!ov) return;
     if (typeof ov === "string") { r.category = ov; return; }
     if (ov.category) r.category = ov.category;
+    if (ov.cuisine) r.cuisine = ov.cuisine;
+    if (Array.isArray(ov.styles) && ov.styles.length) r.styles = ov.styles;
     if (ov.photoURL) r.photoURL = ov.photoURL;
     if (typeof ov.lat === "number" && typeof ov.lng === "number") { r.lat = ov.lat; r.lng = ov.lng; }
   }
@@ -252,7 +350,7 @@ const App = (() => {
     const card = document.createElement("div");
     card.className = "card rcard" + (visited ? " visited" : "");
     card.dataset.id = r.id;
-    card.dataset.cat = r.category;
+    card.dataset.cat = cuisineOf(r);
 
     // group/personal badges
     const badges = [];
@@ -269,7 +367,8 @@ const App = (() => {
         ${icon("check")}
       </button>
       <div class="rcard-body">
-        <span class="rcard-cat" style="color:var(${cat.varName}-ink)">${esc(cat.label)}</span>
+        <span class="rcard-cat" style="color:var(${cat.varName}-ink)">${esc(cat.label)}${
+          styleLabels(r).length ? ` · ${esc(styleLabels(r).join(" · "))}` : ""}</span>
         <span class="rcard-name">${esc(r.name)}</span>
         <span class="rcard-loc">${icon("pin")} ${esc(r.town)} · ${esc(r.region)}</span>
         ${r.notes ? `<div class="rcard-notes">${esc(r.notes)}</div>` : ""}
@@ -311,7 +410,7 @@ const App = (() => {
     const r = state.restaurants.find((x) => x.id === id);
     if (document.getElementById("hide-visited-checkbox").checked) { render(); return; }
     // Keep the wishlist badge — the pin encodes both marks now.
-    if (r) MapModule.setMarkerState(id, r.category, { visited, priority: UserData.isPriority(id) });
+    if (r) MapModule.setMarkerState(id, cuisineOf(r), { visited, priority: UserData.isPriority(id) });
     const card = document.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
     if (card) {
       card.classList.toggle("visited", visited);
@@ -406,9 +505,11 @@ const App = (() => {
           <div data-hours></div>
           <div data-reviews></div>
           <div class="cat-edit">
-            <span class="detail-section-title">Tipo de sítio${DB.isAvailable() ? "" : " (só neste navegador)"}</span>
+            <span class="detail-section-title">Cozinha${DB.isAvailable() ? "" : " (só neste navegador)"}</span>
             <div class="chip-row" data-cat-edit></div>
             <div class="cat-suggest" data-cat-suggest hidden></div>
+            <span class="detail-section-title">Estilo</span>
+            <div class="chip-row" data-style-edit></div>
           </div>
           ${canDeleteRestaurant(r) ? `<button class="btn btn-ghost btn-block btn-danger" data-delete-restaurant>${icon("x")} Remover restaurante</button>` : ""}
         </div>
@@ -459,12 +560,32 @@ const App = (() => {
     if (delBtn) delBtn.addEventListener("click", () => removeRestaurant(r));
 
     const catEdit = body.querySelector("[data-cat-edit]");
-    Object.entries(CATEGORIES).forEach(([key, c]) => {
+    const styleEdit = body.querySelector("[data-style-edit]");
+    if (styleEdit) {
+      styleEdit.innerHTML = "";
+      Object.entries(STYLES).forEach(([key, st]) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip";
+        chip.dataset.styleKey = key;
+        chip.textContent = st.label;
+        chip.setAttribute("aria-pressed", String(stylesOf(r).includes(key)));
+        chip.addEventListener("click", () => {
+          const on = chip.getAttribute("aria-pressed") !== "true";
+          chip.setAttribute("aria-pressed", String(on));
+          const next = new Set(stylesOf(r));
+          if (on) next.add(key); else next.delete(key);
+          setStyles(r, [...next]);
+        });
+        styleEdit.appendChild(chip);
+      });
+    }
+    Object.entries(CUISINES).forEach(([key, c]) => {
       const chip = document.createElement("button");
       chip.type = "button";
       chip.className = "chip";
       chip.dataset.cat = key;
-      chip.setAttribute("aria-pressed", String(key === r.category));
+      chip.setAttribute("aria-pressed", String(key === cuisineOf(r)));
       chip.innerHTML = `${dot(c)} ${c.label}`;
       chip.addEventListener("click", () => changeCategory(r, key));
       catEdit.appendChild(chip);
@@ -586,7 +707,11 @@ const App = (() => {
       </div>
       <div class="visit-history">
         ${companionPickerHtml()}
-        <button class="btn btn-primary btn-block" data-add-visit${hasStars ? "" : " disabled"}>${icon("check-circle")} Marcar visita de hoje</button>
+        <div class="visit-when">
+          <span class="rate-label">Quando fui</span>
+          <input type="date" class="note-input visit-date" data-visit-date value="${todayLocalISODate()}" max="${todayLocalISODate()}" />
+        </div>
+        <button class="btn btn-primary btn-block" data-add-visit${hasStars ? "" : " disabled"}>${icon("check-circle")} Registar visita</button>
         ${hasStars ? "" : `<span class="muted exp-hint">Dá a tua nota para registar a experiência.</span>`}
         <div class="visit-list" data-visit-list>${visitListHtml(r)}</div>
       </div>`;
@@ -630,7 +755,8 @@ const App = (() => {
       if (submitBtn) submitBtn.addEventListener("click", () => {
         if (!((UserData.getRating(r.id) || {}).stars)) return; // gated on a rating
         const withUids = selectedCompanions(tail);
-        const iso = new Date().toISOString();
+        const dateEl = tail.querySelector("[data-visit-date]");
+        const iso = isoFromDateInput(dateEl && dateEl.value);
         UserData.addVisit(r.id, iso, withUids);
         setVisited(r.id, true);
         // Each tagged friend gets an invite; only they can write their own logbook.
@@ -973,11 +1099,19 @@ const App = (() => {
 
   // Change a restaurant's category and persist it — shared via Firebase when
   // configured, otherwise saved in this browser.
+  function setStyles(r, styles) {
+    r.styles = styles;
+    r.category = legacyCategoryFor(cuisineOf(r), styles); // keep old clients sane
+    if (DB.isAvailable()) DB.setAxesOverride(r.id, cuisineOf(r), styles).catch(() => {});
+    render();
+    highlightCard(r.id);
+  }
   function changeCategory(r, key) {
-    if (r.category === key) return;
-    r.category = key;
-    Storage.setOverride(r.id, key);
-    if (DB.isAvailable()) DB.setOverride(r.id, key).catch(() => {});
+    if (cuisineOf(r) === key) return;
+    r.cuisine = key;
+    r.category = legacyCategoryFor(key, stylesOf(r));
+    Storage.setOverride(r.id, r.category);
+    if (DB.isAvailable()) DB.setAxesOverride(r.id, key, stylesOf(r)).catch(() => {});
 
     render();
     highlightCard(r.id);
@@ -1045,16 +1179,16 @@ const App = (() => {
       actions.insertBefore(w, actions.querySelector("[data-share]"));
     }
 
-    // category suggestion from Google types/price
-    const sug = suggestCategory(data.types, data.priceLevelNum);
+    // cuisine suggestion from Google types/price
+    const sug = suggestAxes(data.types, data.priceLevelNum);
     const sugEl = body.querySelector("[data-cat-suggest]");
-    if (sugEl && sug && sug !== r.category && CATEGORIES[sug]) {
+    if (sugEl && sug && sug.cuisine !== cuisineOf(r) && CUISINES[sug.cuisine]) {
       sugEl.hidden = false;
       sugEl.innerHTML =
-        `<span class="hint">Sugestão do Google: <strong>${esc(CATEGORIES[sug].label)}</strong></span> ` +
+        `<span class="hint">Sugestão do Google: <strong>${esc(CUISINES[sug.cuisine].label)}</strong></span> ` +
         `<button type="button" class="linklike" data-apply-sug>Aplicar</button>`;
       sugEl.querySelector("[data-apply-sug]").addEventListener("click", () => {
-        changeCategory(r, sug);
+        changeCategory(r, sug.cuisine);
         sugEl.hidden = true;
       });
     }
@@ -1450,6 +1584,115 @@ const App = (() => {
     }
   }
 
+  // ---------- Map search: explore without committing ----------
+  // Results are temporary pins + a preview sheet. Nothing is saved unless you tap
+  // "Wishlist"/"Logbook"; closing the search wipes the pins.
+  let mapSearchResults = [];
+  function openMapSearch() {
+    const box = document.getElementById("map-search");
+    if (!box) return;
+    box.classList.remove("hidden");
+    const input = document.getElementById("map-search-input");
+    if (input) input.focus();
+  }
+  function closeMapSearch() {
+    const box = document.getElementById("map-search");
+    if (box) box.classList.add("hidden");
+    const res = document.getElementById("map-search-results");
+    if (res) res.innerHTML = "";
+    mapSearchResults = [];
+    MapModule.clearSearchMarkers(); // nothing lingers on the map
+  }
+  async function runMapSearch() {
+    const input = document.getElementById("map-search-input");
+    const res = document.getElementById("map-search-results");
+    if (!input || !res) return;
+    const q = input.value.trim();
+    if (!q) { input.focus(); return; }
+    if (!PlacesModule.isAvailable()) {
+      res.innerHTML = `<p class="muted ai-hint">O mapa do Google tem de estar ativo para procurar.</p>`;
+      return;
+    }
+    res.innerHTML = `<div class="ai-loading"><span class="ai-spinner"></span> A procurar nesta área…</div>`;
+    const vp = MapModule.getViewport();
+    let places = [];
+    try {
+      places = await PlacesModule.textSearch(q, {
+        location: vp ? { lat: vp.lat, lng: vp.lng } : null,
+        radiusKm: vp ? vp.radiusKm : 10,
+        limit: 12
+      });
+    } catch (e) { places = []; }
+    // Mark the ones already on your list instead of hiding them — knowing it's
+    // already yours is useful while exploring.
+    const known = new Set(state.restaurants.map((r) => normName(r.name)));
+    places.forEach((p) => { p.known = known.has(normName(p.name)); });
+    mapSearchResults = places;
+    if (!places.length) {
+      res.innerHTML = `<p class="muted ai-hint">Nada encontrado nesta área. Arrasta o mapa ou tenta outro termo.</p>`;
+      MapModule.clearSearchMarkers();
+      return;
+    }
+    MapModule.setSearchMarkers(places, (p) => {
+      const idx = mapSearchResults.indexOf(p);
+      if (idx >= 0) toggleMapResultPreview(idx);
+    });
+    res.innerHTML = places.map((p, i) => mapResultHtml(p, i)).join("");
+    res.querySelectorAll("[data-map-result]").forEach((el) =>
+      el.addEventListener("click", () => toggleMapResultPreview(parseInt(el.dataset.mapResult, 10))));
+  }
+  function mapResultHtml(p, i) {
+    const meta = [];
+    if (p.rating) meta.push(`${icon("star")} ${p.rating.toFixed(1)} (${p.userRatingsTotal})`);
+    if (p.priceLevel) meta.push(p.priceLevel);
+    return `<div class="map-result" data-map-result-item="${i}">
+      <button type="button" class="map-result-main" data-map-result="${i}">
+        <span class="map-result-name">${esc(p.name)}${p.known ? ` <span class="badge">na tua lista</span>` : ""}</span>
+        <span class="ai-discover-loc">${esc(townFromAddress(p.address))}</span>
+        ${meta.length ? `<span class="ai-discover-meta">${meta.join(" · ")}</span>` : ""}
+      </button>
+      <div class="discover-preview" data-map-host="${i}" hidden></div>
+    </div>`;
+  }
+  async function toggleMapResultPreview(i) {
+    const res = document.getElementById("map-search-results");
+    const host = res && res.querySelector(`[data-map-host="${i}"]`);
+    const p = mapSearchResults[i];
+    if (!host || !p) return;
+    const wasOpen = !host.hidden;
+    res.querySelectorAll(".discover-preview").forEach((h) => { h.hidden = true; });
+    if (wasOpen) return;
+    host.hidden = false;
+    MapModule.panTo(p.lat, p.lng);
+    host.innerHTML = `<div class="ai-loading"><span class="ai-spinner"></span> A espreitar…</div>`;
+    let d = null;
+    try { d = p.placeId ? await PlacesModule.detailsByPlaceId(p.placeId) : null; } catch (e) { d = null; }
+    if (host.hidden) return;
+    const bits = [];
+    if (d && typeof d.rating === "number") bits.push(`${icon("star")} ${d.rating.toFixed(1)} (${d.userRatingsTotal || 0})`);
+    if (d && d.priceLevel) bits.push(esc(d.priceLevel));
+    if (d && typeof d.openNow === "boolean") bits.push(`<span class="open-now ${d.openNow ? "open" : "closed"}">${d.openNow ? "Aberto agora" : "Fechado agora"}</span>`);
+    const todayIdx = (new Date().getDay() + 6) % 7;
+    const today = d && d.weekdayText && d.weekdayText[todayIdx] ? d.weekdayText[todayIdx] : "";
+    host.innerHTML = `
+      ${d && d.photos && d.photos[0] ? `<div class="discover-photo"><div class="ph" data-label="foto"></div></div>` : ""}
+      ${bits.length ? `<div class="ai-discover-meta">${bits.join(" · ")}</div>` : ""}
+      ${d && d.address ? `<div class="discover-addr">${icon("pin")} ${esc(d.address)}</div>` : ""}
+      ${today ? `<div class="discover-hours">${icon("clock")} ${esc(today)}</div>` : ""}
+      <div class="discover-preview-actions">
+        ${d && d.googleUrl ? `<a class="btn btn-ghost btn-sm" href="${esc(d.googleUrl)}" target="_blank" rel="noopener">${icon("external")} Google</a>` : ""}
+        ${p.known ? `<span class="muted ai-hint">Já está na tua lista.</span>` : `
+          <button class="btn btn-ghost btn-sm" data-map-add-log="${i}">${icon("check-circle")} Logbook</button>
+          <button class="btn btn-primary btn-sm" data-map-add-wish="${i}">${icon("flame")} Wishlist</button>`}
+      </div>`;
+    const ph = host.querySelector(".ph");
+    if (ph && d && d.photos && d.photos[0]) setThumbPhoto(ph, d.photos[0]);
+    const wish = host.querySelector("[data-map-add-wish]");
+    if (wish) wish.addEventListener("click", () => addDiscoveredPlace(p, wish));
+    const log = host.querySelector("[data-map-add-log]");
+    if (log) log.addEventListener("click", () => addDiscoveredPlace(p, log, { tab: "mem", priority: false }));
+  }
+
   // ---------- Cover chooser (the "Mudar foto" button on the hero) ----------
   function hideCoverModal() { document.getElementById("cover-modal").classList.add("hidden"); }
   async function openCoverModal() {
@@ -1556,7 +1799,7 @@ const App = (() => {
   function aiCatalog(near) {
     return state.restaurants.map((r) => {
       const rt = UserData.getRating(r.id) || {};
-      const e = { id: r.id, name: r.name, town: r.town, region: r.region, cat: r.category };
+      const e = { id: r.id, name: r.name, town: r.town, region: r.region, cuisine: cuisineOf(r), styles: stylesOf(r) };
       if (r.notes) e.specialty = r.notes;
       if (UserData.isVisited(r.id)) e.visited = true;
       if (UserData.isPriority(r.id)) e.priority = true;
@@ -2007,7 +2250,7 @@ const App = (() => {
   }
 
   // Add a discovered Google place to the (shared) list as a wishlist entry.
-  async function addDiscoveredPlace(p, btn) {
+  async function addDiscoveredPlace(p, btn, opts) {
     if (!p) return;
     if (!UserData.isCloud()) { showSigninModal(); return; }
     if (btn) { btn.disabled = true; btn.innerHTML = "A adicionar…"; }
@@ -2040,7 +2283,12 @@ const App = (() => {
       } else {
         Storage.addCustomRestaurant(restaurant);
       }
-      onRestaurantAdded(saved, { priority: true, silent: true });
+      const o = opts || {};
+      onRestaurantAdded(saved, {
+        priority: o.priority !== false,
+        silent: o.tab ? false : true,
+        tab: o.tab
+      });
       if (btn) { btn.innerHTML = `${icon("check")} Na tua wishlist`; btn.classList.add("added"); }
     } catch (e) {
       if (btn) { btn.disabled = false; btn.innerHTML = `${icon("plus")} Adicionar`; }
@@ -2244,6 +2492,9 @@ const App = (() => {
       ${active
         ? `<div class="groupbar-code">Convida amigos com o código <strong data-group-code>${esc(active.code)}</strong> <button class="linklike" data-copy-code>copiar</button> · <button class="linklike" data-leave-group="${esc(active.id)}">sair do grupo</button></div>`
         : `<div class="groupbar-hint muted">A ver toda a gente. Cria um grupo ou entra com um código para filtrares por amigos.</div>`}
+      <div class="groupbar-actions">
+        <button class="btn btn-ghost btn-sm" data-people-open>${icon("users")} Descobrir pessoas</button>
+      </div>
       <div class="groupbar-share">
         <span class="groupbar-label">${icon("sliders")} Quem vê a minha atividade</span>
         <label class="switch-chip"><input type="checkbox" data-share-global ${sharing.global ? "checked" : ""}> <span>Toda a gente</span></label>
@@ -2266,6 +2517,8 @@ const App = (() => {
       if (!confirm(`Sair de "${active.name}"? Deixas de ver a atividade do grupo.`)) return;
       UserData.leaveGroup(leave.dataset.leaveGroup).catch((e) => alert(e.message || "Não consegui sair."));
     });
+    const peopleBtn = el.querySelector("[data-people-open]");
+    if (peopleBtn) peopleBtn.addEventListener("click", openPeopleModal);
     const globalToggle = el.querySelector("[data-share-global]");
     if (globalToggle) globalToggle.addEventListener("change", () => {
       if (globalToggle.checked) UserData.setSharing({ global: true });
@@ -2602,8 +2855,56 @@ const App = (() => {
     }
   }
 
+  // ----- People: find and follow (the feed is built from who you follow) -----
+  function hidePeopleModal() { document.getElementById("people-modal").classList.add("hidden"); }
+  async function openPeopleModal() {
+    if (!UserData.isCloud()) { showSigninModal(); return; }
+    const m = document.getElementById("people-modal");
+    m.classList.remove("hidden");
+    const input = m.querySelector("[data-people-search]");
+    if (input) input.focus();
+    renderPeople(input ? input.value : "");
+  }
+  async function renderPeople(term) {
+    const list = document.getElementById("people-list");
+    if (!list) return;
+    list.innerHTML = `<div class="skeleton" style="height:56px"></div>`;
+    const me = UserData.me();
+    let people = [];
+    try {
+      const token = window.FirebaseAuth ? await window.FirebaseAuth.getToken() : null;
+      people = (await DB.searchProfiles(term, token)).filter((p) => p.uid !== me.uid);
+    } catch (e) { people = []; }
+    if (!people.length) {
+      list.innerHTML = `<p class="muted ai-hint">Ninguém encontrado.</p>`;
+      return;
+    }
+    list.innerHTML = people.map((p) => {
+      const on = UserData.isFollowing(p.uid);
+      return `<div class="person-row">
+        ${avatar(p.displayName, p.photoURL)}
+        <span class="person-name">${esc(p.displayName || "Sem nome")}</span>
+        <button class="btn ${on ? "btn-ghost" : "btn-primary"} btn-sm" data-follow="${esc(p.uid)}" data-on="${on}">
+          ${on ? "A seguir" : "Seguir"}
+        </button>
+      </div>`;
+    }).join("");
+    list.querySelectorAll("[data-follow]").forEach((btn) =>
+      btn.addEventListener("click", async () => {
+        const target = btn.dataset.follow;
+        btn.disabled = true;
+        try {
+          if (btn.dataset.on === "true") await UserData.unfollow(target);
+          else await UserData.follow(target);
+          renderPeople(term);
+          renderAmigosScreen();
+        } catch (e) { btn.disabled = false; }
+      }));
+  }
+
   // ----- Joint visits: invites out, invites in -----
   let pendingInvites = [];
+  let inviteRefreshWired = false;
 
   async function sendVisitInvites(r, iso, toUids) {
     if (!DB.isAvailable() || !UserData.isCloud()) return;
@@ -2624,6 +2925,7 @@ const App = (() => {
       const all = await DB.fetchVisitInvites(UserData.me().uid, token);
       pendingInvites = all.filter((i) => i.status === "pending");
     } catch (e) { pendingInvites = []; }
+    paintInviteBadge();
     return pendingInvites;
   }
 
@@ -2656,9 +2958,26 @@ const App = (() => {
       }
       await DB.respondVisitInvite(id, accept ? "accepted" : "declined", token);
       pendingInvites = pendingInvites.filter((i) => i.id !== id);
+      paintInviteBadge();
       renderAmigosScreen();
       refreshOpenDetail();
     } catch (e) { /* leave it pending so it can be retried */ }
+  }
+
+  // Badge on the Amigos tab so pending shared visits are visible from anywhere.
+  function paintInviteBadge() {
+    const n = pendingInvites.length;
+    const tab = document.querySelector('#tabbar [data-tab-nav="amigos"]');
+    if (!tab) return;
+    let b = tab.querySelector(".tab-badge");
+    if (!n) { if (b) b.remove(); return; }
+    if (!b) {
+      b = document.createElement("span");
+      b.className = "tab-badge";
+      tab.appendChild(b);
+    }
+    b.textContent = n > 9 ? "9+" : String(n);
+    b.setAttribute("aria-label", `${n} por confirmar`);
   }
 
   function renderInvites(host) {
@@ -3041,6 +3360,30 @@ const App = (() => {
     if (vSh) vSh.addEventListener("click", () => sharePhoto(viewerUrl));
     const vCover = document.querySelector("[data-viewer-cover]");
     if (vCover) vCover.addEventListener("click", () => setRestaurantCover(viewerUrl));
+    document.querySelectorAll("[data-close-people]").forEach((el) => el.addEventListener("click", hidePeopleModal));
+    const peopleSearch = document.querySelector("#people-modal [data-people-search]");
+    if (peopleSearch) {
+      let t = null;
+      peopleSearch.addEventListener("input", () => {
+        clearTimeout(t);
+        t = setTimeout(() => renderPeople(peopleSearch.value), 250);
+      });
+    }
+
+    const mapSearchBtn = document.getElementById("map-search-btn");
+    if (mapSearchBtn) mapSearchBtn.addEventListener("click", () => {
+      const box = document.getElementById("map-search");
+      if (box && !box.classList.contains("hidden")) closeMapSearch(); else openMapSearch();
+    });
+    const mapSearchClose = document.getElementById("map-search-close");
+    if (mapSearchClose) mapSearchClose.addEventListener("click", closeMapSearch);
+    const mapSearchGo = document.getElementById("map-search-go");
+    if (mapSearchGo) mapSearchGo.addEventListener("click", runMapSearch);
+    const mapSearchInput = document.getElementById("map-search-input");
+    if (mapSearchInput) mapSearchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); runMapSearch(); }
+    });
+
     const heroBtn = document.getElementById("hero-cover-btn");
     if (heroBtn) heroBtn.addEventListener("click", openCoverModal);
     document.querySelectorAll("[data-close-cover]").forEach((el) => el.addEventListener("click", hideCoverModal));
@@ -3108,6 +3451,13 @@ const App = (() => {
       // First login of the day: build the taste profile in the background so it's
       // ready to power suggestions (once restaurants are loaded).
       setTimeout(maybeAutoTasteProfile, 2000);
+      loadPendingInvites(); // badge shows up without opening Amigos
+      if (!inviteRefreshWired) {
+        inviteRefreshWired = true;
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible" && UserData.isCloud()) loadPendingInvites();
+        });
+      }
     } else {
       UserData.clearUser();
       maybePromptSignin();

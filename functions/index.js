@@ -106,7 +106,12 @@ function cachedSystem(instruction, catalog) {
   return blocks;
 }
 
-const CATEGORIES = ["tradicional", "petiscos", "pastelaria", "fine-dining"];
+const CATEGORIES = ["tradicional", "petiscos", "pastelaria", "fine-dining"]; // legacy
+const CUISINES = [
+  "portuguesa", "mariscos", "churrasco", "italiana", "japonesa", "asiatica",
+  "indiana", "americana", "mexicana", "mediterranica", "vegetariana", "doces", "cafe"
+];
+const STYLES = ["tasca", "petiscos", "fine-dining", "casual", "takeaway"];
 
 // ---- actions ---------------------------------------------------------------
 
@@ -186,7 +191,7 @@ const ACTIONS = {
             type: "object",
             description: "Opcional: filtros a aplicar à lista do utilizador quando o pedido é sobretudo de pesquisa/filtragem.",
             properties: {
-              categories: { type: "array", items: { type: "string", enum: CATEGORIES } },
+              categories: { type: "array", items: { type: "string", enum: CUISINES } },
               regions: { type: "array", items: { type: "string" } },
               price: { type: "array", items: { type: "integer", enum: [1, 2, 3, 4] } },
               text: { type: "string" }
@@ -404,19 +409,32 @@ const ACTIONS = {
   async categorize(uid, body) {
     const tool = {
       name: "categorizar",
-      description: "Sugere a categoria e uma especialidade curta.",
+      description: "Classifica o restaurante em dois eixos independentes e sugere uma especialidade.",
       input_schema: {
         type: "object",
         properties: {
-          category: { type: "string", enum: CATEGORIES },
+          cuisine: { type: "string", enum: CUISINES, description: "A cozinha — o que se come lá." },
+          styles: {
+            type: "array",
+            description: "0 a 3 estilos/formatos que se apliquem. Podem acumular (ex.: tasca + petiscos).",
+            items: { type: "string", enum: STYLES }
+          },
           specialty: { type: "string", description: "Especialidade/prato a provar, 2–5 palavras, em português." }
         },
-        required: ["category", "specialty"]
+        required: ["cuisine", "styles", "specialty"]
       }
     };
-    const system = [{ type: "text", text: `Classificas restaurantes numa de: ${CATEGORIES.join(", ")}, e sugeres uma especialidade curta. Português europeu, sem emojis.` }];
-    const user = [{ type: "text", text: `Nome: ${body.name || ""}\nLocalidade: ${body.town || ""}\nTipos Google: ${(body.googleTypes || []).join(", ")}\nPreço: ${body.priceLevel || ""}` }];
-    return structured({ model: MODELS.cheap, system, user, tool, maxTokens: 200 });
+    const system = [{ type: "text", text:
+      `Classificas restaurantes em DOIS eixos independentes.\n` +
+      `COZINHA (uma só, o que se come): ${CUISINES.join(", ")}.\n` +
+      `ESTILO (0-3, o formato/ocasião): ${STYLES.join(", ")}.\n` +
+      `Uma tasca portuguesa de petiscos é cuisine=portuguesa, styles=[tasca, petiscos]. ` +
+      `Um japonês requintado é cuisine=japonesa, styles=[fine-dining]. ` +
+      `Uma pastelaria é cuisine=doces, styles=[] (ou casual). ` +
+      `Se a cozinha não for óbvia pelo nome/tipos, usa portuguesa. ` +
+      `Sugere também uma especialidade curta. Português europeu, sem emojis.` }];
+    const user = [{ type: "text", text: `Nome: ${body.name || ""}\nLocalidade: ${body.town || ""}\nTipos Google: ${(body.googleTypes || []).join(", ")}\nPreço: ${body.priceLevel || ""}\nNotas: ${body.notes || ""}` }];
+    return structured({ model: MODELS.cheap, system, user, tool, maxTokens: 300 });
   }
 };
 
