@@ -84,6 +84,44 @@ const PlacesModule = (() => {
     });
   }
 
+  // Details for a place we DISCOVERED (not yet a restaurant in the app) — used by
+  // the preview card inside the AI modal. Cached in memory per placeId; doesn't
+  // touch the per-restaurant Storage cache.
+  const placeIdCache = new Map();
+  function detailsByPlaceId(placeId) {
+    if (!placeId) return Promise.resolve(null);
+    if (placeIdCache.has(placeId)) return Promise.resolve(placeIdCache.get(placeId));
+    return new Promise((resolve) => {
+      if (!service) return resolve(null);
+      service.getDetails(
+        {
+          placeId,
+          fields: [
+            "photos", "rating", "user_ratings_total", "price_level",
+            "opening_hours", "formatted_address", "url", "website", "formatted_phone_number"
+          ]
+        },
+        (place, st) => {
+          if (st !== google.maps.places.PlacesServiceStatus.OK || !place) return resolve(null);
+          const data = {
+            rating: place.rating,
+            userRatingsTotal: place.user_ratings_total,
+            priceLevel: priceLabel(place.price_level),
+            openNow: place.opening_hours ? place.opening_hours.isOpen() : undefined,
+            weekdayText: place.opening_hours ? place.opening_hours.weekday_text || null : null,
+            address: place.formatted_address || "",
+            phone: place.formatted_phone_number || null,
+            website: place.website || null,
+            googleUrl: place.url || null,
+            photos: (place.photos || []).slice(0, 3).map((p) => p.getUrl({ maxWidth: 800 }))
+          };
+          placeIdCache.set(placeId, data);
+          resolve(data);
+        }
+      );
+    });
+  }
+
   // Discover NEW places from Google Maps by free-text query (e.g. the taste-
   // driven searches the AI proposes). Resolves to a compact array of candidates,
   // or [] on any failure. `opts.location` ({lat,lng}) biases results to a zone.
@@ -137,5 +175,5 @@ const PlacesModule = (() => {
     return data;
   }
 
-  return { init, isAvailable, fetchDetails, textSearch, enrichCard };
+  return { init, isAvailable, fetchDetails, detailsByPlaceId, textSearch, enrichCard };
 })();

@@ -1747,3 +1747,20 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .invite-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .invite-who { font-size: var(--fs-base); line-height: 1.4; }
 .invite-actions { display: flex; gap: var(--sp-2); justify-content: flex-end; }
+
+/* Descobertas: cartão expansível com preview (o chat mantém-se aberto) */
+.ai-discover-item { flex-direction: column; align-items: stretch; gap: 0; }
+.ai-discover-row { display: flex; align-items: center; gap: var(--sp-2); }
+.ai-discover-main {
+  appearance: none; border: none; background: none; padding: 0; margin: 0;
+  text-align: left; cursor: pointer; color: var(--text); font-family: var(--font-body);
+}
+.ai-discover-name { display: inline-flex; align-items: center; gap: 4px; }
+.ai-discover-name .icon { width: 14px; height: 14px; color: var(--text-faint); transition: transform 0.18s var(--ease); }
+.ai-discover-item.open .ai-discover-name .icon { transform: rotate(180deg); }
+.discover-preview { display: flex; flex-direction: column; gap: var(--sp-2); padding-top: var(--sp-3); margin-top: var(--sp-3); border-top: 1px solid var(--hairline); }
+.discover-preview[hidden] { display: none; }
+.discover-photo { border-radius: var(--r-md); overflow: hidden; aspect-ratio: 16 / 9; background: var(--surface-2); }
+.discover-addr, .discover-hours { display: flex; align-items: flex-start; gap: 6px; font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.4; }
+.discover-addr .icon, .discover-hours .icon { width: 14px; height: 14px; flex: none; margin-top: 2px; color: var(--text-faint); }
+.discover-preview-actions { display: flex; gap: var(--sp-2); justify-content: flex-end; flex-wrap: wrap; margin-top: 2px; }

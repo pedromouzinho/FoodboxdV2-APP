@@ -60,8 +60,56 @@ const Geocode = (() => {
   }
   function regionForDistrict(name) {
     if (!name) return null;
+    // Geocoders wrap the district name ("Distrito de Évora", "Évora District") —
+    // strip the wrapper so the lookup hits; the table covers every PT district.
+    const key = normalizePlaceName(name)
+      .replace(/^distrito d[eao]s? /, "")
+      .replace(/^district of /, "")
+      .replace(/ district$/, "");
+    return REGION_BY_DISTRICT[key] || name.replace(/^Distrito d[eao]s? /i, "");
+  }
+
+  // Country names arrive in whatever language Google's locale picked ("Spain",
+  // "España"…). Canonicalize to Portuguese so regions/filters never duplicate.
+  const COUNTRY_PT = {
+    "spain": "Espanha", "espana": "Espanha", "espagne": "Espanha",
+    "france": "França", "francia": "França",
+    "italy": "Itália", "italia": "Itália", "italie": "Itália",
+    "germany": "Alemanha", "deutschland": "Alemanha", "alemania": "Alemanha",
+    "united kingdom": "Reino Unido", "uk": "Reino Unido", "great britain": "Reino Unido",
+    "netherlands": "Países Baixos", "the netherlands": "Países Baixos", "holland": "Países Baixos",
+    "belgium": "Bélgica", "belgique": "Bélgica",
+    "switzerland": "Suíça", "suisse": "Suíça",
+    "austria": "Áustria", "osterreich": "Áustria",
+    "morocco": "Marrocos", "maroc": "Marrocos", "marruecos": "Marrocos",
+    "brazil": "Brasil", "brasil": "Brasil",
+    "united states": "Estados Unidos", "usa": "Estados Unidos",
+    "ireland": "Irlanda", "greece": "Grécia", "poland": "Polónia",
+    "cape verde": "Cabo Verde", "cabo verde": "Cabo Verde",
+    "andorra": "Andorra", "luxembourg": "Luxemburgo", "luxemburgo": "Luxemburgo"
+  };
+  function canonicalCountry(name) {
+    if (!name) return name;
     const key = normalizePlaceName(name);
-    return REGION_BY_DISTRICT[key] || name; // fall back to the district name itself
+    if (key === "portugal") return "Portugal";
+    return COUNTRY_PT[key] || name;
+  }
+  // Region labels stored by old clients can be raw districts or English country
+  // names — bring them back to the app's buckets for display/filtering.
+  function canonicalRegion(region) {
+    if (!region) return region;
+    const viaCountry = canonicalCountry(region);
+    if (viaCountry !== region) return viaCountry;
+    if (/^distrito d/i.test(normalizePlaceName(region)) || / district$/i.test(region)) {
+      const mapped = regionForDistrict(region);
+      if (mapped && REGION_BY_DISTRICT[normalizePlaceName(mapped)]) return REGION_BY_DISTRICT[normalizePlaceName(mapped)];
+      if (mapped) {
+        const k = normalizePlaceName(mapped);
+        if (REGION_BY_DISTRICT[k]) return REGION_BY_DISTRICT[k];
+        return mapped;
+      }
+    }
+    return region;
   }
   function regionForTown(name) {
     if (!name) return null;
@@ -76,7 +124,7 @@ const Geocode = (() => {
   function countryFromComponents(components) {
     if (!components) return null;
     const c = components.find((x) => (x.types || []).includes("country"));
-    return c ? (c.long_name || c.short_name) : null;
+    return c ? canonicalCountry(c.long_name || c.short_name) : null;
   }
   function isPortugal(country) {
     const k = normalizePlaceName(country);
@@ -123,7 +171,7 @@ const Geocode = (() => {
       if (data && data[0]) {
         const a = data[0].address || {};
         const district = a.state || a.county || a.region || a.state_district || "";
-        const country = a.country || "";
+        const country = canonicalCountry(a.country || "");
         return {
           lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon),
           region: (isPortugal(country) ? (regionForDistrict(district) || regionForTown(query)) : country),
@@ -210,5 +258,5 @@ const Geocode = (() => {
     });
   }
 
-  return { init, locate, reverse, regionForTown, isPortugal };
+  return { init, locate, reverse, regionForTown, isPortugal, canonicalCountry, canonicalRegion };
 })();

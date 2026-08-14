@@ -172,7 +172,7 @@ const ACTIONS = {
           },
           discoverQueries: {
             type: "array",
-            description: "2 a 4 pesquisas Google Maps para encontrar sítios NOVOS que sirvam o pedido, na zona certa. Usa termos naturais (ex.: 'marisqueira em Setúbal').",
+            description: "3 a 4 pesquisas Google Maps DIVERSAS para encontrar sítios novos na zona certa: uma literal ao pedido, uma de qualidade ('melhores restaurantes de {zona}'), e 1-2 viradas ao perfil de gosto (prato/estilo que ele adora). Termos naturais (ex.: 'marisqueira em Setúbal').",
             items: {
               type: "object",
               properties: {
@@ -234,7 +234,7 @@ const ACTIONS = {
           intro: { type: "string", description: "1 frase a ligar as escolhas ao gosto dele. Português europeu, sem emojis." },
           picks: {
             type: "array",
-            description: "Até 5, do melhor para o pior. Deixa de fora o que não encaixa mesmo (não enchas).",
+            description: "Até 6, do melhor para o pior. Deixa de fora o que não encaixa mesmo (não enchas).",
             items: {
               type: "object",
               properties: {
@@ -251,11 +251,14 @@ const ACTIONS = {
     const system = [{
       type: "text",
       text: "És o concierge do Foodboxd a avaliar sítios NOVOS (que ele ainda não tem na lista), vindos do Google Maps. " +
-        "Cruza cada candidato com o PERFIL DE GOSTO (cozinhas, pratos, ambiente, preço) e com o PEDIDO. " +
-        "Prioriza encaixe no gosto; usa a avaliação/nº de reviews como sinal de qualidade e distKm para a proximidade. " +
-        "Descarta o que não serve (cadeias genéricas, tipo de comida errado, longe quando ele pediu perto). " +
-        "Justifica cada escolha em 1 frase concreta e pessoal. Português europeu, sem emojis. " +
-        "Se nenhum candidato prestar, devolve picks vazio."
+        "O objetivo NÃO é devolver o que bate nas palavras do pedido — é escolher os sítios MUITO BONS dentro do espírito do pedido. " +
+        "Pondera três coisas, por esta ordem: (1) qualidade real — rating alto sustentado por muitas reviews vale mais do que rating perfeito com meia dúzia; " +
+        "(2) encaixe no PERFIL DE GOSTO (cozinhas, pratos, ambiente, preço) e no PEDIDO; " +
+        "(3) proximidade (distKm) quando o pedido a implica. " +
+        "Um sítio excelente ligeiramente fora da letra do pedido GANHA a um medíocre que bate certo nas palavras. " +
+        "Descarta sem medo: cadeias genéricas, turistadas, tipo de comida errado, qualidade fraca — picks pode vir curto ou vazio. " +
+        "Ordena do melhor para o pior. Justifica cada escolha em 1 frase concreta e pessoal (porquê ESTE, para ESTE utilizador). " +
+        "Português europeu, sem emojis."
     }];
     const user = [
       { type: "text", text: "PEDIDO: " + (body.query || "(sem texto — o que vale a pena por perto)") },
@@ -264,7 +267,7 @@ const ACTIONS = {
       { type: "text", text: "ZONA: " + (body.area || "desconhecida") },
       { type: "text", text: "CANDIDATOS (JSON, o índice é o campo i): " + JSON.stringify(candidates) }
     ];
-    return structured({ model: MODELS.planner, system, user, tool, maxTokens: 1000 });
+    return structured({ model: MODELS.recommend, system, user, tool, maxTokens: 1000 });
   },
 
   // Build a "taste profile" from the user's records + Google Maps searches to

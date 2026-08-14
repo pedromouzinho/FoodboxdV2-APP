@@ -72,13 +72,19 @@ const DB = (() => {
 
   function docToRestaurant(doc) {
     const f = decodeFields(doc);
-    const inferredRegion = typeof Geocode !== "undefined" ? Geocode.regionForTown(f.town) : null;
+    const geo = typeof Geocode !== "undefined" ? Geocode : null;
+    const inferredRegion = geo ? geo.regionForTown(f.town) : null;
+    // Canonicalize at read time: old clients stored raw districts ("Distrito de
+    // Évora") and locale-dependent country names ("Spain"), which duplicated the
+    // region filters. This cleans bad data without a migration.
+    const region = geo && geo.canonicalRegion ? geo.canonicalRegion(f.region) : f.region;
+    const country = geo && geo.canonicalCountry ? geo.canonicalCountry(f.country) : f.country;
     return {
       id: doc.name.split("/").pop(),
       name: f.name,
       town: f.town,
-      region: f.region || inferredRegion || "Portugal",
-      country: f.country || "Portugal",
+      region: region || inferredRegion || "Portugal",
+      country: country || "Portugal",
       category: f.category || "tradicional",
       lat: f.lat,
       lng: f.lng,

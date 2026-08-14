@@ -1772,7 +1772,8 @@ const App = (() => {
   // Google formatted addresses end with the country ("…, Évora, Portugal").
   function countryFromAddress(addr) {
     const parts = String(addr || "").split(",").map((x) => x.trim()).filter(Boolean);
-    return parts.length ? parts[parts.length - 1] : "Portugal";
+    const raw = parts.length ? parts[parts.length - 1] : "Portugal";
+    return (typeof Geocode !== "undefined" && Geocode.canonicalCountry) ? Geocode.canonicalCountry(raw) : raw;
   }
 
   // Run the queries, dedupe against the catalog + each other. Resolves to [].
@@ -1782,7 +1783,7 @@ const App = (() => {
     const loc = near && typeof near.lat === "number" ? { lat: near.lat, lng: near.lng } : null;
     const lists = await Promise.all(
       queries.slice(0, 4).map((q) =>
-        PlacesModule.textSearch(q.query, { location: loc, limit: 4 }).catch(() => []))
+        PlacesModule.textSearch(q.query, { location: loc, limit: 6 }).catch(() => []))
     );
     const known = new Set(state.restaurants.map((r) => normName(r.name)));
     const seen = new Set();
@@ -1797,9 +1798,10 @@ const App = (() => {
         out.push(p);
       }
     }
-    // With a real location, closest first — "perto" has to mean perto.
+    // Distance is only a tie-breaker for display order — WHICH places make the
+    // cut is the ranking model's call, so hand it the whole pool.
     if (loc) out.sort((a, b) => (a.distKm == null ? 1e9 : a.distKm) - (b.distKm == null ? 1e9 : b.distKm));
-    return out.slice(0, 8);
+    return out.slice(0, 18);
   }
 
   function discoverCardHtml(p, i, reason) {
@@ -1808,15 +1810,59 @@ const App = (() => {
     if (p.priceLevel) meta.push(p.priceLevel);
     if (typeof p.distKm === "number") meta.push(p.distKm < 1 ? "&lt; 1 km" : `${Math.round(p.distKm)} km`);
     const loc = townFromAddress(p.address);
-    return `<div class="ai-discover-item">
-      <div class="ai-discover-main">
-        <div class="ai-discover-name">${esc(p.name)}</div>
-        ${loc ? `<div class="ai-discover-loc">${esc(loc)}</div>` : ""}
-        ${meta.length ? `<div class="ai-discover-meta">${meta.join(" · ")}</div>` : ""}
-        ${reason ? `<div class="ai-discover-reason">${esc(reason)}</div>` : ""}
+    return `<div class="ai-discover-item" data-discover-item="${i}">
+      <div class="ai-discover-row">
+        <button type="button" class="ai-discover-main" data-discover-preview="${i}">
+          <div class="ai-discover-name">${esc(p.name)} ${icon("chevron-down")}</div>
+          ${loc ? `<div class="ai-discover-loc">${esc(loc)}</div>` : ""}
+          ${meta.length ? `<div class="ai-discover-meta">${meta.join(" · ")}</div>` : ""}
+          ${reason ? `<div class="ai-discover-reason">${esc(reason)}</div>` : ""}
+        </button>
+        <button class="btn btn-ghost btn-sm ai-discover-add" data-discover-add="${i}">${icon("plus")} Adicionar</button>
       </div>
-      <button class="btn btn-ghost btn-sm ai-discover-add" data-discover-add="${i}">${icon("plus")} Adicionar</button>
+      <div class="discover-preview" data-discover-host="${i}" hidden></div>
     </div>`;
+  }
+
+  // Peek before you add: expand the card in place (the chat stays open) with the
+  // place's photo, rating, hours and address from Google, via its placeId.
+  async function toggleDiscoverPreview(root, items, i, btn) {
+    const host = root.querySelector(`[data-discover-host="${i}"]`);
+    const item = root.querySelector(`[data-discover-item="${i}"]`);
+    if (!host || !item) return;
+    const wasOpen = !host.hidden;
+    // one open at a time
+    root.querySelectorAll(".discover-preview").forEach((h) => { h.hidden = true; });
+    root.querySelectorAll(".ai-discover-item.open").forEach((x) => x.classList.remove("open"));
+    if (wasOpen) return;
+    item.classList.add("open");
+    host.hidden = false;
+    host.innerHTML = `<div class="ai-loading"><span class="ai-spinner"></span> A espreitar\u2026</div>`;
+    const p = items[i] && items[i].p;
+    let d = null;
+    try { d = p && p.placeId ? await PlacesModule.detailsByPlaceId(p.placeId) : null; } catch (e) { d = null; }
+    if (host.hidden) return; // closed meanwhile
+    const bits = [];
+    if (d && typeof d.rating === "number") bits.push(`${icon("star")} ${d.rating.toFixed(1)} (${d.userRatingsTotal || 0})`);
+    if (d && d.priceLevel) bits.push(esc(d.priceLevel));
+    if (p && typeof p.distKm === "number") bits.push(p.distKm < 1 ? "&lt; 1 km" : `${Math.round(p.distKm)} km`);
+    if (d && typeof d.openNow === "boolean") bits.push(`<span class="open-now ${d.openNow ? "open" : "closed"}">${d.openNow ? "Aberto agora" : "Fechado agora"}</span>`);
+    const todayIdx = (new Date().getDay() + 6) % 7; // Google weekday_text starts Monday
+    const today = d && d.weekdayText && d.weekdayText[todayIdx] ? d.weekdayText[todayIdx] : "";
+    host.innerHTML = `
+      ${d && d.photos && d.photos[0] ? `<div class="discover-photo"><div class="ph" data-label="foto"></div></div>` : ""}
+      ${bits.length ? `<div class="ai-discover-meta">${bits.join(" · ")}</div>` : ""}
+      ${d && d.address ? `<div class="discover-addr">${icon("pin")} ${esc(d.address)}</div>` : ""}
+      ${today ? `<div class="discover-hours">${icon("clock")} ${esc(today)}</div>` : ""}
+      ${!d ? `<p class="muted ai-hint">Sem mais detalhes do Google para este sítio.</p>` : ""}
+      <div class="discover-preview-actions">
+        ${d && d.googleUrl ? `<a class="btn btn-ghost btn-sm" href="${esc(d.googleUrl)}" target="_blank" rel="noopener">${icon("external")} Ver no Google</a>` : ""}
+        <button class="btn btn-primary btn-sm" data-preview-add="${i}">${icon("plus")} Adicionar à wishlist</button>
+      </div>`;
+    const ph = host.querySelector(".ph");
+    if (ph && d && d.photos && d.photos[0]) setThumbPhoto(ph, d.photos[0]);
+    const addBtn = host.querySelector("[data-preview-add]");
+    if (addBtn) addBtn.addEventListener("click", () => addDiscoveredPlace(items[i].p, btn || addBtn));
   }
 
   async function renderDiscoveries(host, queries, near, ctx) {
@@ -1872,6 +1918,12 @@ const App = (() => {
       items.map((x, i) => discoverCardHtml(x.p, i, x.reason)).join("")}</div>`;
     host.querySelectorAll("[data-discover-add]").forEach((btn) =>
       btn.addEventListener("click", () => addDiscoveredPlace(items[parseInt(btn.dataset.discoverAdd, 10)].p, btn)));
+    host.querySelectorAll("[data-discover-preview]").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const i = parseInt(btn.dataset.discoverPreview, 10);
+        const addBtn = host.querySelector(`[data-discover-add="${i}"]`);
+        toggleDiscoverPreview(host, items, i, addBtn);
+      }));
   }
 
   // Add a discovered Google place to the (shared) list as a wishlist entry.
