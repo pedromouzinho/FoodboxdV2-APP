@@ -285,12 +285,15 @@ const App = (() => {
       e.stopPropagation();
       setVisited(r.id, !UserData.isVisited(r.id));
     });
+    const ph = card.querySelector(".rcard-thumb .ph");
+    // The chosen cover wins on the list card too — and shows even when Google
+    // can't resolve the place at all (e.g. a mangled mapsQuery).
+    if (ph && r.photoURL) setThumbPhoto(ph, r.photoURL, r);
     if (PlacesModule.isAvailable()) {
-      const ph = card.querySelector(".rcard-thumb .ph");
       PlacesModule.enrichCard(r, card.querySelector("[data-meta]")).then((data) => {
         if (!data) return;
         if (data.phone) card.querySelector("[data-community-badge]")?.remove();
-        if (ph && data.photos && data.photos[0]) setThumbPhoto(ph, data.photos[0], r);
+        if (ph && !r.photoURL && data.photos && data.photos[0]) setThumbPhoto(ph, data.photos[0], r);
       });
     }
     return card;
