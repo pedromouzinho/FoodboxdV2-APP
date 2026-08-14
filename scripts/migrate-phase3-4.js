@@ -34,8 +34,12 @@ async function classify(idToken, r) {
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + idToken },
       body: JSON.stringify({
         action: "categorize",
-        name: r.name, town: r.town, notes: r.notes || "",
-        googleTypes: r.tags || [], priceLevel: ""
+        name: r.name,
+        // Location matters: a place in Spain is not Portuguese cuisine by default,
+        // and the old `tags` field is just the legacy category (useless as a hint).
+        town: [r.town, r.region, r.country].filter(Boolean).join(", "),
+        notes: r.notes || "",
+        googleTypes: [], priceLevel: ""
       })
     });
     if (!res.ok) return null;
@@ -65,8 +69,21 @@ async function migrateCategories() {
     const r = doc.data();
     if (r.cuisine) { console.log(`  (já feito) ${r.name}`); continue; }
     const ai = await classify(token, r);
-    const fallback = LEGACY[r.category] || LEGACY.tradicional;
-    const next = ai || fallback;
+    const legacy = LEGACY[r.category] || LEGACY.tradicional;
+    // The old category was chosen by a human, so it isn't thrown away: the AI
+    // decides the cuisine (which never existed before), but the style axis is the
+    // UNION of both — otherwise an explicit "fine-dining" silently becomes
+    // "casual". A legacy "pastelaria" also keeps its cuisine unless the AI found
+    // a more specific sweet/coffee answer.
+    let next;
+    if (!ai) {
+      next = legacy;
+    } else {
+      const cuisine = (r.category === "pastelaria" && !["doces", "cafe"].includes(ai.cuisine))
+        ? "doces" : ai.cuisine;
+      const styles = [...new Set([...(ai.styles || []), ...legacy.styles])].filter((x) => STYLES.includes(x));
+      next = { cuisine, styles };
+    }
     console.log(`  ${r.name}: ${r.category} -> ${next.cuisine} [${next.styles.join(", ") || "—"}]${ai ? "" : "  (fallback)"}`);
     if (APPLY) await doc.ref.update({ cuisine: next.cuisine, styles: next.styles });
     changed++;
