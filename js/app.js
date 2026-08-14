@@ -307,7 +307,8 @@ const App = (() => {
     UserData.setVisited(id, visited);
     const r = state.restaurants.find((x) => x.id === id);
     if (document.getElementById("hide-visited-checkbox").checked) { render(); return; }
-    if (r) MapModule.setMarkerVisited(id, r.category, visited);
+    // Keep the wishlist badge — the pin encodes both marks now.
+    if (r) MapModule.setMarkerState(id, r.category, { visited, priority: UserData.isPriority(id) });
     const card = document.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
     if (card) {
       card.classList.toggle("visited", visited);

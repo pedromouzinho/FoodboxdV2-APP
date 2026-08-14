@@ -45,23 +45,41 @@ const MapModule = (() => {
   }
 
   const PIN_PATH = "M12 0C7 0 3 4 3 9c0 6.6 9 15 9 15s9-8.4 9-15c0-5-4-9-9-9z";
+  const PRIORITY_COLOR = "#b5531f"; // --primary, same as the "Prioritário" badge
 
-  function getMarkerIcon(category, visited) {
+  // The pin carries three things at once: category (colour), whether you've been
+  // (filled vs hollow) and whether it's on your wishlist (corner badge). Drawn as
+  // an inline SVG rather than a Maps symbol + text label, so it renders the same
+  // on every platform.
+  function getMarkerIcon(category, visited, priority) {
     const color = (CATEGORIES[category] && CATEGORIES[category].hex) || "#555555";
+    const fill = visited ? color : "#ffffff";
+    const stroke = visited ? "#ffffff" : color;
+    const width = visited ? 2 : 2.5;
+    const badge = priority
+      ? `<circle cx="20" cy="6" r="5" fill="${PRIORITY_COLOR}" stroke="#ffffff" stroke-width="1.6"/>`
+      : "";
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 26 26" width="39" height="39">` +
+      `<g transform="translate(1,1)"><path d="${PIN_PATH}" fill="${fill}" stroke="${stroke}" ` +
+      `stroke-width="${width}" stroke-linejoin="round"/></g>${badge}</svg>`;
     return {
-      path: PIN_PATH,
-      fillColor: color,
-      fillOpacity: visited ? 0.45 : 1,
-      strokeColor: "#ffffff",
-      strokeWeight: 2,
-      scale: 1.5,
-      anchor: new google.maps.Point(12, 24),
-      labelOrigin: new google.maps.Point(12, 9)
+      url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+      scaledSize: new google.maps.Size(39, 39),
+      anchor: new google.maps.Point(19.5, 37.5) // the pin's tip
     };
   }
 
-  function getMarkerLabel(visited) {
-    return visited ? { text: "✓", color: "#ffffff", fontSize: "12px", fontWeight: "700" } : null;
+  // What you still have to do sits above what you've already done.
+  function markerZIndex(visited, priority) {
+    return priority ? 3 : (visited ? 1 : 2);
+  }
+
+  // The marks live in UserData (cloud when signed in, localStorage otherwise) —
+  // reading Storage directly here used to show a stale state for signed-in users.
+  function markStateOf(id) {
+    if (typeof UserData === "undefined") return { visited: Storage.isVisited(id), priority: false };
+    return { visited: UserData.isVisited(id), priority: UserData.isPriority(id) };
   }
 
   function highlightMarker(id) {
@@ -79,25 +97,27 @@ const MapModule = (() => {
     markers.clear();
 
     restaurants.forEach((restaurant) => {
-      const visited = Storage.isVisited(restaurant.id);
+      const { visited, priority } = markStateOf(restaurant.id);
       const marker = new google.maps.Marker({
         position: { lat: restaurant.lat, lng: restaurant.lng },
         map,
         title: restaurant.name,
-        icon: getMarkerIcon(restaurant.category, visited),
-        label: getMarkerLabel(visited)
+        icon: getMarkerIcon(restaurant.category, visited, priority),
+        zIndex: markerZIndex(visited, priority)
       });
       marker.addListener("click", () => onClick(restaurant));
       markers.set(restaurant.id, marker);
     });
   }
 
-  function setMarkerVisited(id, category, visited) {
+  function setMarkerState(id, category, state) {
     if (!available) return;
     const marker = markers.get(id);
     if (!marker) return;
-    marker.setIcon(getMarkerIcon(category, visited));
-    marker.setLabel(getMarkerLabel(visited));
+    const visited = !!(state && state.visited);
+    const priority = !!(state && state.priority);
+    marker.setIcon(getMarkerIcon(category, visited, priority));
+    marker.setZIndex(markerZIndex(visited, priority));
   }
 
   function openInfoWindow(restaurant, contentHtml, onDomReady) {
@@ -168,7 +188,7 @@ const MapModule = (() => {
     getMap,
     highlightMarker,
     renderMarkers,
-    setMarkerVisited,
+    setMarkerState,
     openInfoWindow,
     focusRestaurant,
     saveCamera,
