@@ -2,15 +2,15 @@
   "appId": "pt.foodboxd.app",
   "appName": "Foodboxd",
   "webDir": "www",
-  "backgroundColor": "#f6f1e8",
+  "backgroundColor": "#f6f1e7",
   "ios": {
     "contentInset": "never",
-    "backgroundColor": "#f6f1e8"
+    "backgroundColor": "#f6f1e7"
   },
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 600,
-      "backgroundColor": "#f6f1e8",
+      "backgroundColor": "#f6f1e7",
       "showSpinner": false
     }
   }
