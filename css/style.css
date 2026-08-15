@@ -378,19 +378,44 @@ button { font-family: inherit; }
   cursor: pointer; font: inherit;
 }
 
-/* ---------- Category chips ---------- */
+/* ---------- Chips (um só componente, três estados) ----------
+   Seis classes antigas (chip, chip-tab, chip-sort, price-chip, switch-chip,
+   companion-chip) partilham a mesma base. Desligado é um estado de contraste
+   pleno, nunca uma opacidade: a .55 lia-se como "desativado" e falhava AA. */
 .chip-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
-.chip, .chip-tab, .chip-sort, .switch-chip, .companion-chip, .chip .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-/* Selected inverts to ink: 12:1 contrast, and it stops competing with the
-   primary action for the terracotta. */
+.chip, .chip-tab, .chip-sort, .price-chip, .switch-chip, .companion-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--h-chip);
+  padding: 0 var(--sp-3);
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+.chip .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.companion-chip { padding-left: 4px; }
+/* Ativo inverte para tinta: 12:1 de contraste, e deixa a terracota livre para
+   a ação primária. */
 .chip[aria-pressed="true"], .chip-tab[aria-pressed="true"],
 .chip-sort[aria-pressed="true"], .companion-chip[aria-pressed="true"],
-.switch-chip:has(input:checked), /* Unselected is a full-contrast state, never a faded one. */
+.switch-chip:has(input:checked), .price-chip:has(input:checked) {
+  background: var(--chip-on-bg);
+  color: var(--chip-on-ink);
+}
 .chip[aria-pressed="false"], .chip-tab[aria-pressed="false"],
 .chip-sort[aria-pressed="false"], .companion-chip[aria-pressed="false"] {
   opacity: 1;
-  background: var(--surface-2);
-  color: var(--text);
 }
 .chip:focus-visible, .chip-tab:focus-visible, .chip-sort:focus-visible,
 .switch-chip:has(input:focus-visible), .price-chip:has(input:focus-visible),
@@ -1278,15 +1303,12 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
   flex-shrink: 0;
   gap: var(--sp-2);
   background: var(--surface-2);
-  border: 1px solid color-mix(in srgb, var(--star) 45%, var(--border));
+  border: 1px solid var(--border-strong);
   color: var(--text);
 }
-.topbar-ai:hover { border-color: var(--star); }
-.topbar-ai .icon { width: 16px; height: 16px; color: var(--star); }
-.modal-card.ai-card {
-  border: 1px solid color-mix(in srgb, var(--star) 30%, var(--border));
-  background:
-}
+.topbar-ai:hover { background: var(--surface-3); }
+.topbar-ai .icon { width: 16px; height: 16px; color: var(--text); }
+.modal-card.ai-card { border: 1px solid var(--border); }
 
 /* ---- Memórias (cartões com foto, grelha) — design handoff ---- */
 .eyebrow {
@@ -1698,7 +1720,9 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .chip-bar { display: flex; gap: var(--sp-2); overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; padding-bottom: 2px; }
 .chip-bar::-webkit-scrollbar { display: none; }
 .chip-bar[hidden] { display: none; }
-.chip-bar /* Photo source badge in the community gallery (whose photo / Google) */
+.chip-bar .chip-sort { flex: 0 0 auto; scroll-snap-align: start; }
+
+/* Miniatura da galeria da comunidade, com emblema de origem da foto */
 .photo-tile {
   display: block;
   aspect-ratio: 1 / 1;
