@@ -17,6 +17,7 @@
       "functions/**",
       "README.md",
       "CONTEXT.md",
+      "DESIGN-BRIEF.md",
       "AI_SETUP.md",
       ".git/**",
       ".github/**",
@@ -32,25 +33,38 @@
       "SETUP_IOS.md"
     ],
     "rewrites": [
-      { "source": "/api/ai", "function": "ai", "region": "europe-west1" }
+      {
+        "source": "/api/ai",
+        "function": "ai",
+        "region": "europe-west1"
+      }
     ],
     "headers": [
       {
         "source": "/sw.js",
         "headers": [
-          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
         ]
       },
       {
         "source": "/index.html",
         "headers": [
-          { "key": "Cache-Control", "value": "no-cache" }
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
         ]
       },
       {
         "source": "/",
         "headers": [
-          { "key": "Cache-Control", "value": "no-cache" }
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
         ]
       }
     ]
