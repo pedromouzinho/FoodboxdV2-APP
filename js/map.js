@@ -45,7 +45,7 @@ const MapModule = (() => {
   }
 
   const PIN_PATH = "M12 0C7 0 3 4 3 9c0 6.6 9 15 9 15s9-8.4 9-15c0-5-4-9-9-9z";
-  const PRIORITY_COLOR = "#b5531f"; // --primary, same as the "Prioritário" badge
+  const PRIORITY_COLOR = "#b04a1c"; // --primary (alinhado na Fase 1; era #b5531f)
 
   // The pin carries three things at once: category (colour), whether you've been
   // (filled vs hollow) and whether it's on your wishlist (corner badge). Drawn as

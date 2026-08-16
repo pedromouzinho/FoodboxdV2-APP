@@ -303,21 +303,45 @@ button { font-family: inherit; }
 }
 .icon-btn:hover { background: var(--surface-2); }
 .icon-btn .icon { width: 22px; height: 22px; }
-.topbar-menu { display: none; margin-left: -8px; }
-
-/* ---------- Layout ---------- */
-.layout { display: flex; height: calc(100dvh - var(--topbar-total) - var(--tabbar-h)); }
-
-.sidebar {
-  width: 384px;
-  flex-shrink: 0;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
-  overflow-y: auto;
-  overscroll-behavior: contain;
+/* ---------- Ecrã do Mapa: procura e modos na cabeça, mapa/lista por baixo ----------
+   A lista deixou de ser gaveta: é um modo do mesmo separador, e o filtro, a
+   procura e a contagem valem para os dois. */
+.screen-mapa {
+  display: flex; flex-direction: column;
+  height: calc(100dvh - var(--topbar-total) - var(--tabbar-h));
 }
-.sidebar-inner { padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4); }
-.sidebar-close { display: none; }
+.mapbar {
+  flex: none; display: flex; flex-direction: column; gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface); border-bottom: 1px solid var(--hairline);
+}
+.mapbar-row { display: flex; align-items: center; gap: var(--sp-2); }
+.segmented {
+  display: inline-flex; gap: 3px; padding: 3px; flex: none;
+  border-radius: var(--r-pill); background: var(--surface-2);
+}
+.seg-opt {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 14px; border: none;
+  border-radius: var(--r-pill); background: none; color: var(--text-muted);
+  font-family: var(--font-body); font-size: var(--fs-ui); font-weight: 700; cursor: pointer;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+.seg-opt .icon { width: 15px; height: 15px; }
+/* Tamanhos do handoff (32 e 38); a área de toque estende-se aos 44. */
+.seg-opt::after { content: ""; position: absolute; inset: -6px 0; }
+.seg-opt.active { background: var(--surface); color: var(--text); }
+.mapbar-row .filters-btn { margin-left: auto; height: 38px; }
+.filters-btn::after { content: ""; position: absolute; inset: -3px 0; border-radius: inherit; }
+
+.map-body { flex: 1; min-height: 0; display: flex; }
+.list-pane {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  padding: var(--sp-4);
+  display: flex; flex-direction: column; gap: var(--sp-3);
+}
+.list-pane[hidden], .map-area[hidden] { display: none; }
 
 /* ---------- Search ---------- */
 .search-wrap { position: relative; display: flex; align-items: center; }
@@ -330,10 +354,10 @@ button { font-family: inherit; }
 }
 #search-input {
   width: 100%;
-  height: 46px;
-  padding: 0 var(--sp-4) 0 42px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
+  height: 48px;
+  padding: 0 var(--sp-4) 0 44px;
+  border: none;
+  border-radius: var(--r-pill);
   background: var(--surface-2);
   color: var(--text);
 }
@@ -683,7 +707,6 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .form-status.error { color: var(--danger); font-weight: 600; }
 
 /* Backdrop behind the mobile sidebar drawer (no-op on desktop). */
-.sidebar-scrim { display: none; }
 
 /* ---------- Auth (topbar) ---------- */
 .topbar-signin { flex-shrink: 0; }
@@ -959,36 +982,6 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 
 /* ---------- Responsive ---------- */
 @media (max-width: 860px) {
-  .topbar-menu { display: inline-flex; }
-  .sidebar {
-    position: fixed;
-    top: var(--topbar-total); left: 0;
-    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
-    width: 90%; max-width: 384px;
-    z-index: 50;
-    transform: translateX(-100%);
-    transition: transform 0.25s var(--ease);
-    box-shadow: var(--shadow-lg);
-  }
-  .sidebar.open { transform: translateX(0); }
-  .sidebar-close {
-    display: inline-flex;
-    align-self: flex-end;
-    margin: calc(-1 * var(--sp-2)) calc(-1 * var(--sp-2)) calc(-1 * var(--sp-3)) 0;
-    color: var(--text-muted);
-  }
-
-  .sidebar-scrim {
-    display: block;
-    position: fixed;
-    top: var(--topbar-total); left: 0; right: 0; bottom: 0;
-    z-index: 45;
-    background: rgba(30, 22, 12, 0.45);
-    opacity: 0; pointer-events: none;
-    transition: opacity 0.25s var(--ease);
-  }
-  .sidebar-scrim.show { opacity: 1; pointer-events: auto; }
-
   .detail-card {
     top: auto; bottom: 0; left: 0; right: 0;
     width: 100%;
@@ -1057,7 +1050,9 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 /* ---------- iOS "Add to Home Screen" hint ---------- */
 .ios-a2hs {
   position: fixed; left: 50%; transform: translateX(-50%);
-  top: calc(var(--topbar-total) + var(--sp-2)); bottom: auto;
+  /* Em baixo, acima da barra de separadores: no topo tapava a procura e os
+     modos, que é a primeira coisa que se usa. */
+  top: auto; bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-3));
   z-index: 70; width: min(440px, calc(100vw - 24px));
   display: flex; align-items: center; gap: var(--sp-2);
   background: var(--surface); border: 1px solid var(--border);
@@ -1154,7 +1149,19 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 
 /* Taste profile */
 .taste { display: flex; flex-direction: column; gap: var(--sp-3); }
-.taste-summary { margin: 0; font-size: var(--fs-base); line-height: 1.5; }
+/* O resumo é o conteúdo principal, não uma legenda. */
+.taste-summary { margin: 0; font-size: var(--fs-md); line-height: 1.55; }
+.taste-tiles { display: flex; gap: var(--sp-2); }
+.taste-tile {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 14px var(--sp-2); border-radius: var(--r-md); background: var(--surface-2);
+}
+.taste-tile-v { font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 600; line-height: 1; }
+.taste-tile-l {
+  font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.taste-source { margin: var(--sp-2) 0 0; text-align: center; font-size: var(--fs-xs); color: var(--text-faint); }
 .taste-row { display: flex; flex-direction: column; gap: 5px; }
 .taste-label { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); display: flex; align-items: center; gap: 5px; }
 .taste-label .icon { width: 14px; height: 14px; }
@@ -1316,14 +1323,17 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
   padding: 3px 7px; border-radius: 99px;
 }
 
-#memorias-list.screen-list { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); align-content: start; }
+#memorias-list.screen-list {
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2);
+  grid-auto-rows: 230px; align-items: stretch; align-content: start;
+}
 #memorias-list > p, #memorias-list > .signin-invite { grid-column: 1 / -1; }
 
 .memory {
   --cat: var(--primary);
   display: flex; flex-direction: column; text-align: left; cursor: pointer;
-  background: var(--surface); border: 1px solid var(--hairline);
-  border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--sh-sm); padding: 0;
+  background: var(--surface); border: none;
+  border-radius: var(--r-md); overflow: hidden; padding: 0;
   transition: box-shadow var(--t) var(--ease), transform var(--t-fast) var(--ease);
 }
 .memory:hover { box-shadow: var(--sh-md); transform: translateY(-2px); }
@@ -1331,8 +1341,18 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .memory[data-cat="petiscos"]    { --cat: var(--c-petiscos); }
 .memory[data-cat="pastelaria"]  { --cat: var(--c-pastelaria); }
 .memory[data-cat="fine-dining"] { --cat: var(--c-fine-dining); }
-.memory .ph { height: 116px; flex: none; }
-.memory-body { padding: var(--sp-3); display: flex; flex-direction: column; gap: 5px; }
+.memory .ph { height: 150px; flex: none; }
+/* A foto é o cartão; o corpo enche o resto para todos ficarem iguais. */
+.memory-photo { position: relative; flex: none; }
+/* Pílula de nota sobre a foto, canto inferior esquerdo. */
+.memory-score {
+  position: absolute; left: 8px; bottom: 8px;
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 24px; padding: 0 9px; border-radius: var(--r-pill);
+  background: var(--surface); font-size: var(--fs-xs); font-weight: 700;
+}
+.memory-score .icon { width: 12px; height: 12px; color: var(--star); fill: var(--star); stroke: var(--star); }
+.memory-body { flex: 1; min-height: 0; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
 .rcard-cat { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .memory-name {
   font-weight: 540;
@@ -1365,10 +1385,6 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .card.rcard[data-cat="petiscos"]    { --cat: var(--c-petiscos); }
 .card.rcard[data-cat="pastelaria"]  { --cat: var(--c-pastelaria); }
 .card.rcard[data-cat="fine-dining"] { --cat: var(--c-fine-dining); }
-.card.rcard::before {
-  content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px;
-  border-radius: 0 3px 3px 0; background: var(--cat);
-}
 .rcard-thumb { width: 76px; height: 76px; border-radius: var(--r-md); overflow: hidden; background: var(--surface-2); flex: none; }
 .rcard-thumb .ph::after { padding: 2px 5px; }
 .rcard-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding-right: 34px; }
@@ -1499,7 +1515,7 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .critique-when { font-size: var(--fs-xs); color: var(--text-faint); white-space: nowrap; flex: none; }
 .critique-stars { margin-top: 4px; }
 .critique-stars .stars-display .icon { width: 15px; height: 15px; }
-.critique-note { font-size: var(--fs-base); color: var(--text-muted); margin: 4px 0 0; line-height: 1.45; }
+.critique-note { font-size: var(--fs-base); color: var(--text); margin: 4px 0 0; line-height: 1.5; }
 
 /* Tab bar: conteúdo mais cheio + descido (a safe-area do PWA deixava os ícones
    demasiado em cima, com uma banda vazia por baixo). Metade da safe-area como
@@ -1551,7 +1567,7 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 /* Critique row */
 .critique {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--r-md);
   padding: var(--sp-3) var(--sp-4);
   cursor: pointer;
@@ -1664,27 +1680,22 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 }
 .feed-rest > .icon { margin-left: auto; flex: none; width: 18px; height: 18px; color: var(--text-faint); }
 .feed-rest:active { transform: scale(0.99); }
-.feed-photos {
-  display: grid;
-  gap: 4px;
-  margin-top: 6px;
-  flex-wrap: wrap;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-}
+/* Fotos do feed: edge-to-edge, sem cartão branco à volta. */
+.feed-photos { display: grid; gap: var(--sp-2); margin: var(--sp-2) 0; }
+.feed-photos[data-n="1"] { grid-template-columns: 1fr; }
+.feed-photos[data-n="2"] { grid-template-columns: 1fr 1fr; }
+.feed-photos[data-n="3"] { grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; }
+.feed-photos[data-n="3"] .feed-photo:first-child { grid-row: span 2; }
 .feed-photo {
-  width: 84px;
-  height: 84px;
-  object-fit: cover;
-  display: block;
-  border-radius: var(--r-md);
-  border: none;
-  background: var(--surface-2);
-  padding: 0;
-  margin: 0;
-  cursor: pointer;
-  overflow: hidden;
-  aspect-ratio: 1;
-  max-height: 280px;
+  position: relative; width: 100%; aspect-ratio: 4 / 5;
+  border: none; border-radius: var(--r-md); background: var(--surface-2);
+  padding: 0; margin: 0; cursor: pointer; overflow: hidden;
+}
+.feed-photos[data-n="3"] .feed-photo { aspect-ratio: auto; }
+.feed-photo-more {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  background: rgba(30, 22, 12, 0.5); color: #fff;
+  font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 600;
 }
 .feed-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
@@ -1838,15 +1849,22 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 /* ---------- Map ---------- */
 .map-area {
   position: relative;
-  flex: 1;
+  flex: 1; min-height: 0;
 }
-.map-search-btn {
+/* Controlos flutuantes: sem borda nem sombra — o mapa já os separa. */
+.map-controls {
   position: absolute; top: var(--sp-3); right: var(--sp-3); z-index: 20;
-  width: var(--h-control); height: var(--h-control); border-radius: 50%; border: 1px solid var(--border);
-  background: var(--surface); color: var(--text); cursor: pointer;
-  display: grid; place-items: center; box-shadow: var(--sh-sm);
+  display: flex; flex-direction: column; gap: var(--sp-2);
 }
-.map-search-btn .icon { width: 20px; height: 20px; }
+.map-ctl {
+  position: relative;
+  width: 40px; height: 40px; border: none; border-radius: var(--r-pill);
+  background: var(--surface); color: var(--text); cursor: pointer;
+  display: grid; place-items: center;
+}
+.map-ctl .icon { width: 19px; height: 19px; }
+/* 40px por desenho, 44 para o dedo. */
+.map-ctl::after { content: ""; position: absolute; inset: -2px; border-radius: inherit; }
 .map-search {
   position: absolute; top: var(--sp-3); right: var(--sp-3); left: var(--sp-3); z-index: 21;
   width: auto; max-width: 380px; margin-left: auto;
@@ -2011,8 +2029,6 @@ body.ob-open { overflow: hidden; }
 .ob-skip { font-size: var(--fs-ui); color: var(--text-muted); text-decoration: none; }
 
 /* ---------- Filtros em sheet (Fase 3 do handoff) ---------- */
-.search-row { display: flex; align-items: center; gap: var(--sp-2); }
-.search-row .search-wrap { flex: 1; min-width: 0; }
 .filters-btn {
   position: relative; flex: none;
   display: inline-flex; align-items: center; gap: 6px;
@@ -2326,3 +2342,59 @@ body.ob-open { overflow: hidden; }
 
 /* Secção extra dentro do leaderboard dos amigos (ranking de restaurantes). */
 .lb-section { margin-top: var(--sp-5); }
+
+/* Cartão do sítio selecionado, ancorado em baixo do mapa. Tocar num pin mostra
+   isto antes da ficha inteira: primeiro saber o que é, depois decidir abrir. */
+.map-peek {
+  position: absolute; left: var(--sp-3); right: var(--sp-3); bottom: var(--sp-3); z-index: 22;
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: 10px; border-radius: var(--r-md);
+  background: var(--surface); box-shadow: var(--sh-lg);
+  animation: peek-in var(--t) var(--ease-out);
+}
+.map-peek.hidden { display: none; }
+@keyframes peek-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.peek-thumb { width: 56px; height: 56px; flex: none; border-radius: var(--r-md); overflow: hidden; background: var(--surface-2); }
+.peek-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.peek-name {
+  font-family: var(--font-display); font-size: var(--fs-card); font-weight: 600; line-height: 1.15;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.peek-meta {
+  font-size: var(--fs-sm); color: var(--text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.peek-open { flex: none; min-height: 40px; padding: 0 var(--sp-4); }
+.peek-close { flex: none; width: 32px; min-width: 32px; height: 32px; min-height: 32px; color: var(--text-faint); }
+.peek-close .icon { width: 16px; height: 16px; }
+
+/* Seguir pessoas: linhas de 64px com a razão à vista. */
+.people-label {
+  margin: var(--sp-4) 0 var(--sp-2);
+  font-family: var(--font-body);
+  font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.people-label:first-child { margin-top: 0; }
+.people-list .person-row {
+  min-height: 64px; padding: var(--sp-2) 0;
+  border: none; border-bottom: 1px solid var(--hairline); border-radius: 0;
+}
+.people-list .person-row:last-child { border-bottom: none; }
+.person-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.person-why { font-size: var(--fs-sm); color: var(--text-muted); }
+.people-foot { margin: 0; text-align: center; font-size: var(--fs-xs); color: var(--text-faint); }
+
+/* Cartão do perfil de gosto: o resumo à vista, não escondido atrás de um botão. */
+.perfil-taste {
+  display: flex; flex-direction: column; gap: var(--sp-2); width: 100%;
+  padding: var(--sp-4); margin-bottom: var(--sp-4);
+  border: none; border-radius: var(--r-md); background: var(--surface);
+  color: var(--text); text-align: left; cursor: pointer;
+}
+.perfil-taste-label {
+  font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.perfil-taste-sum { font-size: var(--fs-base); line-height: 1.5; }
+.perfil-taste-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }

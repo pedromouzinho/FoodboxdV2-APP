@@ -56,7 +56,7 @@ function legacyCategoryFor(cuisine, styles) {
 }
 
 const App = (() => {
-  const state = { restaurants: [], currentDetail: null, currentScreen: "mapa", diarioView: "restaurantes", criticasSort: "recent", amigosTab: "atividade", amigosFilter: "all" };
+  const state = { restaurants: [], currentDetail: null, currentScreen: "mapa", mapMode: "mapa", diarioView: "restaurantes", criticasSort: "recent", amigosTab: "atividade", amigosFilter: "all" };
 
   function esc(str) {
     return String(str == null ? "" : str).replace(/[&<>"']/g, (c) =>
@@ -319,7 +319,7 @@ const App = (() => {
   function render() {
     const list = getFiltered();
     renderList(list);
-    MapModule.renderMarkers(list, onSelect);
+    MapModule.renderMarkers(list, onPinSelect);
     document.getElementById("list-count").textContent =
       `${list.length} restaurante${list.length === 1 ? "" : "s"}`;
     paintFilterCount(list.length);
@@ -510,8 +510,44 @@ const App = (() => {
     MapModule.focusRestaurant(r);
     MapModule.highlightMarker(r.id);
     highlightCard(r.id);
-    if (isMobile()) openSidebar(false);
     openDetail(r);
+  }
+
+  // Tocar num pin mostra primeiro um cartão ancorado em baixo, não a ficha
+  // inteira: no mapa quer-se saber o que é aquilo antes de decidir abrir.
+  function onPinSelect(r) {
+    MapModule.highlightMarker(r.id);
+    showMapPeek(r);
+  }
+
+  function hideMapPeek() {
+    const el = document.getElementById("map-peek");
+    if (!el) return;
+    el.classList.add("hidden");
+    el.setAttribute("aria-hidden", "true");
+    el.innerHTML = "";
+  }
+
+  function showMapPeek(r) {
+    const el = document.getElementById("map-peek");
+    if (!el) return;
+    const cat = CUISINES[cuisineOf(r)] || { label: "" };
+    el.innerHTML = `
+      <div class="peek-thumb"><div class="ph" data-label="foto"></div></div>
+      <div class="peek-body">
+        <span class="rcard-cat" style="color:var(--c-${esc(cuisineOf(r))}-ink)">${esc(cat.label)}</span>
+        <span class="peek-name">${esc(r.name)}</span>
+        <span class="peek-meta">${esc([r.town, r.region].filter(Boolean).join(", "))}</span>
+      </div>
+      <button type="button" class="btn btn-primary peek-open">Abrir</button>
+      <button type="button" class="icon-btn peek-close" aria-label="Fechar">${icon("x")}</button>`;
+    el.classList.remove("hidden");
+    el.setAttribute("aria-hidden", "false");
+    const ph = el.querySelector(".ph");
+    if (ph && r.photoURL) setThumbPhoto(ph, r.photoURL, r);
+    else if (ph) fillThumbPhoto(ph, r);
+    el.querySelector(".peek-open").addEventListener("click", () => { hideMapPeek(); onSelect(r); });
+    el.querySelector(".peek-close").addEventListener("click", hideMapPeek);
   }
 
   function syncDetailVisitBtn(btn, visited) {
@@ -1646,6 +1682,17 @@ const App = (() => {
         <div class="perfil-tile"><span class="perfil-tile-v">${amigos}</span><span class="perfil-tile-l">Amigos</span></div>
       </div>
 
+      ${(() => {
+        const t = UserData.getTasteProfile && UserData.getTasteProfile();
+        if (!t || !t.summary) return "";
+        const chips = (t.cuisines || []).slice(0, 4).map((c) => `<span class="chip">${esc(c)}</span>`).join("");
+        return `<button type="button" class="perfil-taste" data-perfil="gosto">
+          <span class="perfil-taste-label">O meu gosto</span>
+          <span class="perfil-taste-sum">${esc(t.summary)}</span>
+          ${chips ? `<span class="perfil-taste-chips">${chips}</span>` : ""}
+        </button>`;
+      })()}
+
       <div id="perfil-groupbar" class="groupbar"></div>
 
       <div class="perfil-settings">
@@ -1699,6 +1746,38 @@ const App = (() => {
         if (status) status.textContent = "A foto não subiu — tenta outra vez quando houver rede.";
       }
     });
+  }
+
+  // Arrastar um sheet para baixo fecha-o — o mesmo gesto que a ficha já tinha,
+  // e o mecanismo universal de "voltar" que o handoff quer para o nativo, onde
+  // não há swipe-from-edge dentro de um WebView.
+  function wireSheetDrag(sheetId, onClose) {
+    const sheet = document.getElementById(sheetId);
+    if (!sheet || sheet.dataset.dragWired) return;
+    sheet.dataset.dragWired = "1";
+    const card = sheet.querySelector(".sheet-card");
+    const handle = sheet.querySelector(".sheet-handle");
+    if (!card || !handle) return;
+    let y0 = 0, dy = 0, dragging = false;
+    handle.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1) return;
+      dragging = true; y0 = e.touches[0].clientY; dy = 0;
+      card.style.transition = "none";
+    }, { passive: true });
+    handle.addEventListener("touchmove", (e) => {
+      if (!dragging) return;
+      dy = Math.max(0, e.touches[0].clientY - y0);
+      card.style.transform = `translateY(${dy}px)`;
+    }, { passive: true });
+    const end = () => {
+      if (!dragging) return;
+      dragging = false;
+      card.style.transition = "";
+      card.style.transform = "";
+      if (dy > 90) onClose();
+    };
+    handle.addEventListener("touchend", end);
+    handle.addEventListener("touchcancel", end);
   }
 
   // ---------- Native-feel gestures ----------
@@ -2270,9 +2349,20 @@ const App = (() => {
 
   function renderTaste(p) {
     const chips = (arr) => (arr || []).map((x) => `<span class="taste-chip">${esc(x)}</span>`).join("");
+    // O material de que o perfil foi escrito, à vista: dá-lhe proveniência em
+    // vez de parecer adivinhação.
+    const mems = gatherMemories();
+    const nCriticas = mems.filter((m) => m.stars || m.note).length;
+    const nPratos = mems.reduce((n, m) => n + (m.dishes || []).length, 0);
+    const nCozinhas = new Set(mems.map((m) => cuisineOf(m.r))).size;
     document.getElementById("ai-body").innerHTML = `
       <div class="taste">
         <p class="taste-summary">${esc(p.summary || "")}</p>
+        <div class="taste-tiles">
+          <div class="taste-tile"><span class="taste-tile-v">${nCriticas}</span><span class="taste-tile-l">Críticas</span></div>
+          <div class="taste-tile"><span class="taste-tile-v">${nPratos}</span><span class="taste-tile-l">Pratos</span></div>
+          <div class="taste-tile"><span class="taste-tile-v">${nCozinhas}</span><span class="taste-tile-l">Cozinhas</span></div>
+        </div>
         ${p.cuisines && p.cuisines.length ? `<div class="taste-row"><span class="taste-label">Cozinhas</span><div class="taste-chips">${chips(p.cuisines)}</div></div>` : ""}
         ${p.dishes && p.dishes.length ? `<div class="taste-row"><span class="taste-label">Pratos</span><div class="taste-chips">${chips(p.dishes)}</div></div>` : ""}
         ${p.vibe ? `<div class="taste-row"><span class="taste-label">Ambiente</span><span class="taste-val">${esc(p.vibe)}</span></div>` : ""}
@@ -2280,6 +2370,7 @@ const App = (() => {
         ${(p.mapsQueries && p.mapsQueries.length) ? `<div class="taste-discover" data-taste-discover></div>` : ""}
         <button class="btn btn-primary btn-block taste-suggest" data-taste-suggest>${icon("sparkles")} Pede-me uma sugestão</button>
         <button class="linklike taste-update" data-taste-update>Atualizar perfil de gosto</button>
+        <p class="taste-source">Escrito a partir das tuas ${nCriticas} crítica${nCriticas === 1 ? "" : "s"} e ${nPratos} prato${nPratos === 1 ? "" : "s"}.</p>
       </div>`;
     const sg = document.querySelector("#ai-body [data-taste-suggest]");
     if (sg) sg.addEventListener("click", () => { hideAi(); runSmartSuggest(); });
@@ -2678,9 +2769,9 @@ const App = (() => {
         });
         selectStop(results.querySelector("li"), stops[0].restaurant);
         annotateStops(stops);
-        // On mobile, close the sidebar so the drawn route is visible.
-        if (isMobile()) openSidebar(false);
-        else results.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        // Com a rota desenhada, o mapa é que interessa ver.
+        if (state.mapMode === "lista") results.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        else setMapMode("mapa");
       } catch (err) { status.textContent = err.message; }
     });
 
@@ -2727,9 +2818,6 @@ const App = (() => {
   function showScreen(name) {
     if (!SCREENS.includes(name)) name = "mapa";
     state.currentScreen = name;
-    // The sidebar (list/filters) only belongs to the map; leaving it should
-    // dismiss the open sidebar so it doesn't hang over the other screens.
-    if (name !== "mapa") openSidebar(false);
     document.querySelectorAll(".screen-data").forEach((s) => {
       s.hidden = s.dataset.screen !== name;
     });
@@ -2974,14 +3062,18 @@ const App = (() => {
     card.type = "button";
     card.className = "memory";
     card.dataset.cat = m.r.category;
+    // A nota vive numa pílula sobre a foto; o corpo fica para nome e sítio, e
+    // todos os cartões têm a mesma altura (grid-auto-rows).
     card.innerHTML = `
-      <div class="ph" data-label="foto · Google"></div>
+      <div class="memory-photo">
+        <div class="ph" data-label="foto · Google"></div>
+        ${m.stars ? `<span class="memory-score">${icon("star")}${m.stars}</span>` : ""}
+      </div>
       <div class="memory-body">
         <span class="rcard-cat" style="color:var(${cat.varName}-ink)">${esc(cat.label)}</span>
         <span class="memory-name">${esc(m.r.name)}</span>
-        <span class="rcard-loc">${icon("pin")} ${esc(m.r.town)}, ${esc(m.r.region)}</span>
         <div class="memory-foot">
-          ${m.stars ? starsDisplay(m.stars) : `<span class="muted" style="font-size:var(--fs-xs)">Sem nota</span>`}
+          <span class="rcard-loc">${esc(m.r.town)}</span>
           <span class="mono faint">${esc(fmtDateShort(m.lastVisit || m.updatedAt))}</span>
         </div>
       </div>`;
@@ -3194,19 +3286,49 @@ const App = (() => {
   }
 
   // ----- People: find and follow (the feed is built from who you follow) -----
-  function hidePeopleModal() { document.getElementById("people-modal").classList.add("hidden"); }
+  function hidePeopleModal() {
+    const el = document.getElementById("people-sheet");
+    if (!el) return;
+    el.classList.add("hidden");
+    el.setAttribute("aria-hidden", "true");
+  }
   async function openPeopleModal() {
     if (!UserData.isCloud()) { showSigninModal(); return; }
-    const m = document.getElementById("people-modal");
-    m.classList.remove("hidden");
-    const input = m.querySelector("[data-people-search]");
-    if (input) input.focus();
+    const el = document.getElementById("people-sheet");
+    el.classList.remove("hidden");
+    el.setAttribute("aria-hidden", "false");
+    const input = el.querySelector("[data-people-search]");
     renderPeople(input ? input.value : "");
   }
+
+  // Porque é que esta pessoa aparece aqui. Seguir alguém sem saber porquê é o
+  // que faz um feed morrer à segunda semana.
+  function followReason(p) {
+    const mine = new Set(UserData.getFollowing());
+    const shared = (p.following || []).filter((u) => mine.has(u)).length;
+    if (shared) return `${shared} amigo${shared === 1 ? "" : "s"} em comum`;
+    if (p.town) return `Também anda por ${p.town}`;
+    return "Sugerido para ti";
+  }
+
+  function personRow(p) {
+    const on = UserData.isFollowing(p.uid);
+    return `<div class="person-row">
+      ${avatar(p.displayName, p.photoURL)}
+      <span class="person-text">
+        <span class="person-name">${esc(p.displayName || "Sem nome")}</span>
+        <span class="person-why">${esc(followReason(p))}</span>
+      </span>
+      <button type="button" class="chip" data-follow="${esc(p.uid)}" data-on="${on}" aria-pressed="${on}">
+        ${on ? "A seguir" : "Seguir"}
+      </button>
+    </div>`;
+  }
+
   async function renderPeople(term) {
     const list = document.getElementById("people-list");
     if (!list) return;
-    list.innerHTML = `<div class="skeleton" style="height:56px"></div>`;
+    list.innerHTML = `<div class="skeleton" style="height:64px"></div>`;
     const me = UserData.me();
     let people = [];
     try {
@@ -3214,19 +3336,20 @@ const App = (() => {
       people = (await DB.searchProfiles(term, token)).filter((p) => p.uid !== me.uid);
     } catch (e) { people = []; }
     if (!people.length) {
-      list.innerHTML = `<p class="muted ai-hint">Ninguém encontrado.</p>`;
+      list.innerHTML = stateHtml({
+        art: "pessoas",
+        title: term ? "Ninguém com esse nome" : "Ainda não há ninguém para seguir",
+        text: term ? "" : "Convida quem quiseres — a app é mais interessante a dois."
+      });
       return;
     }
-    list.innerHTML = people.map((p) => {
-      const on = UserData.isFollowing(p.uid);
-      return `<div class="person-row">
-        ${avatar(p.displayName, p.photoURL)}
-        <span class="person-name">${esc(p.displayName || "Sem nome")}</span>
-        <button class="btn ${on ? "btn-ghost" : "btn-primary"} btn-sm" data-follow="${esc(p.uid)}" data-on="${on}">
-          ${on ? "A seguir" : "Seguir"}
-        </button>
-      </div>`;
-    }).join("");
+    // Duas secções: quem ainda não segues, e quem já segues.
+    const novos = people.filter((p) => !UserData.isFollowing(p.uid));
+    const seguidos = people.filter((p) => UserData.isFollowing(p.uid));
+    list.innerHTML =
+      (novos.length ? `<h3 class="people-label">Talvez conheças</h3>${novos.map(personRow).join("")}` : "") +
+      (seguidos.length ? `<h3 class="people-label">Já segues · ${seguidos.length}</h3>${seguidos.map(personRow).join("")}` : "");
+
     list.querySelectorAll("[data-follow]").forEach((btn) =>
       btn.addEventListener("click", async () => {
         const target = btn.dataset.follow;
@@ -3398,9 +3521,18 @@ const App = (() => {
     // Shared photos (distinct from the restaurant's own cover) — each opens the
     // viewer (preview + share + download) via the global [data-photo-url] handler.
     const photos = it.type === "upload" && it.photos && it.photos.length
-      ? `<div class="feed-photos">${it.photos.map((p) =>
-          `<button type="button" class="feed-photo" data-photo-url="${esc(p.url)}"><img src="${esc(p.url)}" alt="" loading="lazy"></button>`
-        ).join("")}</div>`
+      ? (() => {
+          // A foto é o conteúdo: uma ocupa 4:5, duas ficam lado a lado, três ou
+          // mais ficam 2fr/1fr com a terceira célula a contar as restantes.
+          const ps = it.photos;
+          const n = Math.min(ps.length, 3);
+          const extra = ps.length - 3;
+          return `<div class="feed-photos" data-n="${n}">${ps.slice(0, 3).map((p, i) =>
+            `<button type="button" class="feed-photo" data-photo-url="${esc(p.url)}">
+               <img src="${esc(p.url)}" alt="" loading="lazy">
+               ${i === 2 && extra > 0 ? `<span class="feed-photo-more">+${extra}</span>` : ""}
+             </button>`).join("")}</div>`;
+        })()
       : "";
     return `<div class="feed-item">
       <div class="feed-top">
@@ -3575,11 +3707,23 @@ const App = (() => {
   }
 
   // ---------- Wiring ----------
-  function openSidebar(open) {
-    const sb = document.getElementById("sidebar");
-    sb.classList.toggle("open", open);
-    const scrim = document.getElementById("sidebar-scrim");
-    if (scrim) scrim.classList.toggle("show", open);
+  // Mapa e Lista são dois modos da mesma coisa, não uma gaveta por cima da
+  // outra: o filtro, a procura e a contagem valem para os dois.
+  function setMapMode(mode) {
+    state.mapMode = mode === "lista" ? "lista" : "mapa";
+    if (state.mapMode === "lista") hideMapPeek();
+    document.querySelectorAll("[data-map-mode]").forEach((b) => {
+      const on = b.dataset.mapMode === state.mapMode;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+    document.querySelectorAll("[data-mode-pane]").forEach((p) => {
+      p.hidden = p.dataset.modePane !== state.mapMode;
+    });
+    // O mapa foi redimensionado enquanto estava escondido; sem isto fica cinzento.
+    if (state.mapMode === "mapa" && MapModule.isAvailable()) {
+      setTimeout(() => { const m = MapModule.getMap(); if (m) google.maps.event.trigger(m, "resize"); }, 50);
+    }
   }
   function isMobile() {
     return window.matchMedia("(max-width: 860px)").matches;
@@ -3620,20 +3764,26 @@ const App = (() => {
     if (fClear) fClear.addEventListener("click", clearFilters);
     document.querySelectorAll("[data-close-filters]").forEach((el) => el.addEventListener("click", closeFilters));
     document.querySelectorAll("[data-close-visit]").forEach((el) => el.addEventListener("click", closeVisitSheet));
+    wireSheetDrag("filters-sheet", closeFilters);
+    wireSheetDrag("visit-sheet", closeVisitSheet);
+    wireSheetDrag("people-sheet", hidePeopleModal);
     const visitSubmit = document.querySelector("[data-visit-submit]");
     if (visitSubmit) visitSubmit.addEventListener("click", submitVisit);
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
       if (!document.getElementById("filters-sheet").classList.contains("hidden")) closeFilters();
       if (!document.getElementById("visit-sheet").classList.contains("hidden")) closeVisitSheet();
+      if (!document.getElementById("people-sheet").classList.contains("hidden")) hidePeopleModal();
     });
-    document.getElementById("sidebar-toggle").addEventListener("click", () =>
-      openSidebar(!document.getElementById("sidebar").classList.contains("open"))
+    document.querySelectorAll("[data-map-mode]").forEach((b) =>
+      b.addEventListener("click", () => setMapMode(b.dataset.mapMode))
     );
-    const scrim = document.getElementById("sidebar-scrim");
-    if (scrim) scrim.addEventListener("click", () => openSidebar(false));
-    const sbClose = document.getElementById("sidebar-close");
-    if (sbClose) sbClose.addEventListener("click", () => openSidebar(false));
+    const recenter = document.getElementById("map-recenter-btn");
+    if (recenter) recenter.addEventListener("click", () => {
+      const t = UserData.getHomeTown && UserData.getHomeTown();
+      if (t && typeof t.lat === "number") MapModule.panTo(t.lat, t.lng, 12);
+      else MapModule.resetView();
+    });
     document.querySelectorAll("[data-close-detail]").forEach((el) => el.addEventListener("click", closeDetail));
     document.querySelectorAll("[data-close-signin]").forEach((el) =>
       el.addEventListener("click", () => hideSigninModal(true))
@@ -3665,7 +3815,7 @@ const App = (() => {
         if (su && !su.classList.contains("hidden")) { hideSuccess(); return; }
         const sm = document.getElementById("signin-modal");
         if (sm && !sm.classList.contains("hidden")) { hideSigninModal(true); return; }
-        closeDetail(); openSidebar(false);
+        closeDetail();
       }
     });
     document.querySelectorAll("#tabbar .tab").forEach((t) =>
@@ -3713,7 +3863,7 @@ const App = (() => {
     const vCover = document.querySelector("[data-viewer-cover]");
     if (vCover) vCover.addEventListener("click", () => setRestaurantCover(viewerUrl));
     document.querySelectorAll("[data-close-people]").forEach((el) => el.addEventListener("click", hidePeopleModal));
-    const peopleSearch = document.querySelector("#people-modal [data-people-search]");
+    const peopleSearch = document.querySelector("#people-sheet [data-people-search]");
     if (peopleSearch) {
       let t = null;
       peopleSearch.addEventListener("input", () => {
