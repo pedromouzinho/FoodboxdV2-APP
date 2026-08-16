@@ -1682,17 +1682,6 @@ const App = (() => {
         <div class="perfil-tile"><span class="perfil-tile-v">${amigos}</span><span class="perfil-tile-l">Amigos</span></div>
       </div>
 
-      ${(() => {
-        const t = UserData.getTasteProfile && UserData.getTasteProfile();
-        if (!t || !t.summary) return "";
-        const chips = (t.cuisines || []).slice(0, 4).map((c) => `<span class="chip">${esc(c)}</span>`).join("");
-        return `<button type="button" class="perfil-taste" data-perfil="gosto">
-          <span class="perfil-taste-label">O meu gosto</span>
-          <span class="perfil-taste-sum">${esc(t.summary)}</span>
-          ${chips ? `<span class="perfil-taste-chips">${chips}</span>` : ""}
-        </button>`;
-      })()}
-
       <div id="perfil-groupbar" class="groupbar"></div>
 
       <div class="perfil-settings">
@@ -3350,16 +3339,23 @@ const App = (() => {
       (novos.length ? `<h3 class="people-label">Talvez conheças</h3>${novos.map(personRow).join("")}` : "") +
       (seguidos.length ? `<h3 class="people-label">Já segues · ${seguidos.length}</h3>${seguidos.map(personRow).join("")}` : "");
 
+    // Atualiza-se o botão no sítio. Repintar a lista fazia a linha saltar de
+    // "Talvez conheças" para "Já segues" debaixo do dedo — o salto que vias.
+    // A lista só se reorganiza da próxima vez que o sheet abrir.
     list.querySelectorAll("[data-follow]").forEach((btn) =>
       btn.addEventListener("click", async () => {
         const target = btn.dataset.follow;
+        const era = btn.dataset.on === "true";
         btn.disabled = true;
         try {
-          if (btn.dataset.on === "true") await UserData.unfollow(target);
+          if (era) await UserData.unfollow(target);
           else await UserData.follow(target);
-          renderPeople(term);
+          btn.dataset.on = String(!era);
+          btn.setAttribute("aria-pressed", String(!era));
+          btn.textContent = !era ? "A seguir" : "Seguir";
           renderAmigosScreen();
-        } catch (e) { btn.disabled = false; }
+        } catch (e) { /* mantém o estado anterior */ }
+        btn.disabled = false;
       }));
   }
 
