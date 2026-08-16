@@ -108,8 +108,11 @@ for (const scheme of ["light", "dark"]) {
   if (a.campos.length) { bloqueadores++; console.log("  ERRO — campos abaixo de 16px (o iOS amplia a página):", a.campos); }
   else console.log("  campos: todos a 16px ou mais");
   if (a.alvos.length) {
+    // Mede-se a caixa do elemento. Chips e .mark-visit são 36px por desenho do
+    // handoff e estendem a área de toque com um ::after — que isto não vê. Por
+    // isso é relatório e não bloqueador: serve para nada passar despercebido.
     const tipos = [...new Set(a.alvos.map(([c, d]) => `${c.split(" ")[0]} (${d})`))];
-    console.log(`  a rever — ${a.alvos.length} alvos de toque abaixo de 44px:`, tipos.join(", "));
+    console.log(`  a rever — ${a.alvos.length} caixas abaixo de 44px:`, tipos.join(", "));
   }
   if (rede.size) console.log(`  (${rede.size} falhas de rede a terceiros, ignoradas)`);
   if (!erros.size && !a.campos.length) console.log("  sem bloqueadores");

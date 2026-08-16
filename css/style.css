@@ -390,6 +390,7 @@ button { font-family: inherit; }
    pleno, nunca uma opacidade: a .55 lia-se como "desativado" e falhava AA. */
 .chip-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .chip, .chip-tab, .chip-sort, .price-chip, .switch-chip, .companion-chip {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -408,6 +409,11 @@ button { font-family: inherit; }
   cursor: pointer;
   user-select: none;
   transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+/* 36px por desenho, 44px para o dedo: a área de toque estende-se para fora
+   sem alterar o ritmo visual da linha de chips. */
+.chip::after, .chip-tab::after, .chip-sort::after, .companion-chip::after {
+  content: ""; position: absolute; inset: -4px 0; border-radius: inherit;
 }
 .chip .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .companion-chip { padding-left: 4px; }
@@ -1408,14 +1414,17 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .rcard-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
 .mark-visit {
   position: absolute; top: var(--sp-3); right: var(--sp-3); z-index: 1;
-  width: 32px; height: 32px; border-radius: var(--r-pill);
+  width: 36px; height: 36px; border-radius: var(--r-pill);
   display: grid; place-items: center;
-  background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted);
+  background: var(--surface-2); border: none; color: var(--text-muted);
   transition: background var(--t) var(--ease), border-color var(--t) var(--ease), color var(--t) var(--ease);
 }
-.mark-visit .icon { width: 16px; height: 16px; }
-.mark-visit:hover { border-color: var(--accent); color: var(--accent-ink); }
-.mark-visit.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.mark-visit .icon { width: 17px; height: 17px; stroke-width: 2.5; }
+/* O botão mede 36 por desenho, mas o dedo apanha 44: a área de toque estende-se
+   para fora sem mexer no que se vê. */
+.mark-visit::after { content: ""; position: absolute; inset: -4px; border-radius: inherit; }
+.mark-visit:hover { color: var(--accent-ink); }
+.mark-visit.on { background: var(--accent); color: var(--on-accent); }
 
 /* ---- Amigos: feed + barra de grupo — design handoff ---- */
 
@@ -1555,11 +1564,8 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .profile-card .profile-photo { margin: 0 auto; }
 
 /* Filtros sempre visíveis mas compactos */
-.filters-extra { display: flex; flex-direction: column; gap: var(--sp-2); }
 #region-filters.chip-row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
 #region-filters.chip-row::-webkit-scrollbar { display: none; }
-.filters-line { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
-.price-pick { display: inline-flex; gap: 4px; flex: none; }
 .switch-chip input { accent-color: var(--accent); width: 15px; height: 15px; }
 
 /* Smart Suggestion chatbot (caixa única) */
@@ -1876,7 +1882,7 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 }
 .map-search-btn {
   position: absolute; top: var(--sp-3); right: var(--sp-3); z-index: 20;
-  width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--border);
+  width: var(--h-control); height: var(--h-control); border-radius: 50%; border: 1px solid var(--border);
   background: var(--surface); color: var(--text); cursor: pointer;
   display: grid; place-items: center; box-shadow: var(--sh-sm);
 }
@@ -2043,3 +2049,115 @@ body.ob-open { overflow: hidden; }
 .ob-dot.on { background: var(--text); }
 .ob-cta { width: 100%; min-height: var(--h-primary); border-radius: var(--r-md); font-size: var(--fs-item); }
 .ob-skip { font-size: var(--fs-ui); color: var(--text-muted); text-decoration: none; }
+
+/* ---------- Filtros em sheet (Fase 3 do handoff) ---------- */
+.search-row { display: flex; align-items: center; gap: var(--sp-2); }
+.search-row .search-wrap { flex: 1; min-width: 0; }
+.filters-btn {
+  position: relative; flex: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: var(--h-control); padding: 0 var(--sp-3);
+  border: none; border-radius: var(--r-pill);
+  background: var(--chip-on-bg); color: var(--chip-on-ink);
+  font-family: var(--font-body); font-size: var(--fs-ui); font-weight: 700;
+  cursor: pointer;
+}
+.filters-btn .icon { width: 15px; height: 15px; }
+.filters-count {
+  display: inline-grid; place-items: center;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: var(--r-pill);
+  background: var(--primary); color: var(--primary-ink);
+  font-size: var(--fs-2xs); font-weight: 800;
+}
+.filters-count.hidden { display: none; }
+
+/* Sheet genérico. O de filtros é o primeiro a usá-lo; os das fases seguintes
+   (registar visita, perfil de gosto, seguir pessoas) herdam daqui. */
+.sheet { position: fixed; inset: 0; z-index: 110; display: flex; align-items: flex-end; }
+.sheet.hidden { display: none; }
+.sheet-scrim { position: absolute; inset: 0; background: rgba(30, 22, 12, 0.5); }
+.sheet-card {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column;
+  width: 100%; max-width: 560px; margin: 0 auto;
+  max-height: min(86dvh, 760px);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  background: var(--surface); box-shadow: var(--sh-pop);
+  animation: sheet-in var(--t-slow) var(--ease-out);
+}
+@keyframes sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+.sheet-handle {
+  width: 44px; height: 5px; margin: 10px auto 0; flex: none;
+  border-radius: var(--r-pill); background: var(--border); cursor: pointer;
+}
+.sheet-head {
+  display: flex; align-items: baseline; gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-5) var(--sp-2); flex: none;
+}
+.sheet-title {
+  margin: 0; flex: 1;
+  font-family: var(--font-display); font-size: var(--fs-2xl); font-weight: 600;
+  line-height: 1.1; letter-spacing: -0.02em;
+}
+.sheet-clear { font-size: var(--fs-ui); font-weight: 700; color: var(--text-muted); text-decoration: none; }
+.sheet-body {
+  flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: var(--sp-2) var(--sp-5) var(--sp-4);
+  display: flex; flex-direction: column; gap: var(--sp-5);
+}
+.sheet-section { display: flex; flex-direction: column; gap: 10px; }
+/* Uma secção cujo grupo de chips esteja vazio some-se: mais vale não haver
+   secção do que uma etiqueta sozinha a apontar para nada. */
+.sheet-section:has(> .chip-row:empty) { display: none; }
+.sheet-label {
+  margin: 0; font-family: var(--font-body);
+  font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.sheet-foot {
+  flex: none; border-top: 1px solid var(--hairline);
+  padding: 14px var(--sp-5) calc(env(safe-area-inset-bottom) + var(--sp-5));
+}
+.sheet-cta {
+  width: 100%; min-height: var(--h-primary);
+  border-radius: var(--r-md); font-size: var(--fs-item); font-weight: 700;
+}
+
+/* Cozinhas para lá da sexta ficam atrás do chip tracejado. */
+#category-filters .chip-overflow { display: none; }
+#category-filters.show-all .chip-overflow { display: inline-flex; }
+.chip-more { background: transparent; border: 1px dashed var(--border-strong); color: var(--text-muted); }
+
+/* Preço: quatro alvos iguais, não pílulas — a diferença de forma diz que é
+   uma escala e não uma lista de etiquetas. */
+#price-filters { display: flex; gap: var(--sp-2); }
+#price-filters .price-chip {
+  flex: 1; height: var(--h-control); padding: 0;
+  border-radius: var(--r-md); position: relative;
+}
+
+/* Interruptores: linha de 52px, rótulo à esquerda, comando à direita. */
+.switch-row {
+  display: flex; align-items: center; gap: var(--sp-3);
+  min-height: 52px; border-bottom: 1px solid var(--hairline);
+}
+.sheet-section .switch-row:last-child { border-bottom: none; }
+.switch-label { flex: 1; font-size: var(--fs-item); font-weight: 600; }
+.switch { flex: none; display: inline-flex; cursor: pointer; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch-track {
+  display: block; width: 50px; height: 30px; padding: 3px;
+  border-radius: var(--r-pill); background: var(--surface-3);
+  transition: background 0.15s var(--ease);
+}
+.switch-track::after {
+  content: ""; display: block; width: 24px; height: 24px;
+  border-radius: var(--r-pill); background: var(--surface);
+  transition: transform 0.15s var(--ease);
+}
+.switch input:checked + .switch-track { background: var(--primary); }
+.switch input:checked + .switch-track::after { transform: translateX(20px); }
+.switch input:focus-visible + .switch-track {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
+}

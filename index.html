@@ -95,9 +95,16 @@
         <button id="sidebar-close" class="icon-btn sidebar-close" aria-label="Fechar lista">
           <svg class="icon"><use href="#i-x"/></svg>
         </button>
-        <div class="search-wrap">
-          <svg class="icon search-icon"><use href="#i-search"/></svg>
-          <input id="search-input" type="search" placeholder="Procurar nome, localidade ou prato…" aria-label="Procurar" />
+        <div class="search-row">
+          <div class="search-wrap">
+            <svg class="icon search-icon"><use href="#i-search"/></svg>
+            <input id="search-input" type="search" placeholder="Nome, localidade ou prato" aria-label="Procurar" />
+          </div>
+          <button id="filters-btn" class="filters-btn" type="button" aria-haspopup="dialog" aria-expanded="false">
+            <svg class="icon"><use href="#i-sliders"/></svg>
+            Filtros
+            <span class="filters-count hidden" id="filters-count" aria-hidden="true"></span>
+          </button>
         </div>
 
         <div class="progress-block">
@@ -106,51 +113,6 @@
           </div>
           <div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
         </div>
-
-        <div class="chip-row" id="category-filters" role="group" aria-label="Filtrar por cozinha"></div>
-        <div class="chip-row" id="style-filters" role="group" aria-label="Filtrar por estilo"></div>
-
-        <div class="filters-extra">
-          <div id="region-filters" class="chip-row" role="group" aria-label="Filtrar por região"></div>
-          <div class="filters-line">
-            <div id="price-filters" class="price-pick" role="group" aria-label="Filtrar por preço">
-              <label class="price-chip"><input type="checkbox" data-price="1" checked /> <span>€</span></label>
-              <label class="price-chip"><input type="checkbox" data-price="2" checked /> <span>€€</span></label>
-              <label class="price-chip"><input type="checkbox" data-price="3" checked /> <span>€€€</span></label>
-              <label class="price-chip"><input type="checkbox" data-price="4" checked /> <span>€€€€</span></label>
-            </div>
-            <label class="switch-chip"><input type="checkbox" id="hide-visited-checkbox" /> <span>Esconder visitados</span></label>
-            <label class="switch-chip"><input type="checkbox" id="only-priority-checkbox" /> <span>Só prioritários</span></label>
-          </div>
-        </div>
-
-        <details class="panel" id="planner-panel">
-          <summary class="panel-summary">
-            <svg class="icon"><use href="#i-map"/></svg> Planear uma viagem
-            <svg class="icon chev"><use href="#i-chevron-down"/></svg>
-          </summary>
-          <div class="panel-body">
-            <p class="hint">Indique a origem e o destino. Mostramos percursos com paragem nos restaurantes perto da rota.</p>
-            <div class="field">
-              <label for="planner-from">De</label>
-              <input id="planner-from" type="text" placeholder="ex: Lisboa" />
-            </div>
-            <div class="field">
-              <label for="planner-to">Para</label>
-              <input id="planner-to" type="text" placeholder="ex: Évora" />
-            </div>
-            <div class="field">
-              <label for="planner-radius">Distância à rota: <strong id="planner-radius-value">25</strong> km</label>
-              <input id="planner-radius" type="range" min="5" max="60" step="5" value="25" />
-            </div>
-            <div class="planner-actions">
-              <button id="planner-find-btn" class="btn btn-primary btn-sm">Encontrar paragens</button>
-              <button id="planner-clear-btn" class="btn btn-ghost btn-sm">Limpar</button>
-            </div>
-            <p id="planner-status" class="planner-status" aria-live="polite"></p>
-            <ul id="planner-results" class="planner-results"></ul>
-          </div>
-        </details>
 
         <div class="list-head">
           <span id="list-count">0 restaurantes</span>
@@ -372,6 +334,85 @@
         </button>
         <button class="btn btn-ghost btn-block" data-close-signin>Agora não</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Filtros em bottom sheet (Fase 3 do handoff). Os elementos mantêm os ids
+       antigos de propósito: getFiltered() continua a lê-los sem saber que
+       mudaram de sítio. -->
+  <div id="filters-sheet" class="sheet hidden" aria-hidden="true">
+    <div class="sheet-scrim" data-close-filters></div>
+    <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="filters-title">
+      <div class="sheet-handle" data-close-filters></div>
+      <header class="sheet-head">
+        <h2 class="sheet-title" id="filters-title">Filtros</h2>
+        <button type="button" class="linklike sheet-clear" id="filters-clear">Limpar tudo</button>
+      </header>
+      <div class="sheet-body">
+        <section class="sheet-section">
+          <h3 class="sheet-label">Cozinha</h3>
+          <div class="chip-row" id="category-filters" role="group" aria-label="Filtrar por cozinha"></div>
+        </section>
+        <section class="sheet-section">
+          <h3 class="sheet-label">Estilo</h3>
+          <div class="chip-row" id="style-filters" role="group" aria-label="Filtrar por estilo"></div>
+        </section>
+        <section class="sheet-section">
+          <h3 class="sheet-label">Região</h3>
+          <div id="region-filters" class="chip-row" role="group" aria-label="Filtrar por região"></div>
+        </section>
+        <section class="sheet-section">
+          <h3 class="sheet-label">Preço</h3>
+          <div id="price-filters" role="group" aria-label="Filtrar por preço">
+            <label class="price-chip"><input type="checkbox" data-price="1" /> <span>€</span></label>
+            <label class="price-chip"><input type="checkbox" data-price="2" /> <span>€€</span></label>
+            <label class="price-chip"><input type="checkbox" data-price="3" /> <span>€€€</span></label>
+            <label class="price-chip"><input type="checkbox" data-price="4" /> <span>€€€€</span></label>
+          </div>
+        </section>
+        <section class="sheet-section">
+          <div class="switch-row">
+            <span class="switch-label">Esconder visitados</span>
+            <label class="switch"><input type="checkbox" id="hide-visited-checkbox" /><span class="switch-track"></span></label>
+          </div>
+          <div class="switch-row">
+            <span class="switch-label">Só a minha wishlist</span>
+            <label class="switch"><input type="checkbox" id="only-priority-checkbox" /><span class="switch-track"></span></label>
+          </div>
+        </section>
+        <section class="sheet-section">
+          <details class="panel" id="planner-panel">
+            <summary class="panel-summary">
+              <svg class="icon"><use href="#i-map"/></svg> Planear uma viagem
+              <svg class="icon chev"><use href="#i-chevron-down"/></svg>
+            </summary>
+            <div class="panel-body">
+              <p class="hint">Indique a origem e o destino. Mostramos percursos com paragem nos restaurantes perto da rota.</p>
+              <div class="field">
+                <label for="planner-from">De</label>
+                <input id="planner-from" type="text" placeholder="ex: Lisboa" />
+              </div>
+              <div class="field">
+                <label for="planner-to">Para</label>
+                <input id="planner-to" type="text" placeholder="ex: Évora" />
+              </div>
+              <div class="field">
+                <label for="planner-radius">Distância à rota: <strong id="planner-radius-value">25</strong> km</label>
+                <input id="planner-radius" type="range" min="5" max="60" step="5" value="25" />
+              </div>
+              <div class="planner-actions">
+                <button id="planner-find-btn" class="btn btn-primary btn-sm">Encontrar paragens</button>
+                <button id="planner-clear-btn" class="btn btn-ghost btn-sm">Limpar</button>
+              </div>
+              <p id="planner-status" class="planner-status" aria-live="polite"></p>
+              <ul id="planner-results" class="planner-results"></ul>
+            </div>
+          </details>
+        </section>
+      </div>
+      <footer class="sheet-foot">
+        <button type="button" class="btn btn-primary sheet-cta" id="filters-apply">Ver restaurantes</button>
+      </footer>
     </div>
   </div>
 

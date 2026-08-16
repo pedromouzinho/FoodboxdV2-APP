@@ -169,15 +169,22 @@ const App = (() => {
   function selectedStyles() {
     return [...document.querySelectorAll('#style-filters .chip[aria-pressed="true"]')].map((c) => c.dataset.style);
   }
+  // Treze cozinhas de uma vez enchem o sheet antes de se chegar ao resto. Seis
+  // à vista, as outras atrás de um chip tracejado — que desaparece assim que
+  // alguma das escondidas estiver escolhida, para nunca haver filtro invisível.
+  const CUISINES_VISIBLE = 6;
   function buildCategoryFilters() {
     const wrap = document.getElementById("category-filters");
     wrap.innerHTML = "";
-    Object.entries(CUISINES).forEach(([key, cat]) => {
+    const keys = Object.keys(CUISINES);
+    keys.forEach((key, i) => {
+      const cat = CUISINES[key];
       const chip = document.createElement("button");
       chip.className = "chip";
       chip.type = "button";
       chip.dataset.category = key;
-      chip.setAttribute("aria-pressed", "true");
+      chip.setAttribute("aria-pressed", "false");
+      if (i >= CUISINES_VISIBLE) chip.classList.add("chip-overflow");
       chip.innerHTML = `${dot(cat)} ${cat.label}`;
       chip.addEventListener("click", () => {
         chip.setAttribute("aria-pressed", chip.getAttribute("aria-pressed") === "true" ? "false" : "true");
@@ -185,6 +192,18 @@ const App = (() => {
       });
       wrap.appendChild(chip);
     });
+    const hidden = keys.length - CUISINES_VISIBLE;
+    if (hidden > 0) {
+      const more = document.createElement("button");
+      more.type = "button";
+      more.className = "chip chip-more";
+      more.textContent = `+ ${hidden} cozinhas`;
+      more.addEventListener("click", () => {
+        wrap.classList.add("show-all");
+        more.remove();
+      });
+      wrap.appendChild(more);
+    }
   }
 
   function buildRegionFilters() {
@@ -196,7 +215,7 @@ const App = (() => {
       chip.type = "button";
       chip.className = "chip";
       chip.dataset.region = region;
-      chip.setAttribute("aria-pressed", "true");
+      chip.setAttribute("aria-pressed", "false");
       chip.textContent = region;
       chip.addEventListener("click", () => {
         chip.setAttribute("aria-pressed", chip.getAttribute("aria-pressed") === "true" ? "false" : "true");
@@ -225,7 +244,7 @@ const App = (() => {
     const hideVisited = document.getElementById("hide-visited-checkbox").checked;
     const onlyPriority = document.getElementById("only-priority-checkbox").checked;
     return state.restaurants.filter((r) => {
-      if (!cats.includes(cuisineOf(r))) return false;
+      if (cats.length && !cats.includes(cuisineOf(r))) return false;
       if (styles.length) {
         const rs = stylesOf(r);
         if (!styles.every((k) => rs.includes(k))) return false; // all chosen styles must hold
@@ -248,6 +267,54 @@ const App = (() => {
     });
   }
 
+  // ---------- Filtros em sheet (Fase 3) ----------
+  // Quantos filtros estão a estreitar a lista. Vazio = sem filtro, para todos
+  // os eixos — é o que permite arrancar com tudo desligado.
+  function activeFilterCount() {
+    const prices = selectedPrices();
+    return selectedCategories().length
+      + selectedStyles().length
+      + selectedRegions().length
+      + (prices.length && prices.length < 4 ? 1 : 0)
+      + (document.getElementById("hide-visited-checkbox").checked ? 1 : 0)
+      + (document.getElementById("only-priority-checkbox").checked ? 1 : 0);
+  }
+  function paintFilterCount(shown) {
+    const badge = document.getElementById("filters-count");
+    const n = activeFilterCount();
+    if (badge) {
+      badge.textContent = String(n);
+      badge.classList.toggle("hidden", n === 0);
+    }
+    const cta = document.getElementById("filters-apply");
+    if (cta) {
+      cta.textContent = shown === 1 ? "Ver 1 restaurante" : `Ver ${shown} restaurantes`;
+    }
+  }
+  function openFilters() {
+    const el = document.getElementById("filters-sheet");
+    if (!el) return;
+    el.classList.remove("hidden");
+    el.setAttribute("aria-hidden", "false");
+    document.getElementById("filters-btn").setAttribute("aria-expanded", "true");
+    render();
+  }
+  function closeFilters() {
+    const el = document.getElementById("filters-sheet");
+    if (!el) return;
+    el.classList.add("hidden");
+    el.setAttribute("aria-hidden", "true");
+    document.getElementById("filters-btn").setAttribute("aria-expanded", "false");
+  }
+  function clearFilters() {
+    document.querySelectorAll('#category-filters .chip, #style-filters .chip, #region-filters .chip')
+      .forEach((c) => c.setAttribute("aria-pressed", "false"));
+    document.querySelectorAll('#price-filters input[type="checkbox"]').forEach((i) => { i.checked = false; });
+    document.getElementById("hide-visited-checkbox").checked = false;
+    document.getElementById("only-priority-checkbox").checked = false;
+    render();
+  }
+
   // ---------- Render ----------
   function render() {
     const list = getFiltered();
@@ -256,6 +323,7 @@ const App = (() => {
     updateProgress();
     document.getElementById("list-count").textContent =
       `${list.length} restaurante${list.length === 1 ? "" : "s"}`;
+    paintFilterCount(list.length);
   }
 
   function renderList(restaurants) {
@@ -3290,6 +3358,18 @@ const App = (() => {
     document.getElementById("hide-visited-checkbox").addEventListener("change", render);
     document.getElementById("only-priority-checkbox").addEventListener("change", render);
     document.querySelectorAll("#price-filters input").forEach((el) => el.addEventListener("change", render));
+
+    // Sheet de filtros
+    const fBtn = document.getElementById("filters-btn");
+    if (fBtn) fBtn.addEventListener("click", openFilters);
+    const fApply = document.getElementById("filters-apply");
+    if (fApply) fApply.addEventListener("click", closeFilters);
+    const fClear = document.getElementById("filters-clear");
+    if (fClear) fClear.addEventListener("click", clearFilters);
+    document.querySelectorAll("[data-close-filters]").forEach((el) => el.addEventListener("click", closeFilters));
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !document.getElementById("filters-sheet").classList.contains("hidden")) closeFilters();
+    });
     document.getElementById("sidebar-toggle").addEventListener("click", () =>
       openSidebar(!document.getElementById("sidebar").classList.contains("open"))
     );
@@ -3512,6 +3592,10 @@ const App = (() => {
     state.restaurants.forEach((r) => applyOverride(r, overrides[r.id]));
 
     buildCategoryFilters();
+    // buildStyleFilters existia desde que o eixo de estilo foi criado, mas nunca
+    // chegou a ser chamado: #style-filters estava sempre vazio e o segundo eixo
+    // nunca foi filtrável. Com os filtros no sheet, a secção vazia via-se.
+    buildStyleFilters();
     buildRegionFilters();
     wireEvents();
     render();
