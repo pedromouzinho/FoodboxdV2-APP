@@ -56,7 +56,7 @@ function legacyCategoryFor(cuisine, styles) {
 }
 
 const App = (() => {
-  const state = { restaurants: [], currentDetail: null, currentScreen: "mapa", criticasView: "mine", criticasSort: "recent", amigosTab: "atividade", amigosFilter: "all" };
+  const state = { restaurants: [], currentDetail: null, currentScreen: "mapa", diarioView: "restaurantes", criticasSort: "recent", amigosTab: "atividade", amigosFilter: "all" };
 
   function esc(str) {
     return String(str == null ? "" : str).replace(/[&<>"']/g, (c) =>
@@ -565,16 +565,17 @@ const App = (() => {
         <button class="btn btn-primary btn-block" data-open-visit-sheet>${icon("star")} Registar visita</button>
       </div>
       <div class="detail-tabs" role="tablist">
-        <button class="detail-tab active" data-tab="rest" role="tab" aria-selected="true">Restaurante</button>
-        <button class="detail-tab" data-tab="mem" role="tab" aria-selected="false">As minhas experiências</button>
-        <button class="detail-tab" data-tab="crit" role="tab" aria-selected="false">Críticas</button>
-        <button class="detail-tab" data-tab="amigos" role="tab" aria-selected="false">Amigos</button>
+        <button class="detail-tab active" data-tab="sitio" role="tab" aria-selected="true">O sítio</button>
+        <button class="detail-tab" data-tab="experiencia" role="tab" aria-selected="false">A minha experiência</button>
       </div>
       <div class="detail-panes">
-        <div class="detail-pane" data-pane="rest" role="tabpanel">
+        <div class="detail-pane" data-pane="sitio" role="tabpanel">
           <div data-gallery></div>
           <div data-hours></div>
           <div data-reviews></div>
+          <div class="amigos" data-amigos></div>
+          <div class="photos" data-friends-photos></div>
+          <div class="comments" data-comments></div>
           <div class="cat-edit">
             <span class="detail-section-title">Cozinha${DB.isAvailable() ? "" : " (só neste navegador)"}</span>
             <div class="chip-row" data-cat-edit></div>
@@ -584,17 +585,10 @@ const App = (() => {
           </div>
           ${canDeleteRestaurant(r) ? `<button class="btn btn-ghost btn-block btn-danger" data-delete-restaurant>${icon("x")} Remover restaurante</button>` : ""}
         </div>
-        <div class="detail-pane" data-pane="mem" role="tabpanel" hidden>
+        <div class="detail-pane" data-pane="experiencia" role="tabpanel" hidden>
           <div class="my-marks" data-my-marks></div>
-          <div class="photos" data-my-photos></div>
           <div class="my-marks-tail" data-my-marks-tail></div>
-        </div>
-        <div class="detail-pane" data-pane="crit" role="tabpanel" hidden>
-          <div class="comments" data-comments></div>
-        </div>
-        <div class="detail-pane" data-pane="amigos" role="tabpanel" hidden>
-          <div class="amigos" data-amigos></div>
-          <div class="photos" data-friends-photos></div>
+          <div class="photos" data-my-photos></div>
         </div>
       </div>`;
 
@@ -1618,24 +1612,65 @@ const App = (() => {
   }
 
   // ---------- Profile modal (edit avatar) ----------
-  function openProfileModal() {
-    const m = document.getElementById("profile-modal");
-    if (!m) return;
-    const img = m.querySelector("[data-profile-img]");
-    const me = UserData.isCloud() ? UserData.me() : null;
-    if (img) img.src = (me && me.photoURL) || "";
-    const status = m.querySelector("[data-profile-status]");
-    if (status) status.textContent = "";
-    m.classList.remove("hidden");
+  // ---------- Perfil (4.º separador) ----------
+  // Estava atrás de um avatar na barra superior. Trouxe consigo a barra de
+  // grupo e a definição de privacidade, que viviam à frente do feed de Amigos.
+  function renderPerfil() {
+    const el = document.getElementById("perfil-body");
+    if (!el) return;
+    if (!UserData.isCloud()) {
+      el.innerHTML = signinInvite("Inicie sessão com a Google para ter perfil, diário e amigos.");
+      return;
+    }
+    const me = UserData.me();
+    const sitios = state.restaurants.filter((r) => UserData.isVisited(r.id)).length;
+    const pratos = state.restaurants.reduce((n, r) => n + (((UserData.getRating(r.id) || {}).dishes || []).length), 0);
+    const amigos = UserData.getFollowing().length;
+
+    el.innerHTML = `
+      <div class="perfil-head">
+        ${me.photoURL
+          ? `<img class="perfil-avatar" data-profile-img src="${esc(me.photoURL)}" alt="" />`
+          : `<span class="perfil-avatar perfil-avatar-empty" data-profile-img>${esc((me.displayName || "?").trim().charAt(0).toUpperCase())}</span>`}
+        <h3 class="perfil-name">${esc(me.displayName || "Sem nome")}</h3>
+        <label class="linklike perfil-photo-btn">
+          Mudar foto
+          <input type="file" accept="image/*" data-profile-input hidden />
+        </label>
+        <p class="photo-status" data-profile-status></p>
+      </div>
+
+      <div class="perfil-tiles">
+        <div class="perfil-tile"><span class="perfil-tile-v">${sitios}</span><span class="perfil-tile-l">Sítios</span></div>
+        <div class="perfil-tile"><span class="perfil-tile-v">${pratos}</span><span class="perfil-tile-l">Pratos</span></div>
+        <div class="perfil-tile"><span class="perfil-tile-v">${amigos}</span><span class="perfil-tile-l">Amigos</span></div>
+      </div>
+
+      <div id="perfil-groupbar" class="groupbar"></div>
+
+      <div class="perfil-settings">
+        ${AIModule.available() ? `<button type="button" class="perfil-row" data-perfil="gosto">${icon("sparkles")}<span>O meu perfil de gosto</span>${icon("chevron-right")}</button>` : ""}
+        <button type="button" class="perfil-row" data-perfil="pessoas">${icon("users")}<span>Descobrir pessoas</span>${icon("chevron-right")}</button>
+        <button type="button" class="perfil-row" data-perfil="tutorial">${icon("info")}<span>Rever tutorial</span>${icon("chevron-right")}</button>
+        <button type="button" class="perfil-row perfil-row-danger" data-perfil="sair">${icon("log-in")}<span>Terminar sessão</span></button>
+      </div>`;
+
+    renderGroupBar();
+    wireProfileUpload();
+    el.querySelectorAll("[data-perfil]").forEach((b) => b.addEventListener("click", () => {
+      const what = b.dataset.perfil;
+      if (what === "gosto") showTasteProfile();
+      else if (what === "pessoas") openPeopleModal();
+      else if (what === "tutorial") showTour();
+      else if (what === "sair") AuthModule.signOut();
+    }));
   }
-  function hideProfileModal() {
-    const m = document.getElementById("profile-modal");
-    if (m) m.classList.add("hidden");
-  }
+
   function wireProfileUpload() {
-    const input = document.querySelector("#profile-modal [data-profile-input]");
-    const status = document.querySelector("#profile-modal [data-profile-status]");
-    if (!input) return;
+    const input = document.querySelector("#perfil-body [data-profile-input]");
+    const status = document.querySelector("#perfil-body [data-profile-status]");
+    if (!input || input.dataset.wired) return;
+    input.dataset.wired = "1";
     input.addEventListener("change", async () => {
       const file = input.files && input.files[0];
       input.value = "";
@@ -1655,8 +1690,8 @@ const App = (() => {
         UserData.setPhotoURL(url);
         const chipImg = document.getElementById("user-chip-img");
         if (chipImg) { chipImg.src = url; chipImg.classList.remove("hidden"); }
-        const pm = document.querySelector("#profile-modal [data-profile-img]");
-        if (pm) pm.src = url;
+        const pm = document.querySelector("#perfil-body [data-profile-img]");
+        if (pm && pm.tagName === "IMG") pm.src = url;
         refreshOpenDetail();
         refreshActiveDataScreen();
         if (status) status.textContent = "Foto atualizada.";
@@ -1929,7 +1964,7 @@ const App = (() => {
     const wish = host.querySelector("[data-map-add-wish]");
     if (wish) wish.addEventListener("click", () => addDiscoveredPlace(p, wish));
     const log = host.querySelector("[data-map-add-log]");
-    if (log) log.addEventListener("click", () => addDiscoveredPlace(p, log, { tab: "mem", priority: false }));
+    if (log) log.addEventListener("click", () => addDiscoveredPlace(p, log, { tab: "experiencia", priority: false }));
   }
 
   // ---------- Cover chooser (the "Mudar foto" button on the hero) ----------
@@ -2257,7 +2292,6 @@ const App = (() => {
   // Open the saved taste profile (from the profile modal). Generates it if none.
   function showTasteProfile() {
     if (!UserData.isCloud()) { showSigninModal(); return; }
-    hideProfileModal();
     const p = UserData.getTasteProfile();
     if (p && p.summary) { openAi(); renderTaste(p); }
     else runTasteProfile();
@@ -2678,10 +2712,15 @@ const App = (() => {
   }
 
   // ---------- App-level screens (bottom tab bar + global views) ----------
-  const SCREENS = ["mapa", "memorias", "criticas", "amigos"];
+  const SCREENS = ["mapa", "diario", "amigos", "perfil"];
+  // Hashes antigos ainda vivem em favoritos e no histórico da PWA instalada.
+  // Sem esta tradução, quem tivesse a app aberta num deles era despejado para o
+  // mapa ao recarregar.
+  const SCREEN_ALIASES = { memorias: "diario", criticas: "diario" };
 
   function screenFromHash() {
     const h = (location.hash || "").replace("#", "");
+    if (SCREEN_ALIASES[h]) return SCREEN_ALIASES[h];
     return SCREENS.includes(h) ? h : "mapa";
   }
 
@@ -2699,9 +2738,9 @@ const App = (() => {
       t.classList.toggle("active", on);
       t.setAttribute("aria-selected", String(on));
     });
-    if (name === "memorias") renderMemorias();
-    else if (name === "criticas") renderCriticasScreen();
+    if (name === "diario") renderDiario();
     else if (name === "amigos") renderAmigosScreen();
+    else if (name === "perfil") renderPerfil();
   }
 
   // ---------- Groups (Amigos screen) ----------
@@ -2709,7 +2748,7 @@ const App = (() => {
   // create a new one, or join with a code. The social views (feed, leaderboard,
   // badges) are scoped to whatever is active here, via UserData's group filter.
   function renderGroupBar() {
-    const el = document.getElementById("amigos-groupbar");
+    const el = document.getElementById("perfil-groupbar");
     if (!el) return;
     if (!UserData.isCloud()) { el.innerHTML = ""; return; }
     const groups = UserData.getGroups();
@@ -2731,9 +2770,6 @@ const App = (() => {
       ${active
         ? `<div class="groupbar-code">Convida amigos com o código <strong data-group-code>${esc(active.code)}</strong> <button class="linklike" data-copy-code>copiar</button> · <button class="linklike" data-leave-group="${esc(active.id)}">sair do grupo</button></div>`
         : `<div class="groupbar-hint muted">A ver toda a gente. Cria um grupo ou entra com um código para filtrares por amigos.</div>`}
-      <div class="groupbar-actions">
-        <button class="btn btn-ghost btn-sm" data-people-open>${icon("users")} Descobrir pessoas</button>
-      </div>
       <div class="groupbar-share">
         <span class="groupbar-label">${icon("sliders")} Quem vê a minha atividade</span>
         <label class="switch-chip"><input type="checkbox" data-share-global ${sharing.global ? "checked" : ""}> <span>Toda a gente</span></label>
@@ -2756,8 +2792,6 @@ const App = (() => {
       if (!confirm(`Sair de "${active.name}"? Deixas de ver a atividade do grupo.`)) return;
       UserData.leaveGroup(leave.dataset.leaveGroup).catch((e) => alert(e.message || "Não consegui sair."));
     });
-    const peopleBtn = el.querySelector("[data-people-open]");
-    if (peopleBtn) peopleBtn.addEventListener("click", openPeopleModal);
     const globalToggle = el.querySelector("[data-share-global]");
     if (globalToggle) globalToggle.addEventListener("change", () => {
       if (globalToggle.checked) UserData.setSharing({ global: true });
@@ -2823,7 +2857,8 @@ const App = (() => {
 
   // Amigos screen: switch between the activity feed and the leaderboard subtab.
   function renderAmigosScreen() {
-    renderGroupBar();
+    // A barra de grupo mudou-se para o Perfil: era configuração permanente à
+    // frente do conteúdo. O feed começa agora nos convites, que são acionáveis.
     document.querySelectorAll("#amigos-tabs .chip-tab").forEach((b) => {
       const on = b.dataset.atab === state.amigosTab;
       b.classList.toggle("active", on);
@@ -2853,21 +2888,25 @@ const App = (() => {
   }
 
   // Críticas screen: switch between "my critiques" and the restaurant leaderboard.
-  function renderCriticasScreen() {
-    document.querySelectorAll("#criticas-seg .chip-tab").forEach((b) => {
-      const on = b.dataset.cview === state.criticasView;
+  // Diário: três vistas do mesmo material. Memórias e Críticas liam ambas o
+  // UserData.getRating — eram a mesma entidade em dois separadores.
+  function renderDiario() {
+    const view = state.diarioView;
+    document.querySelectorAll("#diario-seg .chip-tab").forEach((b) => {
+      const on = b.dataset.dview === view;
       b.classList.toggle("active", on);
       b.setAttribute("aria-pressed", String(on));
     });
-    const list = document.getElementById("criticas-list");
-    const lb = document.getElementById("criticas-leaderboard");
+    const panes = { restaurantes: "memorias-list", criticas: "criticas-list", pratos: "pratos-list" };
+    Object.entries(panes).forEach(([k, id]) => {
+      const el = document.getElementById(id);
+      if (el) el.hidden = k !== view;
+    });
     const sort = document.getElementById("criticas-sort");
-    const onLeaderboard = state.criticasView === "leaderboard";
-    if (list) list.hidden = onLeaderboard;
-    if (lb) lb.hidden = !onLeaderboard;
-    if (sort) sort.hidden = onLeaderboard; // sorting only applies to critique lists
-    if (onLeaderboard) renderCriticasLeaderboard();
-    else renderCriticas();
+    if (sort) sort.hidden = view !== "criticas"; // ordenar só faz sentido nas críticas
+    if (view === "restaurantes") renderMemorias();
+    else if (view === "criticas") renderCriticas();
+    else renderPratos();
   }
 
   function navTo(name) {
@@ -2946,7 +2985,7 @@ const App = (() => {
           <span class="mono faint">${esc(fmtDateShort(m.lastVisit || m.updatedAt))}</span>
         </div>
       </div>`;
-    card.addEventListener("click", () => openOnTab(m.r, "mem"));
+    card.addEventListener("click", () => openOnTab(m.r, "experiencia"));
     fillThumbPhoto(card.querySelector(".ph"), m.r);
     return card;
   }
@@ -2975,6 +3014,53 @@ const App = (() => {
     mems.forEach((m) => listEl.appendChild(buildMemoryCard(m)));
   }
 
+  // ----- Diário · Pratos: o ativo mais invisível da app -----
+  // Estão em rating.dishes desde sempre e nunca tiveram onde ser vistos.
+  // Agrupados por cozinha, sem rede e sem estado novo.
+  function renderPratos() {
+    const el = document.getElementById("pratos-list");
+    if (!el) return;
+    if (!UserData.isCloud()) { el.innerHTML = signinInvite("Inicie sessão para ver os pratos que registou."); return; }
+
+    const byCuisine = new Map();
+    gatherMemories().forEach((m) => {
+      (m.dishes || []).forEach((d) => {
+        const key = cuisineOf(m.r);
+        if (!byCuisine.has(key)) byCuisine.set(key, []);
+        byCuisine.get(key).push({ dish: d, r: m.r, stars: m.stars });
+      });
+    });
+
+    if (!byCuisine.size) {
+      el.innerHTML = stateHtml({
+        art: "livros",
+        title: "Ainda não anotaste nenhum prato",
+        text: "Ao registar uma visita podes dizer o que comeste — fica tudo aqui.",
+        actions: [{ label: "Ver o mapa", action: "mapa" }]
+      });
+      return;
+    }
+
+    const groups = [...byCuisine.entries()].sort((a, b) => b[1].length - a[1].length);
+    el.innerHTML = groups.map(([key, items]) => {
+      const cat = CUISINES[key] || { label: key };
+      return `<section class="dish-group">
+        <h3 class="dish-group-title">${esc(cat.label)} <span class="dish-group-count">${items.length}</span></h3>
+        ${items.map((it) => `
+          <button type="button" class="dish-row" data-dish-rest="${esc(it.r.id)}">
+            <span class="dish-row-name">${esc(it.dish)}</span>
+            <span class="dish-row-rest">${esc(it.r.name)}</span>
+            ${it.stars ? `<span class="dish-row-stars">${icon("star")}<span>${it.stars}</span></span>` : ""}
+          </button>`).join("")}
+      </section>`;
+    }).join("");
+
+    el.querySelectorAll("[data-dish-rest]").forEach((b) => b.addEventListener("click", () => {
+      const r = state.restaurants.find((x) => x.id === b.dataset.dishRest);
+      if (r) openOnTab(r, "experiencia");
+    }));
+  }
+
   // ----- Críticas: ratings (stars+note+dishes) + comments, mine or everyone's -----
   let criticasReqId = 0;
   function critiqueRow(it) {
@@ -2983,7 +3069,7 @@ const App = (() => {
     const when = it.when ? `<span class="critique-when muted">${esc(fmtDateTime(it.when))}</span>` : "";
     const head = `<div class="critique-head"><span class="critique-rest">${icon("pin")} ${esc(name)}</span>${when}</div>`;
     const author = it.who ? `<div class="critique-author">${avatar(it.who, it.photoURL, "avatar-xs")}<span class="critique-author-name">${esc(it.who)}</span></div>` : "";
-    const tab = it.type === "comment" ? "crit" : "mem";
+    const tab = it.type === "comment" ? "sitio" : "experiencia";
     return `<div class="critique" data-crit-rest="${esc(it.restaurantId)}" data-crit-tab="${tab}">
       ${head}${author}
       ${it.stars ? `<div class="critique-stars">${starsDisplay(it.stars)}</div>` : ""}
@@ -3054,14 +3140,14 @@ const App = (() => {
     listEl.querySelectorAll("[data-crit-rest]").forEach((el) => {
       el.addEventListener("click", () => {
         const r = state.restaurants.find((x) => x.id === el.dataset.critRest);
-        if (r) openOnTab(r, el.dataset.critTab || "crit");
+        if (r) openOnTab(r, el.dataset.critTab || "sitio");
       });
     });
   }
   function renderCriticas() {
     const listEl = document.getElementById("criticas-list");
     if (!listEl) return;
-    const scope = state.criticasView === "all" ? "all" : "mine";
+    const scope = "mine";
     const reqId = ++criticasReqId;
     if (!UserData.isCloud()) {
       listEl.innerHTML = signinInvite(scope === "mine" ? "Inicie sessão para ver as suas críticas." : "Inicie sessão para ver as críticas.");
@@ -3344,7 +3430,7 @@ const App = (() => {
     el.innerHTML = feed.map(feedRow).join("");
     el.querySelectorAll("[data-feed-rest]").forEach((b) => {
       const r = state.restaurants.find((x) => x.id === b.dataset.feedRest);
-      b.addEventListener("click", () => { if (r) openOnTab(r, "amigos"); });
+      b.addEventListener("click", () => { if (r) openOnTab(r, "sitio"); });
       const ph = b.querySelector(".ph"); // the restaurant's own cover, not the shared photo
       if (r && ph) fillThumbPhoto(ph, r);
     });
@@ -3434,6 +3520,25 @@ const App = (() => {
     el.querySelectorAll(".lb-period .seg-btn").forEach((b) =>
       b.addEventListener("click", () => { amigosLbPeriod = b.dataset.period; renderAmigosLeaderboard(); })
     );
+    renderRestaurantRanking(el);
+  }
+
+  // Ranking de restaurantes pela média do grupo. Vinha das Críticas, que agora
+  // é a minha vista pessoal no Diário — aqui fica ao lado dos outros rankings.
+  function renderRestaurantRanking(host) {
+    const rows = computeCriticasLeaderboard();
+    if (!rows.length) return;
+    const wrap = document.createElement("div");
+    wrap.className = "lb-section";
+    wrap.innerHTML = `<span class="detail-section-title">Restaurantes mais bem avaliados</span>` +
+      rows.map((r, i) => lbRestRow(r, i + 1)).join("");
+    host.appendChild(wrap);
+    wrap.querySelectorAll("[data-lb-rest]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const r = state.restaurants.find((x) => x.id === b.dataset.lbRest);
+        if (r) openOnTab(r, "sitio");
+      })
+    );
   }
 
   // ----- Críticas leaderboard: rank restaurants by the group's average stars -----
@@ -3461,24 +3566,6 @@ const App = (() => {
     </button>`;
   }
 
-  function renderCriticasLeaderboard() {
-    const el = document.getElementById("criticas-leaderboard");
-    if (!el) return;
-    if (!UserData.isCloud()) { el.innerHTML = signinInvite("Inicie sessão para ver o ranking de restaurantes."); return; }
-    const rows = computeCriticasLeaderboard();
-    if (!rows.length) {
-      el.innerHTML = stateHtml({ title: "Ainda não há avaliações", text: "As classificações aparecem assim que houver críticas." });
-      return;
-    }
-    el.innerHTML = rows.map((r, i) => lbRestRow(r, i + 1)).join("");
-    el.querySelectorAll("[data-lb-rest]").forEach((b) =>
-      b.addEventListener("click", () => {
-        const r = state.restaurants.find((x) => x.id === b.dataset.lbRest);
-        if (r) openOnTab(r, "crit");
-      })
-    );
-  }
-
   // ---------- Wiring ----------
   function openSidebar(open) {
     const sb = document.getElementById("sidebar");
@@ -3501,11 +3588,6 @@ const App = (() => {
       else aiBtn.classList.add("hidden");
     }
     document.querySelectorAll("[data-close-ai]").forEach((el) => el.addEventListener("click", hideAi));
-    const profileTasteBtn = document.getElementById("profile-taste-btn");
-    if (profileTasteBtn) {
-      if (AIModule.available()) profileTasteBtn.addEventListener("click", showTasteProfile);
-      else profileTasteBtn.classList.add("hidden");
-    }
 
     // Groups: modal close / confirm (the create/join buttons are wired per-render
     // in renderGroupBar).
@@ -3560,15 +3642,10 @@ const App = (() => {
     });
     const tourPrev = document.getElementById("tour-prev");
     if (tourPrev) tourPrev.addEventListener("click", () => { if (tourIdx > 0) { tourIdx--; paintTourSlide(); } });
-    const tourReplay = document.getElementById("tour-replay-btn");
-    if (tourReplay) tourReplay.addEventListener("click", () => { hideProfileModal(); showTour(); });
-
-    // Success + profile modals
     document.querySelectorAll("[data-close-success]").forEach((el) => el.addEventListener("click", hideSuccess));
-    document.querySelectorAll("[data-close-profile]").forEach((el) => el.addEventListener("click", hideProfileModal));
+    // O avatar da barra superior deixa de abrir um modal: navega para o separador.
     const chipImg = document.getElementById("user-chip-img");
-    if (chipImg) chipImg.addEventListener("click", openProfileModal);
-    wireProfileUpload();
+    if (chipImg) chipImg.addEventListener("click", () => navTo("perfil"));
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
@@ -3576,8 +3653,6 @@ const App = (() => {
         if (groupModalOpen()) { hideGroupModal(); return; }
         if (aiOpen()) { hideAi(); return; }
         if (tourOpen()) { hideTour(); return; }
-        const pm = document.getElementById("profile-modal");
-        if (pm && !pm.classList.contains("hidden")) { hideProfileModal(); return; }
         const su = document.getElementById("success-modal");
         if (su && !su.classList.contains("hidden")) { hideSuccess(); return; }
         const sm = document.getElementById("signin-modal");
@@ -3589,8 +3664,8 @@ const App = (() => {
       t.addEventListener("click", () => navTo(t.dataset.tabNav))
     );
     window.addEventListener("hashchange", onHashChange);
-    document.querySelectorAll("#criticas-seg .chip-tab").forEach((b) =>
-      b.addEventListener("click", () => { state.criticasView = b.dataset.cview; renderCriticasScreen(); })
+    document.querySelectorAll("#diario-seg .chip-tab").forEach((b) =>
+      b.addEventListener("click", () => { state.diarioView = b.dataset.dview; renderDiario(); })
     );
     document.querySelectorAll("#criticas-sort .chip-sort").forEach((b) =>
       b.addEventListener("click", () => {

@@ -70,5 +70,5 @@ const AuthModule = (() => {
     }
   }
 
-  return { init, signIn };
+  return { init, signIn, signOut };
 })();

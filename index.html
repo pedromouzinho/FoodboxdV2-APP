@@ -59,6 +59,9 @@
     <symbol id="i-message" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
     <symbol id="i-log-in" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></symbol>
     <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+    <symbol id="i-utensils-crossed" viewBox="0 0 24 24"><path d="M16 2v20"/><path d="M19 2v6a3 3 0 0 1-3 3"/><path d="M5 2v7a3 3 0 0 0 6 0V2"/><path d="M8 11v11"/></symbol>
   </svg>
 
   <header class="topbar">
@@ -152,35 +155,28 @@
   </section>
 
   <!-- App-level views (overlays above the always-rendered map) -->
-  <section id="screen-memorias" class="screen screen-data" data-screen="memorias" hidden>
-    <div class="screen-head">
-      <div class="screen-titles">
-        <span class="eyebrow">O teu diário</span>
-        <h2>Memórias</h2>
-        <span class="screen-sub" id="memorias-count"></span>
-      </div>
-    </div>
-    <div id="memorias-list" class="screen-list"></div>
-  </section>
-
-  <section id="screen-criticas" class="screen screen-data" data-screen="criticas" hidden>
+  <!-- Diário: Memórias e Críticas eram a mesma entidade vista de dois ângulos
+       (ambas leem UserData.getRating). Fundidas, com três vistas em chips —
+       e Pratos, que nunca teve onde ser visto. -->
+  <section id="screen-diario" class="screen screen-data" data-screen="diario" hidden>
     <div class="screen-head screen-head-col">
       <div class="screen-titles">
-        <span class="eyebrow">A tua opinião</span>
-        <h2>Críticas</h2>
+        <h2>Diário</h2>
+        <span class="screen-sub" id="diario-count"></span>
       </div>
-      <div class="chip-tabs" id="criticas-seg" role="group" aria-label="Vista de críticas">
-        <button class="chip chip-tab" data-cview="mine" aria-pressed="true">As minhas</button>
-        <button class="chip chip-tab" data-cview="all" aria-pressed="false">Todas</button>
-        <button class="chip chip-tab" data-cview="leaderboard" aria-pressed="false">Leaderboard</button>
+      <div class="chip-tabs" id="diario-seg" role="group" aria-label="Vista do diário">
+        <button class="chip chip-tab" data-dview="restaurantes" aria-pressed="true">Restaurantes</button>
+        <button class="chip chip-tab" data-dview="criticas" aria-pressed="false">Críticas</button>
+        <button class="chip chip-tab" data-dview="pratos" aria-pressed="false">Pratos</button>
       </div>
-      <div class="criticas-sort" id="criticas-sort" role="group" aria-label="Ordenar críticas">
+      <div class="criticas-sort" id="criticas-sort" role="group" aria-label="Ordenar críticas" hidden>
         <button class="chip chip-sort active" data-csort="recent" aria-pressed="true">Recentes</button>
         <button class="chip chip-sort" data-csort="rating" aria-pressed="false">Melhor avaliados</button>
       </div>
     </div>
-    <div id="criticas-list" class="screen-list"></div>
-    <div id="criticas-leaderboard" class="screen-list" hidden></div>
+    <div id="memorias-list" class="screen-list"></div>
+    <div id="criticas-list" class="screen-list" hidden></div>
+    <div id="pratos-list" class="screen-list screen-list-flat" hidden></div>
   </section>
 
   <section id="screen-amigos" class="screen screen-data" data-screen="amigos" hidden>
@@ -197,13 +193,20 @@
         <button class="chip chip-sort" data-afilter="rating" aria-pressed="false">Avaliações</button>
         <button class="chip chip-sort" data-afilter="visit" aria-pressed="false">Visitas</button>
         <button class="chip chip-sort" data-afilter="upload" aria-pressed="false">Fotos</button>
-        <button class="chip chip-sort" data-afilter="priority" aria-pressed="false">Quer ir</button>
       </div>
     </div>
-    <div id="amigos-groupbar" class="groupbar"></div>
     <div id="amigos-invites" class="invites" hidden></div>
     <div id="amigos-feed" class="screen-list"></div>
     <div id="amigos-leaderboard" class="screen-list" hidden></div>
+  </section>
+
+  <section id="screen-perfil" class="screen screen-data" data-screen="perfil" hidden>
+    <div class="screen-head">
+      <div class="screen-titles">
+        <h2>Perfil</h2>
+      </div>
+    </div>
+    <div id="perfil-body" class="screen-list screen-list-flat"></div>
   </section>
 
   <!-- Bottom tab bar -->
@@ -211,14 +214,14 @@
     <button class="tab active" data-tab-nav="mapa" role="tab" aria-selected="true">
       <svg class="icon"><use href="#i-map"/></svg><span>Mapa</span>
     </button>
-    <button class="tab" data-tab-nav="memorias" role="tab" aria-selected="false">
-      <svg class="icon"><use href="#i-star"/></svg><span>Memórias</span>
-    </button>
-    <button class="tab" data-tab-nav="criticas" role="tab" aria-selected="false">
-      <svg class="icon"><use href="#i-message"/></svg><span>Críticas</span>
+    <button class="tab" data-tab-nav="diario" role="tab" aria-selected="false">
+      <svg class="icon"><use href="#i-book"/></svg><span>Diário</span>
     </button>
     <button class="tab" data-tab-nav="amigos" role="tab" aria-selected="false">
       <svg class="icon"><use href="#i-users"/></svg><span>Amigos</span>
+    </button>
+    <button class="tab" data-tab-nav="perfil" role="tab" aria-selected="false">
+      <svg class="icon"><use href="#i-user"/></svg><span>Perfil</span>
     </button>
   </nav>
 
@@ -494,28 +497,6 @@
   </div>
 
   <!-- Profile modal (edit avatar) -->
-  <div id="profile-modal" class="modal hidden">
-    <div class="modal-scrim" data-close-profile></div>
-    <div class="modal-card profile-card" role="dialog" aria-modal="true" aria-label="Perfil">
-      <button class="icon-btn modal-close" data-close-profile aria-label="Fechar">
-        <svg class="icon"><use href="#i-x"/></svg>
-      </button>
-      <h2 class="modal-title">O meu perfil</h2>
-      <img class="profile-photo" data-profile-img alt="" />
-      <label class="btn btn-primary btn-block">
-        <svg class="icon"><use href="#i-camera"/></svg> Mudar foto
-        <input type="file" accept="image/*" data-profile-input hidden />
-      </label>
-      <p class="photo-status muted" data-profile-status></p>
-      <button class="btn btn-ghost btn-block topbar-ai" id="profile-taste-btn">
-        <svg class="icon"><use href="#i-sparkles"/></svg> O meu perfil de gosto
-      </button>
-      <button class="btn btn-ghost btn-block" id="tour-replay-btn">
-        <svg class="icon"><use href="#i-sparkles"/></svg> Rever tutorial
-      </button>
-    </div>
-  </div>
-
   <!-- Photo viewer (in-app lightbox) -->
   <div id="photo-viewer" class="modal hidden">
     <div class="modal-scrim" data-close-viewer></div>

@@ -262,7 +262,7 @@ const AddRestaurantModule = (() => {
       // The shared list requires a signed-in author (Firestore rules enforce
       // addedByUid == auth.uid). Without a session, save locally instead.
       // Post-add behaviour depends on the CTA used.
-      const opts = mode === "experience" ? { tab: "mem" } : { priority: true };
+      const opts = mode === "experience" ? { tab: "experiencia" } : { priority: true };
       if (DB.isAvailable() && signedIn) {
         setStatus("A guardar para todos...", "info");
         const saved = await DB.add(restaurant, token);
