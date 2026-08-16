@@ -2992,7 +2992,7 @@ const App = (() => {
 
   function renderMemorias() {
     const listEl = document.getElementById("memorias-list");
-    const countEl = document.getElementById("memorias-count");
+    const countEl = document.getElementById("diario-count");
     if (!listEl) return;
     if (!UserData.isCloud()) {
       listEl.innerHTML = signinInvite("Inicie sessão com a Google para guardar e rever as suas memórias.");
@@ -3000,7 +3000,15 @@ const App = (() => {
       return;
     }
     const mems = gatherMemories();
-    if (countEl) countEl.textContent = mems.length ? `${mems.length} ${mems.length === 1 ? "sítio" : "sítios"}` : "";
+    if (countEl) {
+      const criticas = mems.filter((m) => m.stars || m.note).length;
+      const pratos = mems.reduce((n, m) => n + (m.dishes || []).length, 0);
+      countEl.textContent = mems.length
+        ? [`${mems.length} ${mems.length === 1 ? "restaurante" : "restaurantes"}`,
+           `${criticas} ${criticas === 1 ? "crítica" : "críticas"}`,
+           `${pratos} ${pratos === 1 ? "prato" : "pratos"}`].join(" · ")
+        : "";
+    }
     listEl.innerHTML = "";
     if (!mems.length) {
       listEl.innerHTML = stateHtml({
