@@ -30,7 +30,12 @@ function serve() {
     const path = decodeURIComponent(req.url.split("?")[0]);
     const file = join(ROOT, path === "/" ? "index.html" : path);
     try {
-      const body = await readFile(file);
+      let body = await readFile(file);
+      if (SAFE && file.endsWith("style.css")) {
+        body = body.toString()
+          .replaceAll("env(safe-area-inset-top)", SAFE.top)
+          .replaceAll("env(safe-area-inset-bottom)", SAFE.bottom);
+      }
       res.writeHead(200, { "Content-Type": TYPES[extname(file)] || "application/octet-stream" });
       res.end(body);
     } catch {
@@ -55,6 +60,11 @@ const AUDIT = () => ({
     .filter(([, d]) => d.split("x").map(Number).some((n) => n < 44)),
   corpo: getComputedStyle(document.body).fontSize
 });
+
+// PWA_SAFE=1 substitui os env(safe-area-inset-*) por valores reais de iPhone
+// com notch: é a única forma de reproduzir aqui a geometria da app instalada,
+// onde a barra de separadores e o ecrã têm de encaixar ao pixel.
+const SAFE = process.env.PWA_SAFE ? { top: "59px", bottom: "34px" } : null;
 
 const arg = process.argv[2];
 const server = arg ? null : await serve();
@@ -104,6 +114,17 @@ for (const scheme of ["light", "dark"]) {
 
   const a = await page.evaluate(AUDIT);
   console.log(`\n[${scheme}]  corpo: ${a.corpo}`);
+  if (SAFE) {
+    // A moldura tem de encaixar: o ecrã acaba exatamente onde a barra começa.
+    const m = await page.evaluate(() => {
+      const r = (s) => { const e = document.querySelector(s); return e ? Math.round(e.getBoundingClientRect()[s === ".tabbar" ? "top" : "bottom"]) : null; };
+      return { ecra: r("#screen-mapa"), barra: r(".tabbar") };
+    });
+    if (m.ecra !== null && m.barra !== null && m.ecra !== m.barra) {
+      bloqueadores++;
+      console.log(`  ERRO — moldura desencaixada: ecrã acaba em ${m.ecra}, barra começa em ${m.barra}`);
+    } else console.log("  moldura da PWA: encaixa");
+  }
   if (erros.size) { bloqueadores++; console.log("  ERRO de consola:"); [...erros].forEach((e) => console.log("   ", e)); }
   if (a.campos.length) { bloqueadores++; console.log("  ERRO — campos abaixo de 16px (o iOS amplia a página):", a.campos); }
   else console.log("  campos: todos a 16px ou mais");
