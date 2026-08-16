@@ -227,6 +227,7 @@
   }
 }
 
+[hidden] { display: none !important; }
 * { box-sizing: border-box; }
 * { -webkit-tap-highlight-color: transparent; }
 button, .btn, .chip, .seg-btn, .tab, .card, .feed-item, .lb-row, a, label { touch-action: manipulation; }
@@ -1540,8 +1541,6 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 /* ---------- Profile modal ---------- */
 
 /* Filtros sempre visíveis mas compactos */
-#region-filters.chip-row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
-#region-filters.chip-row::-webkit-scrollbar { display: none; }
 .switch-chip input { accent-color: var(--accent); width: 15px; height: 15px; }
 
 /* Smart Suggestion chatbot (caixa única) */
