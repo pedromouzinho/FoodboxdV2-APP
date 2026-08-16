@@ -31,7 +31,7 @@
   --primary-ink: #fffdf7;
   --accent: #5d7a47;
   --star: #b87d14;
-  --danger: #c0492f;
+  --danger: #b5432b;
   --success: #5d7a47;
   --shadow-sm: var(--sh-sm);
   --shadow-md: var(--sh-md);
@@ -55,12 +55,15 @@
   --tabbar-h: 56px;
   --topbar-total: calc(var(--topbar-h) + env(safe-area-inset-top));
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* 68%: branco legível mesmo sobre uma foto totalmente branca (6,1:1). */
+  --overlay-scrim: color-mix(in srgb, #1e160c 68%, transparent);
   --overlay-ink: #ffffff;
   --surface-inset: #efe7d6;
   --on-accent: #fffdf7;
   --hairline: #ece3d2;
   --accent-ink: #4e6a3a;
   --accent-soft: #e6ecd9;
+  --c-tradicional: #b06a36;   /* categoria antiga, ainda em dados por migrar */
   --c-tradicional-ink: #93561f;
   --c-tradicional-soft: #f3e6d6;
   --c-petiscos-ink: #a83d27;
@@ -383,10 +386,13 @@ button { font-family: inherit; }
 .hidden { display: none !important; }
 
 .linklike {
+  position: relative;
   background: none; border: none; padding: 0;
   color: var(--primary); text-decoration: underline;
   cursor: pointer; font: inherit;
 }
+/* Texto tem a altura da linha; o dedo apanha 44. */
+.linklike::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 
 /* ---------- Chips (um só componente, três estados) ----------
    Seis classes antigas (chip, chip-tab, chip-sort, price-chip, switch-chip,
@@ -416,7 +422,7 @@ button { font-family: inherit; }
 }
 /* 36px por desenho, 44px para o dedo: a área de toque estende-se para fora
    sem alterar o ritmo visual da linha de chips. */
-.chip::after, .chip-tab::after, .chip-sort::after, .companion-chip::after {
+.chip::after, .chip-tab::after, .chip-sort::after, .companion-chip::after, .seg-btn::after {
   content: ""; position: absolute; inset: -4px 0; border-radius: inherit;
 }
 .chip .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
@@ -1461,6 +1467,7 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
   border-radius: var(--r-pill);
 }
 .seg-btn { /* leaderboard period — generated in js/app.js */
+  position: relative;
   appearance: none;
   cursor: pointer;
   font-family: var(--font-body);
@@ -2075,6 +2082,11 @@ body.ob-open { overflow: hidden; }
   line-height: 1.1; letter-spacing: -0.02em;
 }
 .sheet-clear { font-size: var(--fs-ui); font-weight: 700; color: var(--text-muted); text-decoration: none; }
+/* Os sheets sem ação primária no rodapé precisam de saída visível: o scrim
+   fica quase todo tapado pela folha, e nem toda a gente descobre o arrastar. */
+.sheet-close { flex: none; width: 36px; min-width: 36px; height: 36px; min-height: 36px;
+  border-radius: var(--r-pill); color: var(--text-muted); align-self: center; }
+.sheet-close .icon { width: 18px; height: 18px; }
 .sheet-body {
   flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
   padding: var(--sp-2) var(--sp-5) var(--sp-4);

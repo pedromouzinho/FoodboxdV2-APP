@@ -581,7 +581,7 @@ const App = (() => {
       <div class="detail-head">
         <h2>${esc(r.name)}</h2>
         <div class="detail-sub">
-          <span class="cat-chip" style="color:var(${cat.varName})">${dot(cat)} ${cat.label}</span>
+          <span class="cat-chip" style="color:var(${cat.varName}-ink)">${dot(cat)} ${cat.label}</span>
           <span>· ${esc(r.town)}, ${esc(r.region)}</span>
         </div>
         ${r.addedByName ? `<div class="added-by">${icon("sparkles")} Sugerido por <strong>${esc(r.addedByName)}</strong></div>` : ""}

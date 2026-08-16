@@ -10,7 +10,8 @@
     "preview": "node scripts/preview.mjs",
     "emu:start": "firebase emulators:start --only auth,firestore,functions,storage --project app-restaurantes-499400",
     "emu:seed": "node scripts/seed-emulator.js",
-    "qa": "firebase hosting:channel:deploy qa-local --expires 30d --project app-restaurantes-499400"
+    "qa": "firebase hosting:channel:deploy qa-local --expires 30d --project app-restaurantes-499400",
+    "audit": "node scripts/audit.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^6.0.2",
