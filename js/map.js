@@ -160,9 +160,10 @@ const MapModule = (() => {
     return { lat: c.lat(), lng: c.lng(), radiusKm };
   }
 
-  function panTo(lat, lng) {
+  function panTo(lat, lng, zoom) {
     if (!available || typeof lat !== "number") return;
     map.panTo({ lat, lng });
+    if (typeof zoom === "number") map.setZoom(zoom);
   }
 
   function setMarkerState(id, category, state) {

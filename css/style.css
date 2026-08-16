@@ -78,15 +78,21 @@
   --sh-lg: 0 10px 30px -8px rgba(var(--shadow-rgb) / .18), 0 2px 6px rgba(var(--shadow-rgb) / .08);
   --sh-pop: 0 18px 48px -12px rgba(var(--shadow-rgb) / .28), 0 4px 12px rgba(var(--shadow-rgb) / .12);
   --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* Escala com papéis (handoff): 11 separador · 12 etiqueta · 13 meta ·
+     14 botão/chip · 15 corpo · 16 item de lista e campo · 17 · 18 título de
+     cartão · 20 título de secção · 26 título de sheet · 34 título de ecrã. */
   --fs-2xs: .6875rem;
   --fs-xs: .75rem;
   --fs-sm: .8125rem;
+  --fs-ui: .875rem;
   --fs-base: .9375rem;
+  --fs-item: 1rem;
   --fs-md: 1.0625rem;
+  --fs-card: 1.125rem;
   --fs-lg: 1.25rem;
   --fs-xl: 1.5rem;
-  --fs-2xl: 1.875rem;
-  --fs-3xl: 2.5rem;
+  --fs-2xl: 1.625rem;
+  --fs-3xl: 2.125rem;
   --lh-tight: 1.12;
   --lh-snug: 1.28;
   --lh-base: 1.55;
@@ -1940,3 +1946,100 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
   text-transform: uppercase;
   box-shadow: var(--sh-md);
 }
+
+/* ---------- Primeira utilização (Fase 2 do handoff) ----------
+   Ecrã inteiro e opaco: nesta altura não há nada por baixo que valha a pena
+   ver — é precisamente esse o problema que este fluxo resolve. */
+.onboarding {
+  position: fixed; inset: 0; z-index: 120;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: var(--bg);
+}
+.onboarding.hidden { display: none; }
+body.ob-open { overflow: hidden; }
+
+.ob-card {
+  display: flex; flex-direction: column;
+  width: 100%; max-width: 520px; height: 100%;
+  padding: calc(env(safe-area-inset-top) + var(--sp-6)) var(--sp-5)
+           calc(env(safe-area-inset-bottom) + var(--sp-5));
+  gap: var(--sp-4);
+}
+.ob-head { display: flex; flex-direction: column; gap: var(--sp-2); flex: none; }
+.ob-count {
+  font-family: var(--font-mono); font-size: var(--fs-xs);
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint);
+}
+.ob-title {
+  margin: 0; font-family: var(--font-display);
+  font-size: var(--fs-3xl); font-weight: 600;
+  line-height: var(--lh-tight); letter-spacing: -0.025em;
+}
+/* O padding em baixo garante que o último cartão sai de debaixo do rodapé —
+   sem ele o conteúdo acaba cortado a meio e não se percebe que há mais. */
+.ob-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--sp-4); }
+.ob-lead {
+  margin: 0 0 var(--sp-4); font-size: var(--fs-base);
+  line-height: var(--lh-base); color: var(--text-muted);
+}
+.ob-status { margin: var(--sp-2) 0 0; font-size: var(--fs-sm); color: var(--text-muted); min-height: 1.4em; }
+
+.ob-cities { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.ob-field { margin-top: var(--sp-5); }
+
+/* Sítios curados perto da cidade escolhida: o alvo é a linha inteira. */
+.ob-places { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ob-place {
+  display: flex; align-items: center; gap: var(--sp-3);
+  width: 100%; min-height: 60px; padding: var(--sp-2) var(--sp-3);
+  border: none; border-radius: var(--r-md);
+  background: var(--surface); color: var(--text);
+  text-align: left; cursor: pointer;
+  transition: background 0.15s var(--ease);
+}
+.ob-place:active { transform: scale(0.99); }
+.ob-place-check {
+  display: grid; place-items: center; flex: none;
+  width: 28px; height: 28px; border-radius: var(--r-pill);
+  background: var(--surface-2); color: transparent;
+}
+.ob-place-check .icon { width: 16px; height: 16px; stroke-width: 2.5; }
+.ob-place[aria-pressed="true"] .ob-place-check { background: var(--accent); color: var(--primary-ink); }
+.ob-place-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ob-place-name {
+  font-family: var(--font-display); font-size: var(--fs-card); font-weight: 600;
+  line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ob-place-meta { font-size: var(--fs-sm); color: var(--text-muted); }
+
+.ob-people { display: flex; flex-direction: column; }
+.ob-person {
+  display: flex; align-items: center; gap: var(--sp-3);
+  min-height: 64px; border-bottom: 1px solid var(--hairline);
+}
+.ob-person:last-child { border-bottom: none; }
+.ob-person-name { flex: 1; min-width: 0; font-size: var(--fs-item); font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-avatar {
+  display: grid; place-items: center; flex: none;
+  width: 44px; height: 44px; border-radius: var(--r-pill);
+  background: var(--surface-3); color: var(--text-muted);
+  font-size: var(--fs-item); font-weight: 700;
+}
+.ob-invite {
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  padding: var(--sp-4); border-radius: var(--r-md); background: var(--surface);
+}
+.ob-invite-label {
+  font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.ob-invite-code { font-family: var(--font-mono); font-size: var(--fs-base); word-break: break-all; }
+
+.ob-foot { display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); flex: none; }
+.ob-dots { display: flex; gap: 6px; }
+.ob-dot { width: 6px; height: 6px; border-radius: var(--r-pill); background: var(--surface-3); }
+.ob-dot.on { background: var(--text); }
+.ob-cta { width: 100%; min-height: var(--h-primary); border-radius: var(--r-md); font-size: var(--fs-item); }
+.ob-skip { font-size: var(--fs-ui); color: var(--text-muted); text-decoration: none; }

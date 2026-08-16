@@ -16,7 +16,8 @@ const UserData = (() => {
   let displayName = "";
   let photoURL = "";
   let getToken = null; // async () => idToken
-  let onboarded = false; // has this account already seen the onboarding tour?
+  let onboarded = false; // has this account already been through first-use?
+  let homeTown = null;   // {name, lat, lng} — onde a pessoa come normalmente
   let tasteProfile = null; // last AI-generated taste profile (feeds "Sugere-me")
   let tasteGenDay = ""; // YYYY-MM-DD of the last background taste-profile run
 
@@ -77,6 +78,7 @@ const UserData = (() => {
       // Onboarding is once-per-account (cloud), so the tour can't reappear on a
       // new device / the installed PWA's separate storage.
       onboarded = doc.onboarded === true;
+      homeTown = doc.homeTown || null;
       activeGroupId = doc.activeGroup || null;
       tasteProfile = doc.tasteProfile || null;
       tasteGenDay = doc.tasteGenDay || "";
@@ -112,6 +114,7 @@ const UserData = (() => {
     uid = displayName = photoURL = "";
     getToken = null;
     onboarded = false;
+    homeTown = null;
     mine = { visited: new Set(), priority: new Set(), priorityAt: {}, ratings: {}, history: {} };
     group = [];
     allUsers = [];
@@ -214,6 +217,7 @@ const UserData = (() => {
         ratings: mine.ratings,
         history: mine.history,
         onboarded,
+        homeTown: homeTown || null,
         activeGroup: activeGroupId || "",
         tasteProfile: tasteProfile || null,
         tasteGenDay: tasteGenDay || "",
@@ -329,11 +333,19 @@ const UserData = (() => {
     return g;
   }
 
-  // ---- onboarding (tour shown once per account) ----
+  // ---- primeira utilização (uma vez por conta) ----
   function isOnboarded() { return cloud && onboarded; }
   function markOnboarded() {
     if (!cloud || onboarded) return;
     onboarded = true;
+    scheduleSave();
+  }
+  // A cidade de referência centra o mapa em algo reconhecível em vez do centro
+  // geográfico de Portugal. Campo novo: só acrescenta, nada depende dele.
+  function getHomeTown() { return homeTown; }
+  function setHomeTown(town) {
+    if (!town || typeof town.lat !== "number" || typeof town.lng !== "number") return;
+    homeTown = { name: String(town.name || ""), lat: town.lat, lng: town.lng };
     scheduleSave();
   }
 
@@ -482,6 +494,8 @@ const UserData = (() => {
     setPhotoURL,
     isOnboarded,
     markOnboarded,
+    getHomeTown,
+    setHomeTown,
     clearUser,
     reloadGroup,
     isVisited,

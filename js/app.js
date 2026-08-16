@@ -1339,6 +1339,28 @@ const App = (() => {
       balloon.style.left = "";
     }
   }
+  // Primeira utilização (js/onboarding.js). Centra o mapa na cidade escolhida e
+  // repinta a lista, porque o passo 2 pode ter marcado sítios como visitados.
+  // Sessões seguintes: o mapa abre onde a pessoa come, não no centro geográfico
+  // de Portugal. Uma vez por sessão, e só antes de ela mexer no mapa.
+  let homeCentred = false;
+  function centreOnHomeTown() {
+    if (homeCentred) return;
+    const t = UserData.getHomeTown && UserData.getHomeTown();
+    if (!t || typeof t.lat !== "number") return;
+    homeCentred = true;
+    MapModule.panTo(t.lat, t.lng, 12);
+  }
+
+  function startOnboarding() {
+    if (typeof Onboarding === "undefined") { UserData.markOnboarded(); return; }
+    Onboarding.start({
+      restaurants: state.restaurants || [],
+      onTown: (t) => MapModule.panTo(t.lat, t.lng, 12),
+      onDone: () => { render(); }
+    });
+  }
+
   function showTour() {
     const el = document.getElementById("tour");
     if (!el) return;
@@ -3440,13 +3462,13 @@ const App = (() => {
       hideSigninModal(true); // signed in — close and don't auto-prompt again this session
       await UserData.setUser(user, getToken); // async; UserData.onChange triggers re-render
       syncAccountChip();
-      // Tutorial only on the account's FIRST-ever sign-in. The flag lives in the
-      // cloud profile, so it can't reappear on a new device or the installed
-      // PWA's separate storage. (Fallback to localStorage when not cloud.)
-      if (UserData.isCloud()) {
-        if (!UserData.isOnboarded()) { showTour(); UserData.markOnboarded(); }
-      } else if (!tourDone()) {
-        showTour();
+      centreOnHomeTown();
+      // Primeira utilização na PRIMEIRA sessão da conta. A marca vive no perfil
+      // na nuvem, para não reaparecer noutro dispositivo nem no armazenamento
+      // separado da PWA instalada. O tutorial guiado deixa de ser automático:
+      // passa a ser opcional, pelo botão "Rever tutorial" do perfil.
+      if (UserData.isCloud() && !UserData.isOnboarded()) {
+        startOnboarding();
       }
       // First login of the day: build the taste profile in the background so it's
       // ready to power suggestions (once restaurants are loaded).

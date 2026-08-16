@@ -261,6 +261,7 @@ const DB = (() => {
       ratings: data.ratings || {},
       history: data.history || {},
       onboarded: data.onboarded === true,
+      homeTown: data.homeTown || null,
       activeGroup: data.activeGroup || "",
       tasteProfile: data.tasteProfile || null,
       tasteGenDay: data.tasteGenDay || "",
