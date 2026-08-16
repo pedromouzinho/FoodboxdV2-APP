@@ -19,7 +19,12 @@ const DB = (() => {
   function init() {
     if (!CONFIG.FIREBASE_PROJECT_ID || !CONFIG.FIREBASE_API_KEY) return;
     apiKey = CONFIG.FIREBASE_API_KEY;
-    docsBase = `https://firestore.googleapis.com/v1/projects/${CONFIG.FIREBASE_PROJECT_ID}/databases/(default)/documents`;
+    // Em localhost fala com o emulador; em qualquer outro sítio (produção ou
+    // canal de QA) fala com a Firestore real.
+    const host = CONFIG.EMULATORS
+      ? `http://127.0.0.1:${CONFIG.EMU.firestore}`
+      : "https://firestore.googleapis.com";
+    docsBase = `${host}/v1/projects/${CONFIG.FIREBASE_PROJECT_ID}/databases/(default)/documents`;
     ready = true;
   }
 

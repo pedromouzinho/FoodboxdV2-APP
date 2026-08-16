@@ -11,10 +11,17 @@ const AIModule = (() => {
     }
   }
 
+  // A reescrita /api/ai só existe no Firebase Hosting. No emulador chama-se a
+  // função diretamente, na porta e região dela.
+  function endpoint() {
+    if (!CONFIG.EMULATORS) return "/api/ai";
+    return `http://127.0.0.1:${CONFIG.EMU.functions}/${CONFIG.FIREBASE_PROJECT_ID}/europe-west1/ai`;
+  }
+
   async function call(action, payload) {
     const t = await token();
     if (!t) throw new Error("Inicie sessão para usar a IA.");
-    const res = await fetch("/api/ai", {
+    const res = await fetch(endpoint(), {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + t },
       body: JSON.stringify(Object.assign({ action }, payload || {}))

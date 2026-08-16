@@ -23,3 +23,22 @@ const CONFIG = {
 // NOT become a property of window, so module scripts can't see bare CONFIG —
 // without this, window.CONFIG is undefined and Firebase never initialises.
 window.CONFIG = CONFIG;
+
+// ---------------------------------------------------------------------------
+//  Ambiente. Três sítios onde a app pode correr, e só um deles toca em dados
+//  reais de escrita:
+//
+//    produção   foodboxd.pt              — a app a sério
+//    canal QA   …--qa-xxxx.web.app       — build novo, MESMA base de dados
+//    emulador   localhost                — tudo local, dados de brincar
+//
+//  A deteção é por hostname e falha sempre para o lado seguro: qualquer domínio
+//  que não seja localhost fala com a nuvem real, nunca com um emulador que pode
+//  não estar a correr.
+// ---------------------------------------------------------------------------
+CONFIG.EMULATORS = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+CONFIG.IS_PREVIEW = /--[a-z0-9-]+\.web\.app$/.test(location.hostname);
+CONFIG.ENV = CONFIG.EMULATORS ? "emulador" : (CONFIG.IS_PREVIEW ? "QA" : "produção");
+
+// Portas iguais às de firebase.json.
+CONFIG.EMU = { firestore: 8080, auth: 9099, functions: 5001, storage: 9199 };

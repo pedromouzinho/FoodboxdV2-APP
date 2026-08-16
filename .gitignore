@@ -15,3 +15,6 @@ www/
 # Service account keys must never be committed
 *serviceaccount*.json
 sa.json
+
+# Capturas do npm run preview (geradas)
+.preview/

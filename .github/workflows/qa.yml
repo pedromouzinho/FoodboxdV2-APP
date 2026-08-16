@@ -1,0 +1,55 @@
+# Publica um canal de pré-visualização do Firebase Hosting a cada push.
+#
+# Um canal é um URL secreto que serve ESTE build, mas fala com a MESMA Firestore,
+# Auth e Functions que a produção. Serve para ver o interface antes de publicar;
+# não serve para testar escritas nem regras — isso é o emulador (`npm run emu`).
+#
+# Requer o segredo FIREBASE_SERVICE_ACCOUNT (Settings > Secrets and variables >
+# Actions) com o JSON da conta de serviço claude-deploy@…
+name: QA (canal de pré-visualização)
+
+on:
+  push:
+    branches: ["claude/**", "qa/**"]
+  workflow_dispatch:
+
+# Um canal por branch: um push novo substitui o anterior em vez de acumular.
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Os IDs de canal só aceitam [a-z0-9-], e o nome do branch tem barras.
+      - name: Nome do canal
+        id: channel
+        run: |
+          id=$(echo "${{ github.ref_name }}" | tr '[:upper:]/_' '[:lower:]--' | tr -cd 'a-z0-9-' | cut -c1-30)
+          echo "id=qa-${id%-}" >> "$GITHUB_OUTPUT"
+
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        id: deploy
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: app-restaurantes-499400
+          channelId: ${{ steps.channel.outputs.id }}
+          expires: 30d
+
+      - name: Resumo
+        run: |
+          {
+            echo "### Canal de QA publicado"
+            echo ""
+            echo "${{ steps.deploy.outputs.details_url }}"
+            echo ""
+            echo "Dados reais — vale para ver o interface, não para testar escritas."
+          } >> "$GITHUB_STEP_SUMMARY"

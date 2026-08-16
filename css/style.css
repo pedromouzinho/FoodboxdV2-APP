@@ -1917,3 +1917,26 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .people-list { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); max-height: 50vh; overflow-y: auto; }
 .person-row { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3); border: 1px solid var(--hairline); border-radius: var(--r-md); }
 .person-name { flex: 1; min-width: 0; font-weight: 600; font-size: var(--fs-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Pílula de ambiente: só aparece fora de produção (ver js/config.js). Fica
+   acima da barra de separadores, sem apanhar toques. */
+.env-badge {
+  position: fixed;
+  left: var(--sp-3);
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-2));
+  z-index: 90;
+  pointer-events: none;
+  height: var(--h-chip);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-pill);
+  background: var(--chip-on-bg);
+  color: var(--chip-on-ink);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: var(--sh-md);
+}

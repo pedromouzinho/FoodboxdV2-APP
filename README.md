@@ -78,6 +78,40 @@ firebase deploy --only hosting --project app-restaurantes-499400
 (`foodboxd-vN`). Detalhes do fluxo de deploy/admin (service account, scripts
 Firestore REST, CORS) estão no [`CONTEXT.md`](CONTEXT.md).
 
+## Ambiente de qualidade
+
+Nada vai para produção sem passar por um destes dois. A regra é simples: se a
+alteração só se **vê**, chega o canal; se ela **escreve**, é o emulador.
+
+| | Onde | Dados |
+|---|---|---|
+| Interface, CSS, layout | canal de pré-visualização | os reais, só de leitura |
+| Regras, migrações, funções, escritas | emulador local | de brincar |
+
+**Canal de pré-visualização.** Um push para `claude/**` publica-o sozinho
+(`.github/workflows/qa.yml`, precisa do segredo `FIREBASE_SERVICE_ACCOUNT`). À
+mão: `npm run qa`. O URL é secreto, expira em 30 dias e serve este build contra
+a base de dados a sério — dá para ver o interface com conteúdo real, não para
+testar escritas.
+
+**Emulador.** `npm run emu:start` e, noutro terminal, `npm run emu:seed`. Depois
+abre a app em `localhost`: `js/config.js` deteta o hostname e desvia Firestore,
+Auth, Storage e a função da IA para as portas locais. Fora de `localhost` isso
+nunca acontece — a deteção falha sempre para o lado da nuvem real. O emulador
+aplica as mesmas `firebase/firestore.rules` da produção, por isso é o sítio
+certo para testar alterações às regras.
+
+**Ver antes de publicar.** `npm run preview` abre a app num Chromium com
+viewport de iPhone, em claro e escuro, guarda capturas em `.preview/` e reporta
+erros de JavaScript, campos abaixo de 16px (o iOS amplia a página) e alvos de
+toque abaixo de 44px. Existe porque uma consolidação de CSS já produziu um
+ficheiro perfeitamente válido — chavetas certas, zero duplicados — em que todos
+os chips da app eram pontos de 8px. Verificação estática nenhuma apanha isso.
+Precisa de `npm i` e de `npx playwright install chromium` uma vez.
+
+Fora de produção a app mostra uma pílula fixa com o ambiente (`emulador` / `QA`),
+para não haver enganos.
+
 ## Estrutura
 
 ```

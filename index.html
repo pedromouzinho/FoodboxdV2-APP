@@ -517,6 +517,16 @@
   </div>
 
   <script src="js/config.js"></script>
+  <!-- Fora de produção, uma pílula fixa a dizer onde estamos. Não há forma
+       de confundir o canal de QA ou o emulador com a app a sério. -->
+  <script>
+    if (window.CONFIG && CONFIG.ENV !== "produção") {
+      var b = document.createElement("div");
+      b.className = "env-badge";
+      b.textContent = CONFIG.ENV;
+      document.addEventListener("DOMContentLoaded", function () { document.body.appendChild(b); });
+    }
+  </script>
   <script src="js/storage.js"></script>
   <script src="js/db.js"></script>
   <script src="js/userdata.js"></script>
@@ -605,10 +615,10 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import {
       getAuth, GoogleAuthProvider, signInWithPopup, signOut,
-      onAuthStateChanged, setPersistence, browserLocalPersistence
+      onAuthStateChanged, setPersistence, browserLocalPersistence, connectAuthEmulator
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
     import {
-      getStorage, ref as storageRef, uploadBytes, getDownloadURL
+      getStorage, ref as storageRef, uploadBytes, getDownloadURL, connectStorageEmulator
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
 
     if (window.CONFIG && CONFIG.FIREBASE_PROJECT_ID && CONFIG.FIREBASE_API_KEY) {
@@ -620,6 +630,11 @@
           storageBucket: CONFIG.FIREBASE_PROJECT_ID + ".firebasestorage.app"
         });
         const auth = getAuth(app);
+        // Só em localhost (ver CONFIG.EMULATORS em js/config.js). Em produção e
+        // no canal de QA isto nunca corre.
+        if (CONFIG.EMULATORS) {
+          connectAuthEmulator(auth, "http://127.0.0.1:" + CONFIG.EMU.auth, { disableWarnings: true });
+        }
         setPersistence(auth, browserLocalPersistence).catch(function () {});
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: "select_account" });
@@ -635,6 +650,7 @@
         // Cloud Storage for user-uploaded photos. upload() returns the public
         // download URL. Errors bubble up (e.g. if Storage isn't enabled yet).
         const storage = getStorage(app);
+        if (CONFIG.EMULATORS) connectStorageEmulator(storage, "127.0.0.1", CONFIG.EMU.storage);
         window.FirebaseStorage = {
           configured: true,
           upload: async function (path, file) {
