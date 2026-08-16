@@ -89,6 +89,7 @@
   --fs-item: 1rem;
   --fs-md: 1.0625rem;
   --fs-card: 1.125rem;
+  --fs-sheet-name: 1.375rem;
   --fs-lg: 1.25rem;
   --fs-xl: 1.5rem;
   --fs-2xl: 1.625rem;
@@ -101,6 +102,7 @@
   --sp-8: 48px;
   --sp-9: 64px;
   --r-xl: 32px;
+  --kb: 0px;            /* altura do teclado, escrita pelo visualViewport */
   --t-fast: 120ms;
   --t: 200ms;
   --t-slow: 340ms;
@@ -341,28 +343,6 @@ button { font-family: inherit; }
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
   background: var(--surface);
-}
-
-/* ---------- Progress ---------- */
-.progress-block { display: flex; flex-direction: column; gap: var(--sp-2); }
-.progress-head {
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-.progress-track {
-  height: 8px;
-  border-radius: var(--r-pill);
-  background: var(--surface-3);
-  overflow: hidden;
-}
-.progress-fill {
-  height: 100%;
-  width: 0%;
-  border-radius: var(--r-pill);
-  background: var(--accent);
-  transition: width 0.4s var(--ease);
 }
 
 /* ---------- Buttons ---------- */
@@ -678,6 +658,12 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 /* skeleton */
 .skeleton { background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%); background-size: 200% 100%; animation: shimmer 1.3s infinite; border-radius: var(--r-sm); }
 .sk-line { height: 12px; margin: 6px 0; }
+/* Fora de .skeleton, .sk-line ainda tem de se ver como bloco de espera. */
+.sk-line:not(.skeleton) {
+  display: inline-block; border-radius: var(--r-sm);
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%; animation: shimmer 1.3s infinite;
+}
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
 /* ---------- Modal ---------- */
@@ -754,16 +740,6 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 }
 .signin-invite .icon { width: 18px; height: 18px; color: var(--accent-ink); flex-shrink: 0; margin-top: 1px; }
 
-.rate-label { font-size: var(--fs-base); color: var(--text-muted); font-weight: 500; }
-.stars-input { display: inline-flex; gap: 2px; }
-.star-btn {
-  background: none; border: none; cursor: pointer; padding: 2px;
-  color: var(--border-strong); line-height: 0;
-}
-.star-btn .icon { width: 24px; height: 24px; }
-.star-btn.on { color: var(--star); }
-.star-btn.on .icon { fill: var(--star); stroke: var(--star); }
-.star-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--star) 30%, transparent); border-radius: var(--r-sm); }
 .note-input:focus-visible { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent); }
 
 .visit-history { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
@@ -870,8 +846,6 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .chip-toggle.on { background: var(--chip-on-bg); border-color: transparent; color: var(--chip-on-ink); }
 
 /* ---------- Experience journey ---------- */
-.exp-step { display: flex; flex-direction: column; gap: 6px; }
-.exp-hint { font-size: var(--fs-sm); }
 
 /* Leaderboard unit label */
 .lb-unit { font-size: var(--fs-xs); font-weight: 600; color: var(--text-faint); }
@@ -897,7 +871,7 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .btn-danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); }
 
 /* One empty state, four callers (list, screen, photo grid, cover grid). */
-.empty, .screen-empty, .photo-empty, .cover-empty {
+.empty, .photo-empty, .cover-empty {
   grid-column: 1 / -1;
   text-align: center;
   color: var(--text-muted);
@@ -908,7 +882,6 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 }
 
 /* ---------- Dishes (chips) ---------- */
-.dish-edit { display: flex; flex-direction: column; gap: 6px; }
 .dish-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .dish-chip {
   display: inline-flex; align-items: center; gap: 4px;
@@ -1410,7 +1383,8 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
   letter-spacing: var(--tracking-tight); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .rcard-notes { font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.4; }
-.rcard-meta { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-top: 2px; }
+.rcard-meta { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-top: 2px;
+  min-height: 18px; }
 .rcard-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
 .mark-visit {
   position: absolute; top: var(--sp-3); right: var(--sp-3); z-index: 1;
@@ -2161,3 +2135,139 @@ body.ob-open { overflow: hidden; }
 .switch input:focus-visible + .switch-track {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
 }
+
+/* ---------- Sheet de registar visita (Fase 4) ---------- */
+.visit-card { max-height: min(92dvh, 820px); }
+/* O teclado empurra o rodapé para cima em vez de o tapar (--kb vem do
+   visualViewport, ver wireKeyboardLift). */
+.visit-card .sheet-foot { padding-bottom: calc(env(safe-area-inset-bottom) + var(--sp-5) + var(--kb, 0px)); }
+
+.visit-head {
+  display: flex; align-items: center; gap: var(--sp-3); flex: none;
+  padding: var(--sp-3) var(--sp-5) var(--sp-2);
+}
+.visit-head-thumb {
+  width: 52px; height: 52px; flex: none;
+  border-radius: var(--r-md); overflow: hidden; background: var(--surface-2);
+}
+.visit-head-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.visit-head-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.visit-head-name {
+  margin: 0; font-family: var(--font-display); font-size: var(--fs-sheet-name); font-weight: 600;
+  line-height: 1.15; letter-spacing: -0.02em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.visit-close { flex: none; width: 36px; min-width: 36px; height: 36px; min-height: 36px; border-radius: var(--r-pill); }
+.visit-close .icon { width: 18px; height: 18px; }
+
+.visit-step { display: flex; flex-direction: column; gap: 10px; }
+.visit-step-label {
+  display: flex; align-items: center; gap: var(--sp-2);
+  font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.visit-step-n {
+  display: grid; place-items: center; width: 18px; height: 18px; flex: none;
+  border-radius: var(--r-pill); background: var(--surface-2); color: var(--text-muted);
+  font-family: var(--font-mono); font-size: var(--fs-2xs); letter-spacing: 0;
+}
+/* A explicação vive junto do passo que a origina. */
+.visit-hint { margin: 0; font-size: var(--fs-sm); line-height: 1.45; color: var(--text-muted); }
+.visit-hint.hidden { display: none; }
+
+.visit-stars { display: flex; gap: 6px; }
+.visit-star {
+  width: 40px; height: 40px; padding: 0; flex: none;
+  border: none; background: none; cursor: pointer; color: var(--surface-3);
+}
+.visit-star .icon { width: 40px; height: 40px; fill: currentColor; stroke: currentColor; }
+.visit-star.on { color: var(--star); }
+.visit-star:focus-visible {
+  outline: none; border-radius: var(--r-sm);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+.visit-dishes { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.visit-dish-input {
+  width: 100%; height: var(--h-control); padding: 0 var(--sp-3);
+  border: none; border-radius: var(--r-md);
+  background: var(--surface-2); color: var(--text);
+}
+.visit-dish-input.hidden { display: none; }
+
+.visit-note {
+  width: 100%; min-height: 76px; resize: vertical;
+  padding: 14px; border: none; border-radius: var(--r-md);
+  background: var(--surface-2); color: var(--text);
+  font-family: inherit; font-size: max(16px, var(--fs-base)); line-height: 1.45;
+}
+/* Sem isto o browser desenha o seu próprio anel, que aqui saía dourado e
+   confundia-se com as estrelas. */
+.visit-note:focus-visible, .visit-dish-input:focus-visible {
+  outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+/* A data tem linha própria: era um campo solto no meio do resto. */
+.visit-when-row {
+  position: relative;
+  display: flex; align-items: center; gap: var(--sp-3);
+  min-height: 52px; padding: 0 14px;
+  border-radius: var(--r-md); background: var(--surface-2); cursor: pointer;
+}
+.visit-when-row > .icon { width: 18px; height: 18px; flex: none; color: var(--text-muted); }
+.visit-when-label { flex: 1; font-size: var(--fs-item); font-weight: 600; }
+/* O input nativo fica por cima da linha, invisível: o toque abre o seletor do
+   sistema em qualquer ponto da linha, e o que se vê é a nossa própria linha. */
+.visit-when-input {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; border: none; background: none; cursor: pointer;
+}
+
+.visit-foot-note {
+  margin: var(--sp-2) 0 0; text-align: center;
+  font-size: var(--fs-sm); color: var(--text-faint);
+}
+
+/* Resumo do que ficou registado, no separador da ficha. */
+.my-summary { display: flex; flex-direction: column; gap: var(--sp-3); }
+.my-note { margin: 0; font-size: var(--fs-base); line-height: 1.5; }
+
+/* ---------- Estados (Fase 4): vazio, sem resultados, erro ----------
+   Um só componente para o que eram quatro classes de texto cinzento sem ação.
+   Cada estado tem uma saída — nunca um beco. */
+.state {
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-6) var(--sp-5);
+  border-radius: var(--r-xl); background: var(--surface);
+  text-align: center; grid-column: 1 / -1;
+}
+.state-title {
+  margin: 0; font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 600;
+  line-height: 1.2; letter-spacing: -0.02em; max-width: 22ch;
+}
+.state-text { margin: 0; font-size: var(--fs-base); line-height: 1.5; color: var(--text-muted); max-width: 34ch; }
+.state-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-2); margin-top: var(--sp-2); }
+
+/* Formas em vez de ilustração: três cadernos tombados, três avatares
+   sobrepostos. Custam zero bytes e dizem de que ecrã se trata. */
+.state-art { display: flex; align-items: flex-end; justify-content: center; }
+.state-art-books { gap: var(--sp-2); }
+.state-art-books .ph { width: 52px; height: 66px; border-radius: var(--r-sm); display: block; }
+.state-art-books .ph:first-child { transform: rotate(-8deg); }
+.state-art-books .ph:last-child { transform: rotate(8deg); }
+.state-art-people span {
+  width: 44px; height: 44px; border-radius: var(--r-pill);
+  background: var(--surface-3); border: 3px solid var(--surface);
+}
+.state-art-people span + span { margin-left: -14px; }
+
+/* Erro em linha: falhou algo pequeno e há conteúdo à volta. */
+.state-inline {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-3); border-radius: var(--r-md);
+  background: var(--c-petiscos-soft); color: var(--c-petiscos-ink);
+  font-size: var(--fs-sm); line-height: 1.4;
+}
+.state-inline > .icon { width: 18px; height: 18px; flex: none; }
+.state-inline-text { flex: 1; min-width: 0; }
+.state-inline .linklike { color: inherit; font-weight: 700; flex: none; }

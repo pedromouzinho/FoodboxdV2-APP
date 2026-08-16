@@ -320,7 +320,6 @@ const App = (() => {
     const list = getFiltered();
     renderList(list);
     MapModule.renderMarkers(list, onSelect);
-    updateProgress();
     document.getElementById("list-count").textContent =
       `${list.length} restaurante${list.length === 1 ? "" : "s"}`;
     paintFilterCount(list.length);
@@ -330,7 +329,21 @@ const App = (() => {
     const container = document.getElementById("restaurant-list");
     container.innerHTML = "";
     if (!restaurants.length) {
-      container.innerHTML = `<p class="empty">Nenhum restaurante encontrado.<br>Ajuste ou limpe os filtros.</p>`;
+      // Sem resultados não é erro — mas nunca pode ser um beco. Diz o que está
+      // a estreitar a lista (filtros, pesquisa, ou ambos) e dá sempre saída.
+      const n = activeFilterCount();
+      const q = document.getElementById("search-input").value.trim();
+      const partes = [];
+      if (n) partes.push(`${n} filtro${n === 1 ? "" : "s"} ativo${n === 1 ? "" : "s"}`);
+      if (q) partes.push(`a pesquisa "${q}"`);
+      const acoes = [];
+      if (q) acoes.push({ label: "Limpar pesquisa", action: "limpar-pesquisa" });
+      if (n) acoes.push({ label: "Limpar filtros", action: "limpar-filtros", kind: q ? "ghost" : "primary" });
+      container.innerHTML = stateHtml({
+        title: q && !n ? "Nada com essa pesquisa" : "Nada com estes filtros",
+        text: partes.length ? `A estreitar por ${partes.join(" e ")}.` : "",
+        actions: acoes
+      });
       return;
     }
     const grouped = {};
@@ -440,7 +453,7 @@ const App = (() => {
         <span class="rcard-name">${esc(r.name)}</span>
         <span class="rcard-loc">${icon("pin")} ${esc(r.town)} · ${esc(r.region)}</span>
         ${r.notes ? `<div class="rcard-notes">${esc(r.notes)}</div>` : ""}
-        <div class="rcard-meta card-meta" data-meta></div>
+        <div class="rcard-meta card-meta" data-meta><span class="sk-line" style="width:96px"></span></div>
         ${badges.length ? `<div class="rcard-badges">${badges.join(" ")}</div>` : ""}
       </div>`;
 
@@ -488,17 +501,6 @@ const App = (() => {
     }
     const detailBtn = document.querySelector(`#detail-body [data-visit-toggle="${CSS.escape(id)}"]`);
     if (detailBtn) syncDetailVisitBtn(detailBtn, visited);
-    updateProgress();
-  }
-
-  function updateProgress() {
-    const total = state.restaurants.length;
-    const visited = state.restaurants.filter((r) => UserData.isVisited(r.id)).length;
-    const pct = total ? Math.round((visited / total) * 100) : 0;
-    const vc = document.getElementById("visited-counter");
-    if (vc) vc.textContent = `${visited} / ${total}`;
-    document.getElementById("progress-label").textContent = `${visited} de ${total} visitados`;
-    document.getElementById("progress-fill").style.width = pct + "%";
   }
 
   // ---------- Select + detail drawer ----------
@@ -560,6 +562,7 @@ const App = (() => {
           <button class="btn" data-visit-toggle="${esc(r.id)}"></button>
           <button class="btn chip-toggle" data-priority-chip hidden></button>
         </div>
+        <button class="btn btn-primary btn-block" data-open-visit-sheet>${icon("star")} Registar visita</button>
       </div>
       <div class="detail-tabs" role="tablist">
         <button class="detail-tab active" data-tab="rest" role="tab" aria-selected="true">Restaurante</button>
@@ -598,6 +601,9 @@ const App = (() => {
     body.querySelectorAll(".detail-tab").forEach((tab) => {
       tab.addEventListener("click", () => switchTab(body, tab.dataset.tab));
     });
+
+    const openVisit = body.querySelector("[data-open-visit-sheet]");
+    if (openVisit) openVisit.addEventListener("click", () => openVisitSheet(r));
 
     const visitBtn = body.querySelector("[data-visit-toggle]");
     syncDetailVisitBtn(visitBtn, visited);
@@ -690,24 +696,6 @@ const App = (() => {
   // ---------- Personal marks (priority / rating / note / visit history) ----------
   // "Fui com": pick friends who came along. Only people already on the app, since
   // each of them has to confirm before the visit lands in their own logbook.
-  function companionPickerHtml() {
-    if (!UserData.isCloud()) return "";
-    const friends = UserData.others();
-    if (!friends.length) return "";
-    return `<div class="exp-step companions">
-      <span class="rate-label">Fui com</span>
-      <div class="companion-chips" data-companions>${friends.map((f) => `
-        <button type="button" class="companion-chip" data-companion="${esc(f.uid)}" aria-pressed="false">
-          ${avatar(f.displayName, f.photoURL, "avatar-xs")}<span>${esc(f.displayName || "Amigo")}</span>
-        </button>`).join("")}</div>
-    </div>`;
-  }
-  function selectedCompanions(root) {
-    const host = (root || document).querySelector("[data-companions]");
-    if (!host) return [];
-    return [...host.querySelectorAll('[data-companion][aria-pressed="true"]')].map((b) => b.dataset.companion);
-  }
-
   // Turn companion uids into names ("Leonor e Miguel"), skipping anyone we can't see.
   function companionNames(uids) {
     if (!uids || !uids.length) return "";
@@ -731,6 +719,267 @@ const App = (() => {
       .join("");
   }
 
+  // ---------- Estados: vazio, sem resultados, erro (Fase 4) ----------
+  // Um só componente. Eram nove chamadas a quatro classes diferentes, todas
+  // texto cinzento centrado sem ação nenhuma — um beco sem saída em cada ecrã.
+  // A regra do handoff: forma, título, uma frase, UMA SAÍDA.
+  //
+  //   art     "livros" | "pessoas" | nada
+  //   actions [{ label, action, kind }]  — action é o nome de um data-state-action
+  function stateHtml({ art, title, text, actions, tone }) {
+    const shapes = {
+      livros: `<div class="state-art state-art-books">${[0, 1, 2].map(() => `<span class="ph"></span>`).join("")}</div>`,
+      pessoas: `<div class="state-art state-art-people">${[0, 1, 2].map(() => `<span></span>`).join("")}</div>`
+    };
+    return `<div class="state${tone ? " state-" + tone : ""}">
+      ${art && shapes[art] ? shapes[art] : ""}
+      <h3 class="state-title">${esc(title)}</h3>
+      ${text ? `<p class="state-text">${esc(text)}</p>` : ""}
+      ${(actions || []).length ? `<div class="state-actions">${actions.map((a) => `
+        <button type="button" class="btn ${a.kind === "ghost" ? "btn-ghost" : "btn-primary"}"
+                data-state-action="${esc(a.action)}">${esc(a.label)}</button>`).join("")}</div>` : ""}
+    </div>`;
+  }
+
+  // Um erro em três níveis. Em linha é para o que falhou em pequeno e continua
+  // a haver conteúdo à volta; de secção é para quando não veio nada.
+  function errorHtml(message, action) {
+    return `<div class="state-inline">
+      ${icon("info")}
+      <span class="state-inline-text">${esc(message)}</span>
+      ${action ? `<button type="button" class="linklike" data-state-action="${esc(action)}">Repetir</button>` : ""}
+    </div>`;
+  }
+
+  // As saídas dos estados vazios são poucas e conhecidas — resolvem-se aqui em
+  // vez de cada chamador ter de ligar os seus próprios eventos.
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-state-action]");
+    if (!btn) return;
+    const act = btn.dataset.stateAction;
+    if (act === "mapa") showScreen("mapa");
+    else if (act === "amigos") showScreen("amigos");
+    else if (act === "seguir") openPeopleModal();
+    else if (act === "limpar-filtros") { clearFilters(); closeFilters(); }
+    else if (act === "limpar-pesquisa") {
+      const box = document.getElementById("search-input");
+      box.value = "";
+      render();
+      box.focus();
+    }
+    else if (act === "filtros") openFilters();
+  });
+
+  // ---------- Sheet de registar visita (Fase 4) ----------
+  // O fluxo central da app. Estava dentro do separador "As minhas experiências",
+  // partido em dois blocos separados por uma grelha de fotos; passa a ter porta
+  // própria na ficha e cinco passos seguidos. As fotos saem do fluxo de
+  // propósito: registar é rápido, fotografar é depois.
+  const visitDraft = { id: null, stars: 0, dishes: [], note: "", date: "", withUids: [] };
+
+  function openVisitSheet(r) {
+    if (!UserData.isCloud()) { showSigninModal(); return; }
+    const sheet = document.getElementById("visit-sheet");
+    if (!sheet) return;
+    const cur = UserData.getRating(r.id) || { stars: 0, note: "", dishes: [] };
+    visitDraft.id = r.id;
+    visitDraft.stars = cur.stars || 0;
+    visitDraft.dishes = (cur.dishes || []).slice();
+    visitDraft.note = cur.note || "";
+    visitDraft.date = todayLocalISODate();
+    visitDraft.withUids = [];
+
+    const cuisine = CUISINES[cuisineOf(r)];
+    sheet.querySelector("[data-visit-cuisine]").textContent = cuisine ? cuisine.label : "";
+    sheet.querySelector("[data-visit-name]").textContent = r.name;
+    sheet.querySelector("[data-visit-thumb]").innerHTML =
+      r.photoURL ? `<img src="${esc(r.photoURL)}" alt="" />` : `<div class="ph" data-label="foto"></div>`;
+
+    sheet.classList.remove("hidden");
+    sheet.setAttribute("aria-hidden", "false");
+    paintVisitSheet(r);
+    wireKeyboardLift(sheet);
+  }
+
+  function closeVisitSheet() {
+    const sheet = document.getElementById("visit-sheet");
+    if (!sheet) return;
+    sheet.classList.add("hidden");
+    sheet.setAttribute("aria-hidden", "true");
+    sheet.style.removeProperty("--kb");
+  }
+
+  // Com contentInset "never", o teclado tapa o rodapé. O visualViewport dá a
+  // altura real visível e funciona igual na PWA e no nativo — sem plugin.
+  function wireKeyboardLift(sheet) {
+    if (!window.visualViewport || sheet.dataset.kbWired) return;
+    sheet.dataset.kbWired = "1";
+    const sync = () => {
+      const gap = Math.max(0, window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop);
+      sheet.style.setProperty("--kb", gap + "px");
+    };
+    window.visualViewport.addEventListener("resize", sync);
+    window.visualViewport.addEventListener("scroll", sync);
+  }
+
+  function paintVisitSheet(r) {
+    const sheet = document.getElementById("visit-sheet");
+    const body = sheet.querySelector("[data-visit-body]");
+    const friends = UserData.isCloud() ? UserData.others() : [];
+    const step = (n, label, inner, extra) => `
+      <section class="visit-step">
+        <span class="visit-step-label"><span class="visit-step-n">${n}</span>${label}</span>
+        ${inner}
+        ${extra || ""}
+      </section>`;
+
+    body.innerHTML = [
+      step(1, "A tua nota", `
+        <div class="visit-stars" data-visit-stars>
+          ${[1, 2, 3, 4, 5].map((n) => `
+            <button type="button" class="visit-star${n <= visitDraft.stars ? " on" : ""}" data-star="${n}"
+                    aria-label="${n} estrela${n === 1 ? "" : "s"}">${icon("star")}</button>`).join("")}
+        </div>`,
+        // A explicação vive JUNTO do passo que a origina, não por baixo do botão.
+        `<p class="visit-hint${visitDraft.stars ? " hidden" : ""}" data-visit-gate>Só a nota é obrigatória.</p>`),
+
+      step(2, "Pratos", `
+        <div class="visit-dishes" data-visit-dishes></div>
+        <input class="visit-dish-input hidden" data-visit-dish-input placeholder="Nome do prato" />`),
+
+      step(3, "Nota pessoal", `
+        <textarea class="visit-note" data-visit-note rows="3"
+                  placeholder="O que queres lembrar da próxima vez?">${esc(visitDraft.note)}</textarea>
+        ${AIModule.available() ? `<button type="button" class="linklike ai-draft" data-ai-draft>${icon("sparkles")} Ajudar a escrever</button>` : ""}`),
+
+      step(4, "Quando", `
+        <label class="visit-when-row">
+          ${icon("clock")}
+          <span class="visit-when-label" data-visit-when-label></span>
+          <input type="date" class="visit-when-input" data-visit-date
+                 value="${visitDraft.date}" max="${todayLocalISODate()}" />
+          ${icon("chevron-right")}
+        </label>`),
+
+      friends.length ? step(5, "Com quem", `
+        <div class="companion-chips" data-companions>
+          ${friends.map((f) => `
+            <button type="button" class="companion-chip" data-companion="${esc(f.uid)}" aria-pressed="false">
+              ${avatar(f.displayName, f.photoURL, "avatar-xs")}<span>${esc(f.displayName || "Amigo")}</span>
+            </button>`).join("")}
+        </div>`,
+        `<p class="visit-hint" data-companion-note></p>`) : ""
+    ].join("");
+
+    paintVisitDishes();
+    paintVisitWhen();
+    paintCompanionNote();
+
+    body.querySelectorAll("[data-star]").forEach((b) => b.addEventListener("click", () => {
+      const n = parseInt(b.dataset.star, 10);
+      visitDraft.stars = visitDraft.stars === n ? 0 : n; // tocar na mesma estrela limpa
+      body.querySelectorAll("[data-star]").forEach((x) =>
+        x.classList.toggle("on", parseInt(x.dataset.star, 10) <= visitDraft.stars));
+      body.querySelector("[data-visit-gate]").classList.toggle("hidden", !!visitDraft.stars);
+      syncVisitCta();
+    }));
+
+    const noteEl = body.querySelector("[data-visit-note]");
+    noteEl.addEventListener("input", () => { visitDraft.note = noteEl.value; });
+    const draftBtn = body.querySelector("[data-ai-draft]");
+    if (draftBtn) draftBtn.addEventListener("click", async () => {
+      await runDraftReview(r, noteEl, draftBtn);
+      visitDraft.note = noteEl.value;
+    });
+
+    const dateEl = body.querySelector("[data-visit-date]");
+    dateEl.addEventListener("change", () => {
+      visitDraft.date = isoFromDateInput(dateEl.value) || todayLocalISODate();
+      paintVisitWhen();
+    });
+
+    body.querySelectorAll("[data-companion]").forEach((b) => b.addEventListener("click", () => {
+      const on = b.getAttribute("aria-pressed") === "true";
+      b.setAttribute("aria-pressed", String(!on));
+      visitDraft.withUids = [...body.querySelectorAll('[data-companion][aria-pressed="true"]')]
+        .map((x) => x.dataset.companion);
+      paintCompanionNote();
+    }));
+
+    syncVisitCta();
+  }
+
+  function paintVisitWhen() {
+    const el = document.querySelector("#visit-sheet [data-visit-when-label]");
+    if (!el) return;
+    el.textContent = visitDraft.date === todayLocalISODate() ? "Hoje" : fmtDate(visitDraft.date);
+  }
+
+  // Explica o modelo pelo nome de quem foi escolhido, não em abstrato.
+  function paintCompanionNote() {
+    const el = document.querySelector("#visit-sheet [data-companion-note]");
+    if (!el) return;
+    if (!visitDraft.withUids.length) { el.textContent = ""; return; }
+    const names = companionNames(visitDraft.withUids);
+    // companionNames devolve "" para quem não se consegue resolver; sem isto a
+    // frase começava por um espaço e ficava sem sujeito.
+    if (!names) {
+      el.textContent = "Quem marcares recebe um pedido para confirmar — só depois entra no diário dele.";
+      return;
+    }
+    const plural = visitDraft.withUids.length > 1;
+    el.textContent = `${names} ${plural ? "recebem um pedido" : "recebe um pedido"} para confirmar — ` +
+      `só depois entra no diário ${plural ? "deles" : "dele"}.`;
+  }
+
+  function paintVisitDishes() {
+    const wrap = document.querySelector("#visit-sheet [data-visit-dishes]");
+    const input = document.querySelector("#visit-sheet [data-visit-dish-input]");
+    if (!wrap || !input) return;
+    wrap.innerHTML = visitDraft.dishes.map((d, i) => `
+      <span class="dish-chip removable"><span>${esc(d)}</span>
+        <button type="button" class="dish-x" data-del-dish="${i}" aria-label="Remover">${icon("x")}</button>
+      </span>`).join("") + `<button type="button" class="chip chip-more" data-add-dish>+ prato</button>`;
+
+    wrap.querySelectorAll("[data-del-dish]").forEach((b) => b.addEventListener("click", () => {
+      visitDraft.dishes.splice(parseInt(b.dataset.delDish, 10), 1);
+      paintVisitDishes();
+    }));
+    wrap.querySelector("[data-add-dish]").addEventListener("click", () => {
+      input.classList.remove("hidden");
+      input.focus();
+    });
+    const commit = () => {
+      const raw = input.value.replace(/,+$/, "").trim();
+      input.value = "";
+      input.classList.add("hidden");
+      if (!raw) return;
+      if (!visitDraft.dishes.some((d) => d.toLowerCase() === raw.toLowerCase())) visitDraft.dishes.push(raw);
+      paintVisitDishes();
+    };
+    input.onkeydown = (e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); commit(); } };
+    input.onblur = commit;
+  }
+
+  function syncVisitCta() {
+    const cta = document.querySelector("#visit-sheet [data-visit-submit]");
+    if (cta) cta.disabled = !visitDraft.stars;
+  }
+
+  function submitVisit() {
+    const r = (state.restaurants || []).find((x) => x.id === visitDraft.id);
+    if (!r || !visitDraft.stars) return;
+    UserData.setRating(r.id, visitDraft.stars, visitDraft.note.trim(), visitDraft.dishes.slice());
+    UserData.addVisit(r.id, visitDraft.date, visitDraft.withUids);
+    setVisited(r.id, true);
+    // Cada acompanhante recebe um convite; só ele pode escrever o próprio diário.
+    if (visitDraft.withUids.length) sendVisitInvites(r, visitDraft.date, visitDraft.withUids);
+    closeVisitSheet();
+    renderMyMarks(r);
+    renderAmigos(r);
+    showSuccess(r.name);
+  }
+
   function renderMyMarks(r) {
     const el = document.querySelector("#detail-body [data-my-marks]");
     const tail = document.querySelector("#detail-body [data-my-marks-tail]");
@@ -748,141 +997,41 @@ const App = (() => {
     }
 
     const rating = UserData.getRating(r.id) || { stars: 0, note: "", dishes: [] };
-    const hasStars = rating.stars > 0;
 
-    // Journey part 1: rating + dishes.
+    // O formulário mudou-se para o sheet (openVisitSheet). Este separador passa
+    // a mostrar o que ficou registado — e não um segundo sítio a escrever o
+    // mesmo estado, que era como duas cópias divergiam.
     el.innerHTML = `
-      <div class="exp-step">
-        <span class="rate-label">A minha nota</span>
-        <div class="stars-input" data-stars>${[1, 2, 3, 4, 5]
-          .map((n) => `<button type="button" class="star-btn${n <= rating.stars ? " on" : ""}" data-star="${n}" aria-label="${n} estrelas">${icon("star")}</button>`)
-          .join("")}</div>
-      </div>
-      <div class="exp-step dish-edit">
-        <span class="rate-label">Pratos que comi</span>
-        <div class="dish-chips" data-dish-chips></div>
-        <input class="note-input dish-input" data-dish-input placeholder="Adicionar prato + Enter…" />
+      <div class="my-summary">
+        ${rating.stars
+          ? `<div class="stars-display">${[1, 2, 3, 4, 5]
+              .map((n) => `<svg class="icon${n <= rating.stars ? "" : " empty"}"><use href="#i-star"/></svg>`).join("")}</div>`
+          : ""}
+        ${rating.note ? `<p class="my-note">${esc(rating.note)}</p>` : ""}
+        ${(rating.dishes || []).length
+          ? `<div class="dish-chips">${rating.dishes.map((d) => `<span class="dish-chip">${esc(d)}</span>`).join("")}</div>`
+          : ""}
+        <button type="button" class="btn btn-primary btn-block" data-open-visit>
+          ${icon("check-circle")} ${rating.stars ? "Registar outra visita" : "Registar visita"}
+        </button>
       </div>`;
 
-    // Journey part 3 (after photos): personal note + submit + history.
     if (tail) tail.innerHTML = `
-      <div class="exp-step">
-        <span class="rate-label">Nota pessoal</span>
-        <textarea class="note-input" data-note placeholder="Nota pessoal (ex: pedir a sobremesa)…" rows="2">${esc(rating.note || "")}</textarea>
-        ${AIModule.available() && UserData.isCloud()
-          ? `<button type="button" class="linklike ai-draft" data-ai-draft>${icon("sparkles")} Ajudar a escrever</button>`
-          : ""}
-      </div>
       <div class="visit-history">
-        ${companionPickerHtml()}
-        <div class="visit-when">
-          <span class="rate-label">Quando fui</span>
-          <input type="date" class="note-input visit-date" data-visit-date value="${todayLocalISODate()}" max="${todayLocalISODate()}" />
-        </div>
-        <button class="btn btn-primary btn-block" data-add-visit${hasStars ? "" : " disabled"}>${icon("check-circle")} Registar visita</button>
-        ${hasStars ? "" : `<span class="muted exp-hint">Dá a tua nota para registar a experiência.</span>`}
+        <span class="detail-section-title">Visitas</span>
         <div class="visit-list" data-visit-list>${visitListHtml(r)}</div>
       </div>`;
 
-    el.querySelectorAll("[data-stars] .star-btn").forEach((btn) => {
+    const openBtn = el.querySelector("[data-open-visit]");
+    if (openBtn) openBtn.addEventListener("click", () => openVisitSheet(r));
+
+    if (tail) tail.querySelectorAll("[data-del-visit]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        let stars = parseInt(btn.dataset.star, 10);
-        const cur = UserData.getRating(r.id) || { stars: 0, note: "", dishes: [] };
-        if (cur.stars === stars) stars = 0; // click same star again to clear
-        const noteEl = tail && tail.querySelector("[data-note]");
-        const note = noteEl ? noteEl.value.trim() : (cur.note || "");
-        UserData.setRating(r.id, stars, note, cur.dishes || []);
+        UserData.removeVisit(r.id, btn.dataset.delVisit);
         renderMyMarks(r);
         renderAmigos(r);
       });
     });
-
-    if (tail) {
-      let noteTimer = null;
-      const noteEl = tail.querySelector("[data-note]");
-      if (noteEl) noteEl.addEventListener("input", (e) => {
-        clearTimeout(noteTimer);
-        const val = e.target.value.trim();
-        noteTimer = setTimeout(() => {
-          const cur = UserData.getRating(r.id) || { stars: 0, note: "", dishes: [] };
-          UserData.setRating(r.id, cur.stars, val, cur.dishes || []);
-          renderAmigos(r);
-        }, 600);
-      });
-
-      const draftBtn = tail.querySelector("[data-ai-draft]");
-      if (draftBtn && noteEl) draftBtn.addEventListener("click", () => runDraftReview(r, noteEl, draftBtn));
-
-      tail.querySelectorAll("[data-companion]").forEach((btn) =>
-        btn.addEventListener("click", () => {
-          btn.setAttribute("aria-pressed", btn.getAttribute("aria-pressed") === "true" ? "false" : "true");
-        })
-      );
-
-      const submitBtn = tail.querySelector("[data-add-visit]");
-      if (submitBtn) submitBtn.addEventListener("click", () => {
-        if (!((UserData.getRating(r.id) || {}).stars)) return; // gated on a rating
-        const withUids = selectedCompanions(tail);
-        const dateEl = tail.querySelector("[data-visit-date]");
-        const iso = isoFromDateInput(dateEl && dateEl.value);
-        UserData.addVisit(r.id, iso, withUids);
-        setVisited(r.id, true);
-        // Each tagged friend gets an invite; only they can write their own logbook.
-        if (withUids.length) sendVisitInvites(r, iso, withUids);
-        renderMyMarks(r);
-        renderAmigos(r);
-        showSuccess(r.name);
-      });
-
-      tail.querySelectorAll("[data-del-visit]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          UserData.removeVisit(r.id, btn.dataset.delVisit);
-          renderMyMarks(r);
-          renderAmigos(r);
-        });
-      });
-    }
-
-    // Dishes consumed — add chip-by-chip (Enter or comma), each removable.
-    const curDishes = () => ((UserData.getRating(r.id) || {}).dishes || []).slice();
-    const saveDishes = (list) => {
-      const rt = UserData.getRating(r.id) || { stars: 0, note: "" };
-      UserData.setRating(r.id, rt.stars, rt.note, list);
-    };
-    const chipsWrap = el.querySelector("[data-dish-chips]");
-    const dishInput = el.querySelector("[data-dish-input]");
-    function paintDishChips() {
-      const list = curDishes();
-      chipsWrap.innerHTML = list
-        .map((d, i) => `<span class="dish-chip removable"><span>${esc(d)}</span><button type="button" class="dish-x" data-del-dish="${i}" aria-label="Remover">${icon("x")}</button></span>`)
-        .join("");
-      chipsWrap.querySelectorAll("[data-del-dish]").forEach((b) => {
-        b.addEventListener("click", () => {
-          const list2 = curDishes();
-          list2.splice(parseInt(b.dataset.delDish, 10), 1);
-          saveDishes(list2);
-          paintDishChips();
-          renderAmigos(r);
-        });
-      });
-    }
-    function addDishFromInput() {
-      const raw = dishInput.value.replace(/,+$/, "").trim();
-      dishInput.value = "";
-      if (!raw) return;
-      const list = curDishes();
-      if (!list.some((d) => d.toLowerCase() === raw.toLowerCase())) {
-        list.push(raw);
-        saveDishes(list);
-        paintDishChips();
-        renderAmigos(r);
-      }
-    }
-    dishInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addDishFromInput(); }
-    });
-    dishInput.addEventListener("blur", addDishFromInput);
-    paintDishChips();
   }
 
   // ---------- Group view ("Amigos") ----------
@@ -1103,7 +1252,7 @@ const App = (() => {
           myGrid.insertAdjacentHTML("beforeend", photoTile(saved));
           statusEl.textContent = "Foto adicionada.";
         } catch (e) {
-          statusEl.textContent = "Não foi possível enviar. As fotos já estão ativadas no Firebase?";
+          statusEl.textContent = "A foto não subiu — tenta outra vez quando houver rede.";
         }
       };
       mineEl.querySelector("[data-add-photo]").addEventListener("click", () => galleryInput.click());
@@ -1115,7 +1264,7 @@ const App = (() => {
 
   function paintPhotoGrid(grid, photos, emptyMsg) {
     if (!photos.length) {
-      grid.innerHTML = `<p class="photo-empty muted">${esc(emptyMsg || "Ainda não há fotos.")}</p>`;
+      grid.innerHTML = `<p class="photo-empty">${esc(emptyMsg || "Ainda não há fotos.")}</p>`;
       return;
     }
     grid.innerHTML = photos.map(photoTile).join("");
@@ -1206,7 +1355,7 @@ const App = (() => {
     const reviewsEl = body.querySelector("[data-reviews]");
 
     if (!PlacesModule.isAvailable()) {
-      statsEl.innerHTML = `<p class="hint">Ative a Google Maps API para ver avaliações, fotos e horários.</p>`;
+      statsEl.innerHTML = `<p class="hint">Avaliações, fotos e horários não estão disponíveis aqui.</p>`;
       return;
     }
     // skeletons
@@ -1512,7 +1661,7 @@ const App = (() => {
         refreshActiveDataScreen();
         if (status) status.textContent = "Foto atualizada.";
       } catch (e) {
-        if (status) status.textContent = "Não foi possível enviar. As fotos já estão ativadas no Firebase?";
+        if (status) status.textContent = "A foto não subiu — tenta outra vez quando houver rede.";
       }
     });
   }
@@ -1806,7 +1955,7 @@ const App = (() => {
       ? photos.map((p, i) => `<button type="button" class="cover-tile${p.url === r.photoURL ? " current" : ""}" data-cover-pick="${i}">
           <img src="${esc(p.url)}" alt="" loading="lazy" />${p.url === r.photoURL ? `<span class="cover-current">${icon("check")}</span>` : ""}
         </button>`).join("")
-      : `<p class="muted cover-empty">Ainda não há fotos da comunidade — carrega uma tua.</p>`;
+      : `<p class="cover-empty">Ainda não há fotos da comunidade — carrega uma tua.</p>`;
     grid.querySelectorAll("[data-cover-pick]").forEach((btn) =>
       btn.addEventListener("click", async () => {
         status.textContent = "A definir…";
@@ -1833,7 +1982,7 @@ const App = (() => {
       await setRestaurantCoverUrl(r, url);
       hideCoverModal();
     } catch (e) {
-      status.textContent = "Não foi possível enviar. As fotos já estão ativadas no Firebase?";
+      status.textContent = "A foto não subiu — tenta outra vez quando houver rede.";
     }
   }
   function hidePhotoViewer() {
@@ -2448,7 +2597,7 @@ const App = (() => {
       const results = document.getElementById("planner-results");
       results.innerHTML = "";
       if (!from || !to) { status.textContent = "Indique o ponto de partida e o destino."; return; }
-      if (!PlannerModule.isAvailable()) { status.textContent = "O planeador precisa da Google Maps ativa."; return; }
+      if (!PlannerModule.isAvailable()) { status.textContent = "O planeador não está disponível de momento."; return; }
       status.textContent = "A calcular rota…";
       try {
         const { stops } = await PlannerModule.findStops({ from, to, radiusKm: parseInt(radius.value, 10), restaurants: state.restaurants });
@@ -2815,7 +2964,12 @@ const App = (() => {
     if (countEl) countEl.textContent = mems.length ? `${mems.length} ${mems.length === 1 ? "sítio" : "sítios"}` : "";
     listEl.innerHTML = "";
     if (!mems.length) {
-      listEl.innerHTML = `<p class="muted screen-empty">Ainda não tem memórias. Avalie ou marque uma visita num restaurante.</p>`;
+      listEl.innerHTML = stateHtml({
+        art: "livros",
+        title: "O teu diário começa na primeira refeição",
+        text: "Regista onde já foste e o que comeste. Fica só para ti até decidires partilhar.",
+        actions: [{ label: "Ver o mapa", action: "mapa" }]
+      });
       return;
     }
     mems.forEach((m) => listEl.appendChild(buildMemoryCard(m)));
@@ -2915,7 +3069,7 @@ const App = (() => {
     }
     const paint = (items, emptyMsg) => {
       const merged = sortCritiques(mergeCritiques(items));
-      if (!merged.length) { listEl.innerHTML = `<p class="muted screen-empty">${emptyMsg}</p>`; return; }
+      if (!merged.length) { listEl.innerHTML = stateHtml({ title: emptyMsg }); return; }
       listEl.innerHTML = merged.map(critiqueRow).join("");
       wireCritiqueClicks(listEl);
     };
@@ -3179,7 +3333,12 @@ const App = (() => {
 
   function paintFeed(el, feed) {
     if (!feed.length) {
-      el.innerHTML = `<p class="muted screen-empty">Ainda não há atividade de amigos.</p>`;
+      el.innerHTML = stateHtml({
+        art: "pessoas",
+        title: "Sozinho sabe pior",
+        text: "Segue quem quiseres acompanhar e a atividade deles aparece aqui.",
+        actions: [{ label: "Descobrir pessoas", action: "seguir" }]
+      });
       return;
     }
     el.innerHTML = feed.map(feedRow).join("");
@@ -3271,7 +3430,7 @@ const App = (() => {
     </div>`;
     el.innerHTML = toggle + (rows.some((r) => r.visits > 0 || r.ratings > 0)
       ? rows.map((r, i) => lbAmigoRow(r, i + 1)).join("")
-      : `<p class="muted screen-empty">Ainda não há atividade suficiente.</p>`);
+      : stateHtml({ title: "Ainda não há atividade suficiente", text: "Volta cá quando houver mais visitas registadas." }));
     el.querySelectorAll(".lb-period .seg-btn").forEach((b) =>
       b.addEventListener("click", () => { amigosLbPeriod = b.dataset.period; renderAmigosLeaderboard(); })
     );
@@ -3307,7 +3466,10 @@ const App = (() => {
     if (!el) return;
     if (!UserData.isCloud()) { el.innerHTML = signinInvite("Inicie sessão para ver o ranking de restaurantes."); return; }
     const rows = computeCriticasLeaderboard();
-    if (!rows.length) { el.innerHTML = `<p class="muted screen-empty">Ainda não há avaliações suficientes.</p>`; return; }
+    if (!rows.length) {
+      el.innerHTML = stateHtml({ title: "Ainda não há avaliações", text: "As classificações aparecem assim que houver críticas." });
+      return;
+    }
     el.innerHTML = rows.map((r, i) => lbRestRow(r, i + 1)).join("");
     el.querySelectorAll("[data-lb-rest]").forEach((b) =>
       b.addEventListener("click", () => {
@@ -3367,8 +3529,13 @@ const App = (() => {
     const fClear = document.getElementById("filters-clear");
     if (fClear) fClear.addEventListener("click", clearFilters);
     document.querySelectorAll("[data-close-filters]").forEach((el) => el.addEventListener("click", closeFilters));
+    document.querySelectorAll("[data-close-visit]").forEach((el) => el.addEventListener("click", closeVisitSheet));
+    const visitSubmit = document.querySelector("[data-visit-submit]");
+    if (visitSubmit) visitSubmit.addEventListener("click", submitVisit);
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && !document.getElementById("filters-sheet").classList.contains("hidden")) closeFilters();
+      if (e.key !== "Escape") return;
+      if (!document.getElementById("filters-sheet").classList.contains("hidden")) closeFilters();
+      if (!document.getElementById("visit-sheet").classList.contains("hidden")) closeVisitSheet();
     });
     document.getElementById("sidebar-toggle").addEventListener("click", () =>
       openSidebar(!document.getElementById("sidebar").classList.contains("open"))

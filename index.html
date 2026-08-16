@@ -107,13 +107,6 @@
           </button>
         </div>
 
-        <div class="progress-block">
-          <div class="progress-head">
-            <span id="progress-label">0 de 0 visitados</span>
-          </div>
-          <div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
-        </div>
-
         <div class="list-head">
           <span id="list-count">0 restaurantes</span>
           <div class="list-add-group">
@@ -334,6 +327,31 @@
         </button>
         <button class="btn btn-ghost btn-block" data-close-signin>Agora não</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Registar uma visita (Fase 4 do handoff). O fluxo central da app: estava
+       escondido dentro do separador "As minhas experiências", partido em dois
+       blocos separados por uma grelha de fotos. -->
+  <div id="visit-sheet" class="sheet hidden" aria-hidden="true">
+    <div class="sheet-scrim" data-close-visit></div>
+    <div class="sheet-card visit-card" role="dialog" aria-modal="true" aria-labelledby="visit-sheet-name">
+      <div class="sheet-handle" data-close-visit></div>
+      <header class="visit-head">
+        <div class="visit-head-thumb" data-visit-thumb></div>
+        <div class="visit-head-text">
+          <span class="eyebrow" data-visit-cuisine></span>
+          <h2 class="visit-head-name" id="visit-sheet-name" data-visit-name></h2>
+        </div>
+        <button type="button" class="icon-btn visit-close" data-close-visit aria-label="Fechar">
+          <svg class="icon"><use href="#i-x"/></svg>
+        </button>
+      </header>
+      <div class="sheet-body" data-visit-body></div>
+      <footer class="sheet-foot">
+        <button type="button" class="btn btn-primary sheet-cta" data-visit-submit disabled>Registar visita</button>
+        <p class="visit-foot-note">Podes acrescentar fotos depois.</p>
+      </footer>
     </div>
   </div>
 
