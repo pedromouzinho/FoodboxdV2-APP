@@ -223,6 +223,40 @@ const MapModule = (() => {
     directionsRenderer.setDirections({ routes: [] });
   }
 
+  // Extremidades de uma lista de sítios. Ignora quem não tem coordenadas, e
+  // devolve null quando não sobra nada — o chamador é que decide o que fazer.
+  function boundsOf(list) {
+    const pts = (list || []).filter((r) => typeof r.lat === "number" && typeof r.lng === "number");
+    if (!pts.length) return null;
+    return pts.reduce((b, r) => ({
+      south: Math.min(b.south, r.lat), north: Math.max(b.north, r.lat),
+      west: Math.min(b.west, r.lng), east: Math.max(b.east, r.lng)
+    }), { south: pts[0].lat, north: pts[0].lat, west: pts[0].lng, east: pts[0].lng });
+  }
+
+  // Enquadra os sítios todos, que é a vista que diz mais num mapa pessoal: onde
+  // já estive, de uma só olhada. O limite de zoom existe para o caso de haver um
+  // só sítio — sem ele o fitBounds mergulha até à rua.
+  const FIT_PADDING = 40;
+  const FIT_MAX_ZOOM = 14;
+  function fitToMarkers(list) {
+    if (!available) return false;
+    const b = boundsOf(list);
+    if (!b) return false;
+    map.fitBounds(
+      new google.maps.LatLngBounds(
+        new google.maps.LatLng(b.south, b.west),
+        new google.maps.LatLng(b.north, b.east)
+      ),
+      FIT_PADDING
+    );
+    // O fitBounds é assíncrono; o zoom só se corrige depois de ele assentar.
+    google.maps.event.addListenerOnce(map, "idle", () => {
+      if (map.getZoom() > FIT_MAX_ZOOM) map.setZoom(FIT_MAX_ZOOM);
+    });
+    return true;
+  }
+
   function fitToRoute(bounds) {
     if (!available) return;
     map.fitBounds(bounds);
@@ -249,6 +283,8 @@ const MapModule = (() => {
     clearSearchMarkers,
     getViewport,
     panTo,
+    boundsOf,
+    fitToMarkers,
     openInfoWindow,
     focusRestaurant,
     saveCamera,

@@ -12,7 +12,8 @@
     "emu:seed": "node scripts/seed-emulator.js",
     "qa": "firebase hosting:channel:deploy qa-local --expires 30d --project app-restaurantes-499400",
     "audit": "node scripts/audit.mjs",
-    "preview:pwa": "PWA_SAFE=1 node scripts/preview.mjs"
+    "preview:pwa": "PWA_SAFE=1 node scripts/preview.mjs",
+    "test:map": "node scripts/test-map.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^6.0.2",
