@@ -658,10 +658,24 @@
       // there was no controller yet) to avoid an unnecessary reload.
       var hadController = !!navigator.serviceWorker.controller;
       var reloading = false;
-      navigator.serviceWorker.addEventListener("controllerchange", function () {
-        if (reloading || !hadController) return;
+      var pendente = false;
+      // Recarregar a meio de uma folha aberta perde o que a pessoa estava a
+      // escrever. Se estiver ocupada, guarda-se para quando voltar e fechar.
+      function ocupado() {
+        return !!document.querySelector(
+          ".sheet:not(.hidden), .modal:not(.hidden), #onboarding:not(.hidden), #tour:not(.hidden)"
+        );
+      }
+      function recarregarSePuder() {
+        if (reloading || !pendente || ocupado()) return;
         reloading = true;
         window.location.reload();
+      }
+      window.__foodboxdRecarregarSePuder = recarregarSePuder;
+      navigator.serviceWorker.addEventListener("controllerchange", function () {
+        if (!hadController) return; // primeira instalação: nada para atualizar
+        pendente = true;
+        recarregarSePuder();
       });
       window.addEventListener("load", function () {
         navigator.serviceWorker.register("sw.js").then(function (reg) {
@@ -669,7 +683,9 @@
           // new version whenever the app returns to the foreground. A new SW then
           // takes control and the controllerchange handler above reloads once.
           document.addEventListener("visibilitychange", function () {
-            if (document.visibilityState === "visible") reg.update();
+            if (document.visibilityState !== "visible") return;
+            recarregarSePuder(); // ficou uma versão à espera de a app estar livre
+            reg.update();
           });
         }).catch(function () {});
       });

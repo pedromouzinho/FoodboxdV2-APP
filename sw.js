@@ -6,7 +6,7 @@
 //   - Other static files -> stale-while-revalidate (fast, self-healing).
 //   - Cross-origin (Google Maps/Places/Directions, Firebase) -> network only.
 
-const CACHE = "foodboxd-v70";
+const CACHE = "foodboxd-v71";
 const ASSETS = [
   "./",
   "index.html",
@@ -30,9 +30,22 @@ const ASSETS = [
   "icons/icon-512.png"
 ];
 
+// addAll() vai à cache HTTP do browser, e os assets são servidos com
+// max-age — resultado: a cache NOVA ficava populada com os ficheiros VELHOS, e
+// lá ficavam até ao próximo bump do CACHE. Era por isso que só apagar a app
+// resolvia. Com cache:"reload" cada ficheiro vem da rede, independentemente
+// dos cabeçalhos.
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE).then((c) =>
+      Promise.all(ASSETS.map((u) =>
+        fetch(u, { cache: "reload" })
+          .then((res) => (res.ok ? c.put(u, res) : null))
+          // Um ficheiro que falhe não pode impedir a instalação: sem isto, uma
+          // falha de rede a meio deixava a app na versão anterior para sempre.
+          .catch(() => null)
+      ))
+    ).then(() => self.skipWaiting())
   );
 });
 

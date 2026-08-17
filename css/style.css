@@ -2397,3 +2397,10 @@ body.ob-open { overflow: hidden; }
 .person-why { font-size: var(--fs-sm); color: var(--text-muted); }
 .people-foot { margin: 0; text-align: center; font-size: var(--fs-xs); color: var(--text-faint); }
 
+
+/* Versão a servir, no fim do Perfil: sem isto não há como saber se uma
+   atualização entrou sem ser por adivinhação. */
+.perfil-versao {
+  margin: var(--sp-5) 0 0; text-align: center;
+  font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-faint);
+}

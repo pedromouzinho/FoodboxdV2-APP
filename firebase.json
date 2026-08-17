@@ -66,6 +66,15 @@
             "value": "no-cache"
           }
         ]
+      },
+      {
+        "source": "**/*.@(css|js|json|webmanifest)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
       }
     ]
   },

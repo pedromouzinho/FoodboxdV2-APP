@@ -1644,6 +1644,19 @@ const App = (() => {
   }
 
   // ---------- Profile modal (edit avatar) ----------
+  // A versão que está mesmo a servir, perguntada ao service worker — não uma
+  // constante no código, que diria a versão do ficheiro e não a que está em uso.
+  async function pintarVersao() {
+    const el = document.querySelector("[data-perfil-versao]");
+    if (!el) return;
+    let v = "";
+    try {
+      const nomes = await caches.keys();
+      v = (nomes.find((n) => n.startsWith("foodboxd-v")) || "").replace("foodboxd-", "");
+    } catch (e) { v = ""; }
+    el.textContent = v ? `Foodboxd ${v}` : "";
+  }
+
   // ---------- Perfil (4.º separador) ----------
   // Estava atrás de um avatar na barra superior. Trouxe consigo a barra de
   // grupo e a definição de privacidade, que viviam à frente do feed de Amigos.
@@ -1685,7 +1698,10 @@ const App = (() => {
         <button type="button" class="perfil-row" data-perfil="pessoas">${icon("users")}<span>Descobrir pessoas</span>${icon("chevron-right")}</button>
         <button type="button" class="perfil-row" data-perfil="tutorial">${icon("info")}<span>Rever tutorial</span>${icon("chevron-right")}</button>
         <button type="button" class="perfil-row perfil-row-danger" data-perfil="sair">${icon("log-in")}<span>Terminar sessão</span></button>
-      </div>`;
+      </div>
+      <p class="perfil-versao" data-perfil-versao></p>`;
+
+    pintarVersao();
 
     renderGroupBar();
     wireProfileUpload();
