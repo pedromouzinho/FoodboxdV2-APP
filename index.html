@@ -675,6 +675,10 @@
       navigator.serviceWorker.addEventListener("controllerchange", function () {
         if (!hadController) return; // primeira instalação: nada para atualizar
         pendente = true;
+        // Marca observável: há uma versão à espera de a app estar livre. Serve
+        // para o ensaio de atualização não ter de adivinhar o momento, e fica
+        // disponível caso um dia se queira mostrar "nova versão" na interface.
+        document.documentElement.dataset.atualizacaoPendente = "1";
         recarregarSePuder();
       });
       window.addEventListener("load", function () {

@@ -77,24 +77,36 @@ chk("a cache antiga foi limpa",
   (await page.evaluate(() => caches.keys())).join(","));
 
 // ---- caso 2: com uma folha aberta -> espera ----
+// Recarregar antes de começar: o reload do caso 1 pode deixar a página sem
+// controller no momento em que o script corre, e aí a app suprime o reload
+// seguinte de propósito (trata-o como primeira instalação). Este passo põe o
+// ensaio no mesmo estado de quem já tem a app aberta há algum tempo.
+await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, { timeout: 15000 });
 patch.set("css/style.css", css.replace("--bg: #f6f1e7;", "--bg: rgb(4, 5, 6);"));
 patch.set("sw.js", sw.replace(/foodboxd-v\d+/, "foodboxd-v1000"));
 await page.evaluate(() => document.getElementById("filters-sheet").classList.remove("hidden"));
 await page.evaluate(() => navigator.serviceWorker.getRegistration().then((r) => r.update()));
-await page.waitForTimeout(3000);
+// Esperar pelo sinal real — a app marca no <html> que tem uma versão à espera
+// — em vez de contar segundos. Sem isto o ensaio corre com o browser e falha
+// por corrida, não por defeito: já apanhei uma passagem e uma falha seguidas.
+await page.waitForFunction(() => document.documentElement.dataset.atualizacaoPendente === "1",
+  null, { timeout: 20000 });
+await page.waitForTimeout(1500);
 const corComFolha = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 chk("não recarrega com uma folha aberta", corComFolha === "rgb(1, 2, 3)", `cor=${corComFolha}`);
 
-// ---- fecha a folha e volta à frente -> aí sim ----
-const recarregou2 = page.waitForEvent("load", { timeout: 20000 });
-await page.evaluate(() => {
-  document.getElementById("filters-sheet").classList.add("hidden");
-  window.__foodboxdRecarregarSePuder && window.__foodboxdRecarregarSePuder();
-});
+// ---- fecha a folha e a app volta à frente -> aí sim ----
+// O contrato real da app é este: recarrega quando VOLTA À FRENTE e já está
+// livre. Fechar a folha sozinho não dispara nada — é o visibilitychange que o
+// faz, e é isso que se simula aqui em vez de chamar a função à mão.
+const recarregou2 = page.waitForEvent("load", { timeout: 25000 });
+await page.evaluate(() => document.getElementById("filters-sheet").classList.add("hidden"));
+await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
 await recarregou2.catch(() => {});
 await page.waitForTimeout(1200);
 const corDepois = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-chk("recarrega depois de fechar a folha", corDepois === "rgb(4, 5, 6)", `cor=${corDepois}`);
+chk("recarrega quando volta à frente já sem a folha", corDepois === "rgb(4, 5, 6)", `cor=${corDepois}`);
 
 await browser.close();
 srv.close();

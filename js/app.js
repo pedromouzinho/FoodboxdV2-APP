@@ -2150,15 +2150,31 @@ const App = (() => {
   }
 
   // Compact catalog the model reasons over: only already-visible data + my marks.
+  // O que o modelo recebe sobre cada sítio. Os teus vêm primeiro e marcados:
+  // num catálogo de 49 onde avaliaste 7, o modelo não devia ter de procurar as
+  // agulhas.
   function aiCatalog(near) {
-    return state.restaurants.map((r) => {
+    const NOTA_MAX = 240;
+    const entradas = state.restaurants.map((r) => {
       const rt = UserData.getRating(r.id) || {};
+      const hist = UserData.getHistory(r.id) || [];
       const e = { id: r.id, name: r.name, town: r.town, region: r.region, cuisine: cuisineOf(r), styles: stylesOf(r) };
+      // Descrição curada do sítio — NÃO é opinião tua. O prompt di-lo ao modelo.
       if (r.notes) e.specialty = r.notes;
       if (UserData.isVisited(r.id)) e.visited = true;
       if (UserData.isPriority(r.id)) e.priority = true;
       if (rt.stars) e.myStars = rt.stars;
       if (rt.dishes && rt.dishes.length) e.myDishes = rt.dishes;
+      // A nota pessoal é a coisa mais rica que se escreve na app, e até aqui
+      // nunca saía dela: o modelo recebia estrelas e nomes de pratos, e nada
+      // em texto teu.
+      if (rt.note) e.myNote = String(rt.note).slice(0, NOTA_MAX);
+      // Voltar a um sítio é o sinal mais forte de que se gosta, e era invisível.
+      if (hist.length) {
+        e.visits = hist.length;
+        const ultima = UserData.visitDate(hist[hist.length - 1]);
+        if (ultima) e.lastVisit = ultima;
+      }
       const avg = UserData.avgRating(r.id);
       if (avg) e.groupAvg = Math.round(avg * 10) / 10;
       if (near && typeof r.lat === "number" && typeof r.lng === "number") {
@@ -2166,27 +2182,54 @@ const App = (() => {
       }
       return e;
     });
+    const meu = (e) => e.myStars || e.myNote || e.visited || e.visits;
+    return entradas.filter(meu).concat(entradas.filter((e) => !meu(e)));
   }
 
-  // A short taste profile aggregated from my ratings.
+  // O agregado do gosto. Três coisas mudaram face ao que existia:
+  //   · usava r.category, o campo legado, que colapsa as 13 cozinhas em 2
+  //     ("tradicional" e "pastelaria") — um japonês de 5 estrelas entrava como
+  //     tradicional. Passa a usar cuisineOf();
+  //   · somava as estrelas, o que fazia uma avaliação de 1 estrela AUMENTAR o
+  //     peso da cozinha e confundia frequência com gosto. Passa a dar média e
+  //     contagem em separado;
+  //   · não havia sinal negativo nenhum. Passa a haver.
   function aiProfile() {
-    const catWeights = {};
-    const likedDishes = [];
+    const porCozinha = {};
+    const pratos = new Map();
     let rated = 0, sum = 0;
     state.restaurants.forEach((r) => {
       const rt = UserData.getRating(r.id);
-      if (rt && rt.stars) {
-        rated++; sum += rt.stars;
-        catWeights[r.category] = (catWeights[r.category] || 0) + rt.stars;
-        if (rt.stars >= 4 && Array.isArray(rt.dishes)) likedDishes.push(...rt.dishes);
+      if (!rt || !rt.stars) return;
+      rated++; sum += rt.stars;
+      const c = cuisineOf(r);
+      const acc = (porCozinha[c] = porCozinha[c] || { total: 0, sitios: 0 });
+      acc.total += rt.stars; acc.sitios++;
+      if (rt.stars >= 4 && Array.isArray(rt.dishes)) {
+        rt.dishes.forEach((d) => {
+          const k = String(d).trim().toLowerCase();
+          if (!k) return;
+          const p = pratos.get(k) || { prato: String(d).trim(), vezes: 0, sitios: [], estrelas: 0 };
+          p.vezes++; p.estrelas = Math.max(p.estrelas, rt.stars);
+          if (p.sitios.length < 3) p.sitios.push(r.name);
+          pratos.set(k, p);
+        });
       }
     });
+
+    const cozinhas = Object.entries(porCozinha)
+      .map(([cozinha, a]) => ({ cozinha, media: Math.round((a.total / a.sitios) * 10) / 10, sitios: a.sitios }))
+      .sort((a, b) => b.media - a.media || b.sitios - a.sitios);
+
     return {
       name: UserData.isCloud() ? (UserData.me().displayName || "") : "",
       visitedCount: state.restaurants.filter((r) => UserData.isVisited(r.id)).length,
       avgStars: rated ? Math.round((sum / rated) * 10) / 10 : null,
-      catWeights,
-      likedDishes: [...new Set(likedDishes)].slice(0, 20)
+      ratedCount: rated,
+      // média por cozinha e quantos sítios — gosto e frequência separados
+      cuisines: cozinhas.filter((c) => c.media > 2),
+      dislikedCuisines: cozinhas.filter((c) => c.media <= 2),
+      likedDishes: [...pratos.values()].sort((a, b) => b.vezes - a.vezes || b.estrelas - a.estrelas).slice(0, 20)
     };
   }
 
@@ -2368,6 +2411,7 @@ const App = (() => {
         ${p.dishes && p.dishes.length ? `<div class="taste-row"><span class="taste-label">Pratos</span><div class="taste-chips">${chips(p.dishes)}</div></div>` : ""}
         ${p.vibe ? `<div class="taste-row"><span class="taste-label">Ambiente</span><span class="taste-val">${esc(p.vibe)}</span></div>` : ""}
         ${p.price ? `<div class="taste-row"><span class="taste-label">Preço</span><span class="taste-val">${esc(p.price)}</span></div>` : ""}
+        ${p.avoids ? `<div class="taste-row"><span class="taste-label">Não procuras</span><span class="taste-val">${esc(p.avoids)}</span></div>` : ""}
         ${(p.mapsQueries && p.mapsQueries.length) ? `<div class="taste-discover" data-taste-discover></div>` : ""}
         <button class="btn btn-primary btn-block taste-suggest" data-taste-suggest>${icon("sparkles")} Pede-me uma sugestão</button>
         <button class="linklike taste-update" data-taste-update>Atualizar perfil de gosto</button>

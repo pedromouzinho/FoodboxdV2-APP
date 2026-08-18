@@ -209,7 +209,9 @@ const ACTIONS = {
       "diz numa frase que na lista dele não há nada mesmo perto, e propõe descobertas novas na zona onde ele está. " +
       "NUNCA apresentes como 'perto' um sítio a dezenas de km. " +
       "Preenche SEMPRE discoverQueries com pesquisas para sítios novos que sirvam o pedido, ancoradas na ZONA indicada (ou na zona do pedido). " +
-      "Considera o PERFIL DE GOSTO (cozinhas, pratos, ambiente, preço) nas descobertas. " +
+      "Considera o PERFIL DE GOSTO (cozinhas, pratos, ambiente, preço) nas descobertas, e evita o que ele não procura (`avoids`, `dislikedCuisines`). " +
+      "No CATÁLOGO, os primeiros sítios são os dele: `myNote` é o que ele escreveu e vale mais do que `specialty`, que é a descrição curada do sítio; " +
+      "`groupAvg` é a média de outros e serve para calibrar, não para decidir por ele. " +
       "Responde curto e concreto em português europeu, sem emojis. Se o pedido for sobretudo filtrar a lista, preenche também `filters`.",
       catalog
     );
@@ -285,7 +287,8 @@ const ACTIONS = {
       input_schema: {
         type: "object",
         properties: {
-          summary: { type: "string", description: "2–4 frases, na 2.ª pessoa (tu), português europeu, concretas, sem emojis." },
+          summary: { type: "string", description: "2–4 frases, na 2.ª pessoa (tu), português europeu, concretas, sem emojis. Ancora-te no que ele escreveu (myNote) e nos sítios onde volta." },
+          avoids: { type: "string", description: "OPCIONAL, 1 frase: o que ele parece NÃO procurar, a partir de dislikedCuisines e das notas negativas. Deixa vazio se não houver material." },
           cuisines: { type: "array", items: { type: "string" }, description: "Cozinhas/estilos preferidos." },
           dishes: { type: "array", items: { type: "string" }, description: "Pratos favoritos." },
           price: { type: "string", description: "Faixa de preço habitual, em texto curto." },
@@ -307,7 +310,16 @@ const ACTIONS = {
       }
     };
     const system = cachedSystem(
-      "És um analista de gosto gastronómico do Foodboxd. A partir do CATÁLOGO (os restaurantes do utilizador, com as estrelas, pratos e visitas dele), descreve o gosto de forma concreta e útil, em português europeu, sem emojis. A seguir propõe pesquisas para o Google Maps que o ajudem a descobrir sítios NOVOS alinhados com esse gosto, perto da ZONA indicada — usa nomes de localidade/região nas queries para serem competentes (ex.: 'tasca tradicional alentejana migas perto de Évora').",
+      "És um analista de gosto gastronómico do Foodboxd. Descreve o gosto do utilizador de forma concreta e útil, em português europeu, sem emojis. " +
+      "COMO LER O CATÁLOGO: os primeiros sítios são os DELE (têm myStars, myNote, visited ou visits); os restantes são da lista partilhada e ele pode nunca lá ter ido — servem de contexto, não de gosto. " +
+      "`myNote` é o que ELE escreveu e é a fonte mais rica que tens: vale mais do que qualquer outro campo, e é de lá que saem as observações concretas. " +
+      "`specialty` é a descrição curada do sítio, NÃO é opinião dele — não a apresentes como se ele a tivesse dito. " +
+      "`groupAvg` é a média de outras pessoas: serve para calibrar, nunca para definir o gosto dele. " +
+      "`visits` e `lastVisit` importam: voltar a um sítio diz mais do que uma estrela alta numa visita única. " +
+      "No AGREGADO, `cuisines` traz a média por cozinha e quantos sítios — média alta com poucos sítios é entusiasmo, média alta com muitos é hábito. " +
+      "`dislikedCuisines` é o que ele avaliou mal: usa-o para dizer o que ele NÃO procura e para não sugerir mais do mesmo. " +
+      "Se houver pouco material, di-lo em vez de inventares um perfil confiante. " +
+      "A seguir propõe pesquisas para o Google Maps que o ajudem a descobrir sítios NOVOS alinhados com esse gosto, perto da ZONA indicada — usa nomes de localidade/região nas queries para serem competentes (ex.: 'tasca tradicional alentejana migas perto de Évora').",
       catalog
     );
     const user = [

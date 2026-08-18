@@ -16,5 +16,12 @@ www/
 *serviceaccount*.json
 sa.json
 
+# Segredos das funções. A chave da Anthropic vivia só como variável no serviço
+# Cloud Run — invisível no repositório e apagada por qualquer deploy de
+# functions. Passa a viver aqui, e aqui nunca entra no git.
+functions/.env
+functions/.env.*
+.env
+
 # Capturas do npm run preview (geradas)
 .preview/

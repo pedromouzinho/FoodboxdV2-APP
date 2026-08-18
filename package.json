@@ -14,7 +14,8 @@
     "audit": "node scripts/audit.mjs",
     "preview:pwa": "PWA_SAFE=1 node scripts/preview.mjs",
     "test:map": "node scripts/test-map.mjs",
-    "test:update": "node scripts/test-update.mjs"
+    "test:update": "node scripts/test-update.mjs",
+    "ai:diff": "node scripts/ai-diff.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^6.0.2",
