@@ -1,5 +1,5 @@
-// Abre a app num Chromium com viewport de iPhone, em claro e escuro, e reporta
-// o que as verificações de sintaxe não conseguem ver.
+// Abre a app num Chromium — telemóvel e ecrã grande, em claro e escuro — e
+// reporta o que as verificações de sintaxe não conseguem ver.
 //
 //   node scripts/preview.mjs                    (serve ./ e usa localhost)
 //   node scripts/preview.mjs <url>              (um canal de QA, por exemplo)
@@ -9,6 +9,11 @@
 // chavetas certas, zero duplicados, zero tokens indefinidos — e todos os chips
 // da app passaram a pontos de 8px. Nenhum verificador estático apanha isso.
 // Só se vê a abrir a app. É para isso que este ficheiro existe.
+//
+// A passagem de ecrã grande nasceu do mesmo tipo de erro: todos os arneses
+// corriam só em iPhone, e o desktop ficou meses com a barra de separadores
+// meia fora do ecrã sem ninguém dar por isso. Verificar só uma largura é
+// verificar só metade da app.
 
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
@@ -79,8 +84,16 @@ const browser = await chromium.launch({
 // altura dos chips (36px) é uma decisão de design do handoff e não um descuido.
 let bloqueadores = 0;
 
+// Duas larguras: o telemóvel, que é a camada base, e um ecrã grande, onde as
+// regras de desktop vivem e onde nunca ninguém tinha olhado.
+const VISTAS = [
+  { nome: "telemovel", opts: devices["iPhone 13 Pro"] },
+  { nome: "desktop", opts: { viewport: { width: 1440, height: 900 } } }
+];
+
+for (const vista of VISTAS)
 for (const scheme of ["light", "dark"]) {
-  const ctx = await browser.newContext({ ...devices["iPhone 13 Pro"], colorScheme: scheme });
+  const ctx = await browser.newContext({ ...vista.opts, colorScheme: scheme });
   const page = await ctx.newPage();
   // Erros de JavaScript contam sempre. Falhas de rede a terceiros (Maps,
   // fontes, Firebase) não: numa máquina sem acesso a esses domínios seriam um
@@ -96,7 +109,7 @@ for (const scheme of ["light", "dark"]) {
 
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
   await page.waitForTimeout(2500);
-  await page.screenshot({ path: join(OUT, `${scheme}-app.png`) });
+  await page.screenshot({ path: join(OUT, `${vista.nome}-${scheme}-app.png`) });
 
   // Os modais não abrem sem sessão iniciada, por isso força-se o estado.
   for (const id of ["add-restaurant-modal", "ai-modal", "profile-modal", "people-modal"]) {
@@ -109,12 +122,42 @@ for (const scheme of ["light", "dark"]) {
     }, id);
     if (!abriu) continue;
     await page.waitForTimeout(200);
-    await page.screenshot({ path: join(OUT, `${scheme}-${id}.png`) });
+    await page.screenshot({ path: join(OUT, `${vista.nome}-${scheme}-${id}.png`) });
   }
 
   const a = await page.evaluate(AUDIT);
-  console.log(`\n[${scheme}]  corpo: ${a.corpo}`);
-  if (SAFE) {
+  console.log(`\n[${vista.nome} · ${scheme}]  corpo: ${a.corpo}`);
+  if (vista.nome === "desktop") {
+    // As duas afirmações que teriam apanhado a captura que deu origem a isto:
+    // a pastilha da barra tinha `left: 0` da regra base e `translateX(-50%)`
+    // da regra de desktop, e ficava meia fora do ecrã à esquerda.
+    const d = await page.evaluate(() => {
+      const box = (s) => { const e = document.querySelector(s); return e ? e.getBoundingClientRect() : null; };
+      const barra = box(".tabbar");
+      const mapa = box("#map");
+      return {
+        centroBarra: barra ? Math.round(barra.left + barra.width / 2) : null,
+        centroJanela: Math.round(innerWidth / 2),
+        largura: document.documentElement.scrollWidth,
+        janela: innerWidth,
+        alturaMapa: mapa ? Math.round(mapa.height) : null,
+        duasColunas: !document.querySelector(".map-area").hidden && !document.querySelector(".list-pane").hidden
+      };
+    });
+    if (d.centroBarra === null || Math.abs(d.centroBarra - d.centroJanela) > 1) {
+      bloqueadores++;
+      console.log(`  ERRO — barra descentrada: centro em ${d.centroBarra}, janela em ${d.centroJanela}`);
+    } else console.log("  barra de separadores: centrada");
+    if (d.largura > d.janela) {
+      bloqueadores++;
+      console.log(`  ERRO — transbordo horizontal: ${d.largura}px numa janela de ${d.janela}px`);
+    } else console.log("  sem transbordo horizontal");
+    // Relatório, não bloqueador: o mapa não desenha sem rede, mas a altura do
+    // contentor diz se o espaço existe ou se o problema é de layout.
+    console.log(`  #map: ${d.alturaMapa}px de altura · duas colunas: ${d.duasColunas ? "sim" : "NÃO"}`);
+    if (!d.duasColunas) bloqueadores++;
+  }
+  if (SAFE && vista.nome === "telemovel") {
     // A moldura tem de encaixar: o ecrã acaba exatamente onde a barra começa.
     const m = await page.evaluate(() => {
       const r = (s) => { const e = document.querySelector(s); return e ? Math.round(e.getBoundingClientRect()[s === ".tabbar" ? "top" : "bottom"]) : null; };

@@ -3769,11 +3769,14 @@ const App = (() => {
       b.classList.toggle("active", on);
       b.setAttribute("aria-pressed", String(on));
     });
+    // Num ecrã grande os dois painéis cabem lado a lado e o segmentado está
+    // escondido por CSS: esconder um deles seria esconder metade do ecrã.
+    const estreito = isMobile();
     document.querySelectorAll("[data-mode-pane]").forEach((p) => {
-      p.hidden = p.dataset.modePane !== state.mapMode;
+      p.hidden = estreito && p.dataset.modePane !== state.mapMode;
     });
     // O mapa foi redimensionado enquanto estava escondido; sem isto fica cinzento.
-    if (state.mapMode === "mapa" && MapModule.isAvailable()) {
+    if ((!estreito || state.mapMode === "mapa") && MapModule.isAvailable()) {
       setTimeout(() => { const m = MapModule.getMap(); if (m) google.maps.event.trigger(m, "resize"); }, 50);
     }
   }
@@ -3830,6 +3833,13 @@ const App = (() => {
     document.querySelectorAll("[data-map-mode]").forEach((b) =>
       b.addEventListener("click", () => setMapMode(b.dataset.mapMode))
     );
+    // Atravessar o limiar do desktop muda quantos painéis cabem: reaplicar o
+    // modo repõe o `hidden` certo e avisa o mapa de que mudou de tamanho.
+    window.matchMedia("(max-width: 860px)").addEventListener("change", () => setMapMode(state.mapMode));
+    // O estado inicial vinha do HTML (mapa visível, lista com `hidden`), que
+    // num ecrã grande deixava a segunda coluna por abrir. Aplicar o modo uma
+    // vez no arranque põe os painéis de acordo com a largura desde o início.
+    setMapMode(state.mapMode);
     const recenter = document.getElementById("map-recenter-btn");
     if (recenter) recenter.addEventListener("click", () => {
       hideMapPeek();

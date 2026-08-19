@@ -972,19 +972,7 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .tab.active { color: var(--primary); }
 .tab:active { transform: scale(0.92); }
 
-/* Desktop: tab bar becomes a floating pill; data screens get a readable width */
-@media (min-width: 861px) {
-  .tabbar {
-    left: 50%; right: auto; transform: translateX(-50%);
-    width: min(560px, 90%);
-    height: var(--tabbar-h); padding-bottom: 0;
-    margin-bottom: var(--sp-4);
-    border: 1px solid var(--border); border-radius: var(--r-pill);
-    box-shadow: var(--shadow-lg);
-  }
-  .screen-list { max-width: 760px; margin: 0 auto; width: 100%; }
-  .screen-head { max-width: 760px; margin: 0 auto; width: 100%; }
-}
+/* O bloco de desktop vive no fim do ficheiro — ver a nota lá. */
 
 /* ---------- Responsive ---------- */
 @media (max-width: 860px) {
@@ -2403,4 +2391,85 @@ body.ob-open { overflow: hidden; }
 .perfil-versao {
   margin: var(--sp-5) 0 0; text-align: center;
   font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-faint);
+}
+
+
+/* =====================================================================
+   Ecrã grande (>= 861px)
+   =====================================================================
+   Este bloco tem de ficar NO FIM do ficheiro. Estava a meio, antes das
+   regras base de `.tabbar` e `.topbar` (que são acrescentadas mais abaixo),
+   e como a especificidade é a mesma ganhava a de baixo: a barra de
+   separadores ficava com `left: 0` da base e `transform: translateX(-50%)`
+   daqui, ou seja, meia fora do ecrã à esquerda. Regra: nada de desktop
+   antes das regras que sobrepõe.
+
+   O telemóvel é a camada base — tudo aqui é aditivo e não lhe toca. */
+@media (min-width: 861px) {
+
+  /* --- Largura: cromo de ponta a ponta, texto numa coluna -------------
+     O ecrã do mapa é para ser largo — o mapa quer o espaço todo — por isso
+     a barra de topo e a `.mapbar` só ganham mais folga nas margens. O que
+     se lê (Diário, Amigos, Perfil) fica numa coluna de 760px.
+
+     A coluna faz-se com padding e não com `max-width` + `margin: auto`:
+     assim não é preciso mexer no HTML e o fundo continua a sangrar de lado
+     a lado. Isso importa no `.screen-head`, que é sticky — com `margin`
+     via-se o conteúdo a passar por baixo dos cantos transparentes. */
+  .topbar,
+  .mapbar { padding-inline: var(--sp-5); }
+  .screen-head,
+  .screen-list { padding-inline: max(var(--sp-4), (100% - 760px) / 2); }
+  .screen-list { width: 100%; }
+
+  /* --- Barra de separadores: pastilha flutuante, centrada ------------- */
+  .tabbar {
+    left: 50%; right: auto; transform: translateX(-50%);
+    width: min(560px, 90%);
+    height: var(--tabbar-h); padding-bottom: 0;
+    margin-bottom: var(--sp-4);
+    border: 1px solid var(--border); border-radius: var(--r-pill);
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* --- Ecrã do mapa: as duas colunas que a `.sidebar` dava ------------
+     Num ecrã grande não há razão para escolher entre o mapa e a lista —
+     cabem os dois. O segmentado deixa de significar alguma coisa e sai;
+     `setMapMode` em js/app.js deixa de esconder o painel inativo acima
+     dos 860px (é lá que vive o `isMobile()`).
+
+     A lista fica à direita e não à esquerda para a ordem visual coincidir
+     com a do DOM, que é `.map-area` e depois `.list-pane`: quem navega por
+     teclado percorre-a pela mesma ordem por que a lê. */
+  .mapbar { flex-direction: row; align-items: center; gap: var(--sp-3); }
+  .mapbar .search-wrap { flex: 1; min-width: 0; max-width: 420px; }
+  .mapbar-row { flex: none; margin-left: auto; }
+  .mapbar-row .segmented { display: none; }
+  .mapbar-row .filters-btn { margin-left: 0; }
+
+  .list-pane {
+    flex: 0 0 clamp(360px, 30%, 460px);
+    border-left: 1px solid var(--hairline);
+    background: var(--bg);
+    /* A pastilha da barra flutua por cima; num desktop estreito chega ao
+       painel, e sem isto o último cartão nunca sai de debaixo dela. */
+    padding-bottom: calc(var(--tabbar-h) + var(--sp-5));
+  }
+
+  /* --- Painéis: diálogo centrado, não folha vinda de baixo ------------
+     `align-items: flex-end` e cantos só em cima são idioma de telemóvel.
+     A animação passa a ser a mesma dos `.modal`, que já existe. */
+  .sheet { align-items: center; }
+  .sheet-card {
+    border-radius: var(--r-xl);
+    max-height: min(80dvh, 760px);
+    animation: modal-in 0.2s var(--ease);
+  }
+  .sheet-handle { display: none; }
+
+  /* --- Rato -----------------------------------------------------------
+     Quase tudo já tem `:hover`; faltavam os separadores e os chips, que
+     só tinham resposta ao toque. */
+  .tab:hover { color: var(--text); }
+  .chip:hover { border-color: var(--border-strong); }
 }
