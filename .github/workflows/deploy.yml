@@ -1,0 +1,57 @@
+# Publica em PRODUÇÃO (foodboxd.pt). Só à mão.
+#
+# Nunca corre sozinho: `workflow_dispatch` obriga a alguém carregar no botão em
+# Actions > Deploy (produção) > Run workflow. Um push não chega a produção por
+# acidente — para isso existe o canal de QA em qa.yml.
+#
+# Requer o mesmo segredo FIREBASE_SERVICE_ACCOUNT (Settings > Secrets and
+# variables > Actions) que o canal de QA. Sem ele os dois falham.
+name: Deploy (produção)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch ou commit a publicar"
+        required: true
+        default: main
+
+concurrency:
+  group: deploy-producao
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  producao:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      # A versão da cache do service worker é o que faz a app instalada
+      # apanhar o build novo. Se não subiu, o deploy não chega a ninguém que
+      # já tenha a app — e isso é um erro silencioso, não um aviso.
+      - name: Versão do service worker
+        id: sw
+        run: |
+          v=$(grep -oP 'foodboxd-v\d+' sw.js | head -1)
+          echo "A publicar $v" >> "$GITHUB_STEP_SUMMARY"
+          echo "v=$v" >> "$GITHUB_OUTPUT"
+
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: app-restaurantes-499400
+          channelId: live
+
+      - name: Confirmar o que ficou em produção
+        run: |
+          servida=$(curl -sf --max-time 20 https://foodboxd.pt/sw.js | grep -oP 'foodboxd-v\d+' | head -1)
+          echo "foodboxd.pt serve: $servida" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$servida" != "${{ steps.sw.outputs.v }}" ]; then
+            echo "AVISO: esperava ${{ steps.sw.outputs.v }}. Pode ser cache de borda — confirma daqui a um minuto." >> "$GITHUB_STEP_SUMMARY"
+          fi
