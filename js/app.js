@@ -3963,6 +3963,8 @@ const App = (() => {
     );
     const signinModalBtn = document.getElementById("signin-modal-btn");
     if (signinModalBtn) signinModalBtn.addEventListener("click", () => { AuthModule.signIn(); hideSigninModal(false); });
+    const signinAppleBtn = document.getElementById("signin-apple-btn");
+    if (signinAppleBtn) signinAppleBtn.addEventListener("click", () => { AuthModule.signInApple(); hideSigninModal(false); });
 
     // Guided tour controls
     document.querySelectorAll("[data-tour-skip]").forEach((el) => el.addEventListener("click", hideTour));
@@ -4152,7 +4154,9 @@ const App = (() => {
         refreshActiveDataScreen();
       }
     });
-    AuthModule.init({ onUser: onAuthChange });
+    // O botão "Entrar" da barra abre o ecrã com as duas opções em vez de ir
+    // direto para a Google — ver a nota sobre a diretriz 4.8 em js/auth.js.
+    AuthModule.init({ onUser: onAuthChange, onSignInRequest: showSigninModal });
 
     const curated = await (await fetch("data/restaurants.json")).json();
     state.curated = curated; // kept for pull-to-refresh rebuilds

@@ -19,7 +19,13 @@ const AuthModule = (() => {
     chipName = document.getElementById("user-chip-name");
     signoutBtn = document.getElementById("signout-btn");
 
-    if (btn) btn.addEventListener("click", signIn);
+    // Ia direto para a Google. A diretriz 4.8 exige que o Sign in with Apple
+    // esteja disponível onde houver login social de terceiros — um atalho só
+    // para a Google escondia a outra opção. Passa a abrir o ecrã com as duas.
+    if (btn) btn.addEventListener("click", function () {
+      if (opts && typeof opts.onSignInRequest === "function") opts.onSignInRequest();
+      else signIn();
+    });
     if (signoutBtn) signoutBtn.addEventListener("click", signOut);
 
     if (window.FirebaseAuth && window.FirebaseAuth.configured) {
@@ -43,6 +49,14 @@ const AuthModule = (() => {
     fb.signIn().catch((e) => {
       // Common when the Google provider isn't enabled yet, or popup blocked.
       console.warn("Sign-in failed:", e && e.message);
+    });
+  }
+  function signInApple() {
+    if (!fb || !fb.signInApple) return;
+    fb.signInApple().catch((e) => {
+      // Comum enquanto o provider não estiver ativado na consola do Firebase,
+      // ou se a janela for fechada a meio.
+      console.warn("Apple sign-in failed:", e && e.message);
     });
   }
   function signOut() {
@@ -100,5 +114,5 @@ const AuthModule = (() => {
     }
   }
 
-  return { init, signIn, signOut, deleteAccount };
+  return { init, signIn, signInApple, signOut, deleteAccount };
 })();

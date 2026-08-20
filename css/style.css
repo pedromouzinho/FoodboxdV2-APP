@@ -890,6 +890,26 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 #user-chip-img { cursor: pointer; }
 
 /* Subtle danger button (e.g. remove a restaurant you added). */
+/* ---------- Sign in with Apple ----------
+   A única peça do interface que não segue a paleta da app, e de propósito: a
+   Apple define a cor, o tamanho mínimo e as proporções da marca, e o botão tem
+   de ter pelo menos tanto destaque como os outros meios de início de sessão
+   (diretriz 4.8). Preto sobre branco é a variante canónica — a nossa tinta
+   quente (#29231b) não serve aqui.
+
+   O raio de pílula é permitido: a Apple aceita de 0 a metade da altura. */
+.btn-apple {
+  background: #000;
+  color: #fff;
+  border-color: transparent;
+  font-weight: 600;
+}
+.btn-apple:hover { background: #1a1a1a; }
+/* A marca é um caminho preenchido; a regra geral de `.icon` é traço. */
+.icon-apple { width: 17px; height: 17px; fill: currentColor; stroke: none; }
+/* Óptico: a marca da Apple tem o peso em baixo e fica alta em relação ao texto. */
+.btn-apple .icon-apple { margin-top: -2px; }
+
 .btn-danger { color: var(--danger); }
 .btn-danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); }
 /* Cheio, e não só texto vermelho: é o único botão da app que destrói dados de

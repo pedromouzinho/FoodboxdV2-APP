@@ -112,7 +112,9 @@ for (const scheme of ["light", "dark"]) {
   await page.screenshot({ path: join(OUT, `${vista.nome}-${scheme}-app.png`) });
 
   // Os modais não abrem sem sessão iniciada, por isso força-se o estado.
-  for (const id of ["add-restaurant-modal", "ai-modal", "profile-modal", "people-modal"]) {
+  // O ecrã de sessão entrou na lista quando passou a ter duas opções: é o que
+  // a App Review olha para a diretriz 4.8, e não estava a ser visto por ninguém.
+  for (const id of ["signin-modal", "add-restaurant-modal", "ai-modal", "profile-modal", "people-modal"]) {
     const abriu = await page.evaluate((i) => {
       const m = document.getElementById(i);
       if (!m) return false;
