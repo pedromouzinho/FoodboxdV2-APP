@@ -15,6 +15,10 @@ on:
         description: "Branch ou commit a publicar"
         required: true
         default: main
+      funcoes:
+        description: "Publicar também as funções (mais lento; só quando functions/ mudou)"
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-producao
@@ -47,6 +51,22 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: app-restaurantes-499400
           channelId: live
+
+      # As funções são opcionais porque a maioria dos deploys é só de hosting e
+      # publicar funções é lento. Escolhe-se no botão "Run workflow".
+      #
+      # Só é seguro porque a chave da Anthropic passou para o Secret Manager: o
+      # functions/.env está no .gitignore, portanto o checkout do CI não o tem, e
+      # enquanto a chave era uma variável de ambiente um deploy daqui apagava-a e
+      # deixava a IA em baixo sem dizer nada.
+      - name: Funções
+        if: ${{ inputs.funcoes }}
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx --yes firebase-tools@latest deploy --only functions \
+            --project app-restaurantes-499400 --non-interactive
+          rm -f "$RUNNER_TEMP/sa.json"
 
       - name: Confirmar o que ficou em produção
         run: |

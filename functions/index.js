@@ -4,7 +4,19 @@
 // returns structured JSON. No model key ever reaches the browser.
 
 const { onRequest } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
+
+// A chave da Anthropic vive no Secret Manager, não numa variável de ambiente.
+// Como variável simples ficava em texto limpo para quem abrisse a consola do
+// projeto, e — pior — vinha de um functions/.env que está no .gitignore: quem
+// publicasse a partir de um sítio sem esse ficheiro deixava a IA em baixo sem
+// perceber porquê.
+//
+// Declarada só na função que a usa. `process.env.ANTHROPIC_API_KEY` continua a
+// funcionar em tempo de execução porque `client()` é preguiçoso e só lê a chave
+// ao primeiro pedido — se fosse lida no arranque do módulo, isto não bastava.
+const ANTHROPIC_KEY = defineSecret("ANTHROPIC_API_KEY");
 
 // O bucket é explícito de propósito. Numa função publicada o FIREBASE_CONFIG
 // preenche-o sozinho, mas no emulador não — e o resultado era o passo do
@@ -495,7 +507,8 @@ const ACTIONS = {
 const RUNTIME_SA = process.env.RUNTIME_SA || `${PROJECT}@appspot.gserviceaccount.com`;
 
 exports.ai = onRequest(
-  { region: "europe-west1", cors: true, maxInstances: 10, timeoutSeconds: 60, serviceAccount: RUNTIME_SA },
+  { region: "europe-west1", cors: true, maxInstances: 10, timeoutSeconds: 60, serviceAccount: RUNTIME_SA,
+    secrets: [ANTHROPIC_KEY] },
   async (req, res) => {
     if (req.method === "OPTIONS") return res.status(204).send("");
     if (req.method !== "POST") return res.status(405).json({ error: "method" });
