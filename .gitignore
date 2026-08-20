@@ -25,3 +25,6 @@ functions/.env.*
 
 # Capturas do npm run preview (geradas)
 .preview/
+
+# O projeto nativo gera-se no Mac (npx cap add ios), como diz o SETUP_IOS.md.
+ios/

@@ -11,7 +11,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Foodboxd" />
-  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="icons/favicon-96.png" sizes="96x96" type="image/png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/splash/750x1334.png" />
   <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/splash/828x1792.png" />
   <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/1125x2436.png" />
@@ -54,6 +56,9 @@
     <symbol id="i-external" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
     <symbol id="i-sliders" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></symbol>
     <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+    <!-- marca Foodboxd — não é um ícone de interface, não seguir o traço Lucide.
+         Vive só na barra de topo; o estado vazio dos cartões usa #i-utensils. -->
+    <symbol id="i-brand" viewBox="0 0 24 24"><path fill-rule="evenodd" fill="currentColor" stroke="none" d="M6.06 3H17.94Q21 3 21 6.06V17.94Q21 21 17.94 21H6.06Q3 21 3 17.94V6.06Q3 3 6.06 3ZM15.96 10.56A5.04 5.04 0 1 0 26.04 10.56A5.04 5.04 0 1 0 15.96 10.56Z"/></symbol>
     <symbol id="i-utensils" viewBox="0 0 24 24"><path d="M3 2v7c0 1.1.9 2 2 2h0a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></symbol>
     <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
     <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
@@ -74,7 +79,7 @@
 
   <header class="topbar">
     <div class="brand">
-      <svg class="icon brand-icon"><use href="#i-utensils"/></svg>
+      <svg class="icon brand-icon"><use href="#i-brand"/></svg>
       <h1>Foodboxd</h1>
     </div>
     <button id="ai-suggest-btn" class="btn btn-ghost btn-sm topbar-ai" aria-label="Pergunta-me">
@@ -682,7 +687,12 @@
       // contraintuitiva e é onde isto se engana.
       if (P.StatusBar) {
         P.StatusBar.setStyle({ style: "DARK" }).catch(function () {});
-        P.StatusBar.setBackgroundColor({ color: "#f6f1e7" }).catch(function () {});
+        // setBackgroundColor é só Android: no iOS rejeita com UNIMPLEMENTED e
+        // despejava um erro na consola em cada arranque. O .catch já o
+        // engolia, mas o ruído escondia erros a sério.
+        if (window.Capacitor.getPlatform && window.Capacitor.getPlatform() === "android") {
+          P.StatusBar.setBackgroundColor({ color: "#f6f1e7" }).catch(function () {});
+        }
       }
       // Esconder quando a app está pronta, e não ao fim de 600ms às cegas: num
       // arranque lento via-se a app por baixo do splash a meio de se montar.

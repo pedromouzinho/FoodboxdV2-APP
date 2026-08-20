@@ -277,7 +277,9 @@ button { font-family: inherit; }
 
 
 .brand { display: flex; align-items: center; gap: var(--sp-2); flex: 1; min-width: 0; }
-.brand-icon { width: 22px; height: 22px; color: var(--primary); }
+/* A marca é uma mancha cheia, não um traço: sem isto o `.icon` acima impunha
+   fill:none/stroke:2 e a marca saía em contorno, indistinguível dos Lucide. */
+.brand-icon { width: 22px; height: 22px; color: var(--primary); fill: currentColor; stroke: none; }
 .topbar h1 {
   font-size: var(--fs-lg);
   letter-spacing: -0.01em;
