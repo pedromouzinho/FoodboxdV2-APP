@@ -36,7 +36,14 @@ window.CONFIG = CONFIG;
 //  que não seja localhost fala com a nuvem real, nunca com um emulador que pode
 //  não estar a correr.
 // ---------------------------------------------------------------------------
-CONFIG.EMULATORS = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+//  A app nativa é a quarta hipótese, e não estava prevista: a WKWebView do
+//  Capacitor serve os ficheiros de `capacitor://localhost`, portanto o
+//  hostname É "localhost" e a app instalada dava-se como emulador. Auth,
+//  Firestore, Storage, o "Pergunta-me" e o apagar conta ficavam todos
+//  apontados a 127.0.0.1 dentro do telemóvel, onde não há emulador nenhum —
+//  nada que precise da nuvem funcionava, a começar pelo login.
+const EM_NATIVO = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+CONFIG.EMULATORS = !EM_NATIVO && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 CONFIG.IS_PREVIEW = /--[a-z0-9-]+\.web\.app$/.test(location.hostname);
 CONFIG.ENV = CONFIG.EMULATORS ? "emulador" : (CONFIG.IS_PREVIEW ? "QA" : "produção");
 

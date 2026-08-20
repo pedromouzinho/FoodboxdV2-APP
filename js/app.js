@@ -1902,9 +1902,13 @@ const App = (() => {
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent || "");
     const standalone = window.navigator.standalone === true ||
       window.matchMedia("(display-mode: standalone)").matches;
+    // Na app nativa o userAgent continua a dizer iPhone e a WKWebView não é
+    // "display-mode: standalone" — sem esta guarda, a app instalada mandava
+    // instalá-la outra vez pelo Safari.
+    const nativo = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
     let dismissed = false;
     try { dismissed = localStorage.getItem("foodboxd.a2hsDismissed") === "1"; } catch (e) {}
-    if (isIOS && !standalone && !dismissed) el.classList.remove("hidden");
+    if (isIOS && !standalone && !nativo && !dismissed) el.classList.remove("hidden");
   }
   function hideA2HS() {
     const el = document.getElementById("ios-a2hs");
