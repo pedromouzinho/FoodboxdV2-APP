@@ -1,5 +1,9 @@
 # Foodboxd — app iOS nativa (Capacitor)
 
+> **Para executar o setup do princípio ao fim** (incluindo o que só se faz nas
+> consolas da Apple e do Firebase), segue [`HANDOFF-IOS-AGENTE.md`](HANDOFF-IOS-AGENTE.md).
+> Este documento é a referência técnica; esse é a ordem de trabalhos.
+
 Esta pasta já tem o **scaffold Capacitor** preparado. O projeto nativo iOS
 (`ios/`) e as dependências (`node_modules/`) **geram-se no teu Mac** — não vêm
 no repositório. Segue os passos abaixo **no teu Mac M3**, no teu clone local da
@@ -97,15 +101,20 @@ npm run sync     # reconstrói www/ e copia para o iOS
    pessoa perceber para que serve, é recusado quase sempre — e depois já não há
    segunda vez.
 
-4. **Apagar conta (5.1.1v):** feito. Vive no fim do ecrã Perfil e corre na função
-   `conta`. **Tem de ser publicada** com `firebase deploy --only functions,hosting`
-   (a função e o rewrite `/api/conta`) — sem isso o botão está lá e não funciona,
-   que é pior do que não existir.
+4. **Apagar conta (5.1.1v):** feito **e publicado**. Vive no fim do ecrã Perfil
+   e corre na função `conta`, já em produção com o rewrite `/api/conta`. Nada a
+   fazer aqui — mas testa-o com uma conta descartável antes de submeter, porque
+   é irreversível e corre contra a base de dados real.
 
-5. **Sign in with Apple (4.8):** obrigatório porque há login com a Google. Falta.
-   Precisa do provider ativado em *Firebase → Authentication → Sign-in method*,
-   de um Service ID na conta de Apple Developer, e do botão no ecrã de sessão
-   com as regras de tamanho e cor da Apple.
+5. **Sign in with Apple (4.8):** o **código está feito** — botão no ecrã de
+   sessão com as regras da Apple, e o "Entrar" da barra passou a abrir esse ecrã
+   em vez de ir direto para a Google. Falta o que é de consola: o Services ID e
+   a chave na conta de Apple Developer, e o provider ativado no Firebase.
+   Passo a passo em [`HANDOFF-IOS-AGENTE.md`](HANDOFF-IOS-AGENTE.md), bloco 1.
+
+   ⚠️ **Isto resolve a PWA, não a app nativa.** O botão usa `signInWithPopup`,
+   que é exatamente o que o ponto 1 acima diz que falha na WKWebView. Ver o
+   bloco 3 do handoff.
 6. **Guideline 4.2 (App Review):** a app tem funcionalidade real (mapa, social,
    fotos, leaderboards), o que costuma passar; ainda assim convém destacar essas
    features na nota para o revisor.

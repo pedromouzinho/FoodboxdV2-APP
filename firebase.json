@@ -32,7 +32,7 @@
       "package.json",
       "package-lock.json",
       "capacitor.config.json",
-      "SETUP_IOS.md"
+      "SETUP_IOS.md", "HANDOFF-IOS-AGENTE.md"
     ],
     "rewrites": [
       {
