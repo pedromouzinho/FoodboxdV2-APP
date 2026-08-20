@@ -12,9 +12,12 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Branch ou commit a publicar"
+        description: "Branch ou commit a publicar (ex.: claude/beautiful-davinci-vsyokk)"
         required: true
-        default: main
+      permitir_retrocesso:
+        description: "Publicar mesmo que seja uma versão MAIS ANTIGA do que a que está no ar"
+        type: boolean
+        default: false
       funcoes:
         description: "Publicar também as funções (mais lento; só quando functions/ mudou)"
         type: boolean
@@ -38,12 +41,26 @@ jobs:
       # A versão da cache do service worker é o que faz a app instalada
       # apanhar o build novo. Se não subiu, o deploy não chega a ninguém que
       # já tenha a app — e isso é um erro silencioso, não um aviso.
-      - name: Versão do service worker
+      # A versão da cache do service worker é o que faz a app instalada apanhar o
+      # build novo — e é também a única forma barata de saber se este deploy
+      # avança ou recua.
+      #
+      # Existe porque aconteceu: com `default: main` no campo do ref, um deploy
+      # foi buscar o main (v42) e reverteu produção que estava em v77. O deploy
+      # correu "com sucesso"; só o site é que ficou meses atrasado. Nada no
+      # workflow tinha como dar por isso.
+      - name: Versão, e não publicar para trás
         id: sw
         run: |
-          v=$(grep -oP 'foodboxd-v\d+' sw.js | head -1)
-          echo "A publicar $v" >> "$GITHUB_STEP_SUMMARY"
-          echo "v=$v" >> "$GITHUB_OUTPUT"
+          novo=$(grep -oP 'foodboxd-v\K\d+' sw.js | head -1)
+          atual=$(curl -sf --max-time 20 https://foodboxd.pt/sw.js | grep -oP 'foodboxd-v\K\d+' | head -1 || echo 0)
+          echo "ref pedido: ${{ inputs.ref }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "em produção: v$atual · a publicar: v$novo" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$novo" -lt "$atual" ] && [ "${{ inputs.permitir_retrocesso }}" != "true" ]; then
+            echo "::error::Isto RECUA produção de v$atual para v$novo. Confirma o ref '${{ inputs.ref }}'. Se o retrocesso é mesmo o que queres, volta a correr com 'permitir_retrocesso'."
+            exit 1
+          fi
+          echo "v=foodboxd-v$novo" >> "$GITHUB_OUTPUT"
 
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
@@ -59,6 +76,14 @@ jobs:
       # functions/.env está no .gitignore, portanto o checkout do CI não o tem, e
       # enquanto a chave era uma variável de ambiente um deploy daqui apagava-a e
       # deixava a IA em baixo sem dizer nada.
+      # `firebase deploy --only functions` lê o código para descobrir o que
+      # publicar, e para isso precisa do firebase-functions instalado. Sem este
+      # passo falha com "Couldn't find firebase-functions package in your source
+      # code" — que foi o que aconteceu à primeira.
+      - name: Dependências das funções
+        if: ${{ inputs.funcoes }}
+        run: npm ci --prefix functions
+
       - name: Funções
         if: ${{ inputs.funcoes }}
         run: |
