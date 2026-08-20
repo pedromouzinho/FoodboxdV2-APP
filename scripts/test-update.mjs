@@ -47,16 +47,26 @@ const chk = (nome, ok, extra = "") => {
 };
 
 // ---- primeira instalação ----
-await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
-await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, { timeout: 15000 });
+// As esperas abaixo são por SINAIS reais (o controller a mudar, a marca de
+// atualização pendente, o evento de load) — nunca por segundos contados. O
+// número só existe para o ensaio não ficar pendurado para sempre, por isso é
+// generoso de propósito.
+//
+// Não era. Com 20s, este ficheiro passava sozinho e falhava quando corria a
+// seguir à auditoria: dois Chromium a disputar o mesmo CPU chegam para a
+// instalação do service worker demorar mais do que isso. Um ensaio que falha
+// por a máquina estar ocupada não distingue defeito de ruído — e a partir daí
+// deixa de valer como prova de coisa nenhuma.
+await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, { timeout: 45000 });
 chk("service worker assume o controlo", true);
 
 // Segunda abertura: na PRIMEIRA instalação não há controller e o reload é
 // deliberadamente suprimido (não há versão anterior para substituir). É a
 // partir da segunda abertura que uma atualização deve ser apanhada — que é
 // exatamente a situação de quem já tem a app no ecrã principal.
-await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
-await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, { timeout: 15000 });
+await page.reload({ waitUntil: "domcontentloaded", timeout: 60000 });
+await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, { timeout: 45000 });
 const corInicial = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 
 // ---- "publica-se" uma versão nova: CSS diferente + CACHE novo ----
@@ -66,7 +76,7 @@ const sw = (await readFile(join(ROOT, "sw.js"))).toString();
 patch.set("sw.js", sw.replace(/foodboxd-v\d+/, "foodboxd-v999"));
 
 // ---- caso 1: app livre -> apanha sozinha ----
-const recarregou = page.waitForEvent("load", { timeout: 20000 });
+const recarregou = page.waitForEvent("load", { timeout: 60000 });
 await page.evaluate(() => navigator.serviceWorker.getRegistration().then((r) => r.update()));
 await recarregou.catch(() => {});
 await page.waitForTimeout(1200);
@@ -81,8 +91,8 @@ chk("a cache antiga foi limpa",
 // controller no momento em que o script corre, e aí a app suprime o reload
 // seguinte de propósito (trata-o como primeira instalação). Este passo põe o
 // ensaio no mesmo estado de quem já tem a app aberta há algum tempo.
-await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
-await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, { timeout: 15000 });
+await page.reload({ waitUntil: "domcontentloaded", timeout: 60000 });
+await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, { timeout: 45000 });
 patch.set("css/style.css", css.replace("--bg: #f6f1e7;", "--bg: rgb(4, 5, 6);"));
 patch.set("sw.js", sw.replace(/foodboxd-v\d+/, "foodboxd-v1000"));
 await page.evaluate(() => document.getElementById("filters-sheet").classList.remove("hidden"));
@@ -91,7 +101,7 @@ await page.evaluate(() => navigator.serviceWorker.getRegistration().then((r) => 
 // — em vez de contar segundos. Sem isto o ensaio corre com o browser e falha
 // por corrida, não por defeito: já apanhei uma passagem e uma falha seguidas.
 await page.waitForFunction(() => document.documentElement.dataset.atualizacaoPendente === "1",
-  null, { timeout: 20000 });
+  null, { timeout: 60000 });
 await page.waitForTimeout(1500);
 const corComFolha = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 chk("não recarrega com uma folha aberta", corComFolha === "rgb(1, 2, 3)", `cor=${corComFolha}`);
@@ -100,7 +110,7 @@ chk("não recarrega com uma folha aberta", corComFolha === "rgb(1, 2, 3)", `cor=
 // O contrato real da app é este: recarrega quando VOLTA À FRENTE e já está
 // livre. Fechar a folha sozinho não dispara nada — é o visibilitychange que o
 // faz, e é isso que se simula aqui em vez de chamar a função à mão.
-const recarregou2 = page.waitForEvent("load", { timeout: 25000 });
+const recarregou2 = page.waitForEvent("load", { timeout: 60000 });
 await page.evaluate(() => document.getElementById("filters-sheet").classList.add("hidden"));
 await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
 await recarregou2.catch(() => {});
