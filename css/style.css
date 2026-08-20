@@ -892,6 +892,33 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 /* Subtle danger button (e.g. remove a restaurant you added). */
 .btn-danger { color: var(--danger); }
 .btn-danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); }
+/* Cheio, e não só texto vermelho: é o único botão da app que destrói dados de
+   forma irreversível, e não deve parecer-se com nenhum dos outros. */
+.btn-danger-solid { background: var(--danger); color: var(--primary-ink); border-color: transparent; }
+.btn-danger-solid:disabled { background: var(--surface-3); color: var(--text-faint); cursor: not-allowed; }
+.btn-danger-solid:not(:disabled):hover { background: color-mix(in srgb, var(--danger) 88%, #000); }
+
+/* ---------- Apagar conta ---------- */
+.apagar-lead { margin: 0; font-family: var(--font-display); font-size: var(--fs-md); }
+.apagar-bloco { display: flex; flex-direction: column; gap: 6px; }
+.apagar-lista { margin: 0; padding-left: var(--sp-4); display: flex; flex-direction: column; gap: 4px; }
+.apagar-lista li { font-size: var(--fs-base); line-height: 1.45; }
+/* O que fica não é letra pequena — é a parte que as pessoas não esperam. */
+.apagar-fica { padding: var(--sp-3); border-radius: var(--r-md); background: var(--accent-soft); }
+.apagar-fica .sheet-label, .apagar-fica li { color: var(--accent-ink); }
+.apagar-confirma { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-base); }
+.apagar-confirma input {
+  width: 100%; height: var(--h-control);
+  padding: 0 var(--sp-3); border: none; border-radius: var(--r-md);
+  background: var(--surface-2); color: var(--text);
+  font-family: var(--font-body); font-size: max(16px, var(--fs-base));
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.apagar-confirma input:focus-visible {
+  outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 25%, transparent);
+}
+.apagar-status { margin: 0; min-height: 1em; font-size: var(--fs-sm); color: var(--danger); }
+.apagar-cancelar { display: block; width: 100%; margin-top: var(--sp-3); text-align: center; }
 
 /* One empty state, four callers (list, screen, photo grid, cover grid). */
 .empty, .photo-empty, .cover-empty {

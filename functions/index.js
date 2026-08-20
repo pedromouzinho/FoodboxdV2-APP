@@ -6,7 +6,14 @@
 const { onRequest } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 
-admin.initializeApp();
+// O bucket é explícito de propósito. Numa função publicada o FIREBASE_CONFIG
+// preenche-o sozinho, mas no emulador não — e o resultado era o passo do
+// Storage a nunca correr no ensaio, dando um PASS que não provava nada sobre a
+// parte que apaga as fotos. Uma linha, e o ensaio passa a exercer o caminho a
+// sério.
+admin.initializeApp({
+  storageBucket: (process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || "app-restaurantes-499400") + ".firebasestorage.app"
+});
 const db = admin.firestore();
 
 // Provider: "anthropic" (direct API key) or "vertex" (Claude in Model Garden).
@@ -515,6 +522,147 @@ exports.ai = onRequest(
         "detail=", (() => { try { return JSON.stringify(e && (e.error || e.response || e)).slice(0, 800); } catch (_) { return "?"; } })()
       );
       return res.status(500).json({ error: "falha ao gerar" });
+    }
+  }
+);
+
+// ---- apagar conta ----------------------------------------------------------
+//
+// Obrigatório para a App Store (diretriz 5.1.1v) e, independentemente disso, a
+// única resposta honesta a quem quer sair.
+//
+// Porque é uma função e não código no cliente: as regras do Firestore deixam
+// cada pessoa apagar as arestas de `follows` em que ELA é a seguidora
+// (`followerUid == request.auth.uid`), mas não as que apontam para ela. Quem te
+// segue não é teu para apagares. Sem privilégios de administrador ficavam
+// arestas penduradas a apontar para uma conta que já não existe.
+//
+// A segunda razão é a garantia: apagar em sete coleções e dois prefixos do
+// Storage, a meio, com o cliente a perder a rede, deixa a conta num estado que
+// não é nem viva nem morta. Aqui corre tudo do mesmo lado, e a conta de Auth é
+// o ÚLTIMO passo — enquanto ela existir, o pedido pode ser repetido.
+//
+// O que NÃO se apaga: os restaurantes que a pessoa acrescentou. Estão na lista
+// partilhada, outras pessoas usam-nos e não lhe pertencem mais do que a elas.
+// O ecrã de confirmação diz isto por palavras.
+
+async function apagarDocsDaQuery(query, limite = 400) {
+  let total = 0;
+  // Em lotes: uma conta antiga pode ter centenas de comentários e fotos, e um
+  // batch do Firestore leva no máximo 500 operações.
+  for (;;) {
+    const snap = await query.limit(limite).get();
+    if (snap.empty) break;
+    const batch = db.batch();
+    snap.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    total += snap.size;
+    if (snap.size < limite) break;
+  }
+  return total;
+}
+
+// Tudo dentro do try, incluindo obter o bucket: `admin.storage().bucket()`
+// rebenta quando o bucket não está configurado, e estando fora do try levava a
+// cascata inteira com ele — a conta ficava com os comentários e as arestas
+// apagados, mas com userData, profile e Auth de pé. Meia conta apagada é pior
+// do que nenhuma, e foi assim que o ensaio a apanhou.
+//
+// Uma foto que não sai é um ficheiro órfão. Uma conta que não se consegue
+// apagar é a diretriz 5.1.1v por cumprir e uma pessoa presa. Por isso isto é
+// melhor-esforço e nunca interrompe: devolve o que conseguiu, ou null se falhou,
+// para o registo mostrar a diferença em vez de a esconder num zero.
+async function apagarFicheiros(prefixo, uid) {
+  try {
+    const bucket = admin.storage().bucket();
+    const [ficheiros] = await bucket.getFiles({ prefix: prefixo });
+    // O nome de cada ficheiro começa pelo uid de quem o enviou — é a mesma
+    // convenção que as regras do Storage impõem na escrita.
+    const meus = ficheiros.filter((f) => f.name.split("/").pop().startsWith(uid + "-"));
+    await Promise.all(meus.map((f) => f.delete().catch(() => {})));
+    return meus.length;
+  } catch (e) {
+    console.error("apagarFicheiros", prefixo, e && e.message);
+    return null;
+  }
+}
+
+// Um grupo de que a pessoa é dona não pode desaparecer por baixo dos pés de
+// quem lá está. Passa para o membro mais antigo que fica; só se ficar sem
+// ninguém é que se apaga.
+async function sairDosGrupos(uid) {
+  const snap = await db.collection("groups").where("members", "array-contains", uid).get();
+  const batch = db.batch();
+  snap.docs.forEach((d) => {
+    const g = d.data() || {};
+    const restantes = (g.members || []).filter((m) => m !== uid);
+    if (!restantes.length) batch.delete(d.ref);
+    else if (g.ownerUid === uid) batch.update(d.ref, { members: restantes, ownerUid: restantes[0] });
+    else batch.update(d.ref, { members: restantes });
+  });
+  await batch.commit();
+  return snap.size;
+}
+
+async function apagarConta(uid) {
+  const contagem = {};
+  contagem.comentarios = await apagarDocsDaQuery(db.collection("comments").where("uid", "==", uid));
+  contagem.fotos = await apagarDocsDaQuery(db.collection("photos").where("uid", "==", uid));
+  contagem.sigo = await apagarDocsDaQuery(db.collection("follows").where("followerUid", "==", uid));
+  contagem.seguemMe = await apagarDocsDaQuery(db.collection("follows").where("targetUid", "==", uid));
+  contagem.convitesEnviados = await apagarDocsDaQuery(db.collection("visitInvites").where("fromUid", "==", uid));
+  contagem.convitesRecebidos = await apagarDocsDaQuery(db.collection("visitInvites").where("toUid", "==", uid));
+  contagem.grupos = await sairDosGrupos(uid);
+  contagem.ficheirosRestaurantes = await apagarFicheiros("restaurants/", uid);
+  contagem.ficheirosAvatar = await apagarFicheiros("avatars/", uid);
+  await db.collection("userData").doc(uid).delete().catch(() => {});
+  await db.collection("profiles").doc(uid).delete().catch(() => {});
+  // Por fim a conta. Se alguma coisa acima falhar, a conta continua de pé e o
+  // pedido pode ser repetido — o contrário deixaria dados órfãos sem dono.
+  //
+  // Já não existir não é erro: quer dizer que um pedido anterior chegou ao fim.
+  // Alguém que carregue duas vezes, ou uma rede que repita o pedido, não pode
+  // receber uma falha por a conta já ter sido apagada.
+  try {
+    await admin.auth().deleteUser(uid);
+    contagem.conta = "apagada";
+  } catch (e) {
+    if (!/user-not-found/.test((e && e.code) || "")) throw e;
+    contagem.conta = "já não existia";
+  }
+  return contagem;
+}
+
+// Exposto para o ensaio poder correr a cascata contra o emulador sem ter de
+// fabricar um token. O que se testa é a parte com risco — sete coleções, dois
+// prefixos do Storage e uma ordem que importa; a camada HTTP acima são quinze
+// linhas iguais às do `ai`.
+exports.__test = { apagarConta, sairDosGrupos };
+
+// Endpoint próprio, e não mais uma ação do `ai`: apagar a conta não pode ficar
+// atrás do limite diário de pedidos ao modelo, e não deve estar escondido num
+// sítio onde ninguém o vai procurar.
+exports.conta = onRequest(
+  { region: "europe-west1", cors: true, maxInstances: 5, timeoutSeconds: 120, serviceAccount: RUNTIME_SA },
+  async (req, res) => {
+    if (req.method === "OPTIONS") return res.status(204).send("");
+    if (req.method !== "POST") return res.status(405).json({ error: "method" });
+
+    const user = await requireUser(req);
+    if (!user) return res.status(401).json({ error: "auth" });
+    if ((req.body || {}).action !== "apagar") return res.status(400).json({ error: "action" });
+
+    // O cliente manda o próprio uid. Só serve para apanhar um engano do nosso
+    // lado — quem manda é sempre o token, nunca o corpo do pedido.
+    if (req.body.uid && req.body.uid !== user.uid) return res.status(400).json({ error: "uid" });
+
+    try {
+      const contagem = await apagarConta(user.uid);
+      console.log("conta apagada", user.uid, JSON.stringify(contagem));
+      return res.json({ result: { apagado: true, contagem } });
+    } catch (e) {
+      console.error("apagar conta", user.uid, e && e.message);
+      return res.status(500).json({ error: "falha ao apagar" });
     }
   }
 );

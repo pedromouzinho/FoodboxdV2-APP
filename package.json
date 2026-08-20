@@ -16,7 +16,8 @@
     "test:map": "node scripts/test-map.mjs",
     "test:update": "node scripts/test-update.mjs",
     "ai:diff": "node scripts/ai-diff.mjs",
-    "test:taste": "node scripts/test-taste.mjs"
+    "test:taste": "node scripts/test-taste.mjs",
+    "test:apagar": "node scripts/test-apagar.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^6.0.2",

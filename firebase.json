@@ -37,6 +37,11 @@
         "source": "/api/ai",
         "function": "ai",
         "region": "europe-west1"
+      },
+      {
+        "source": "/api/conta",
+        "function": "conta",
+        "region": "europe-west1"
       }
     ],
     "headers": [

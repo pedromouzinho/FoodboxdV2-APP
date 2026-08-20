@@ -49,6 +49,36 @@ const AuthModule = (() => {
     if (fb) fb.signOut().catch(() => {});
   }
 
+  // Apagar a conta corre no servidor (função `conta`), não aqui: há coisas que
+  // o cliente não tem como apagar — as arestas de quem TE segue pertencem a
+  // essas pessoas, não a ti. Ver o comentário em functions/index.js.
+  //
+  // A sessão só é terminada depois de o servidor confirmar. Se falhar a meio, a
+  // conta continua de pé e a pessoa pode tentar outra vez, em vez de ficar de
+  // fora de uma conta que ainda existe.
+  function endpointConta() {
+    if (!CONFIG.EMULATORS) return "/api/conta";
+    return `http://127.0.0.1:${CONFIG.EMU.functions}/${CONFIG.FIREBASE_PROJECT_ID}/europe-west1/conta`;
+  }
+
+  async function deleteAccount() {
+    if (!fb || !fb.configured) throw new Error("Não há sessão iniciada.");
+    const t = await fb.getToken();
+    if (!t) throw new Error("Não há sessão iniciada.");
+    const res = await fetch(endpointConta(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + t },
+      body: JSON.stringify({ action: "apagar" })
+    });
+    if (!res.ok) {
+      let msg = "Não foi possível apagar a conta agora.";
+      try { msg = (await res.json()).error || msg; } catch (e) {}
+      throw new Error(msg);
+    }
+    await fb.signOut().catch(() => {});
+    return true;
+  }
+
   function renderUI(user) {
     if (!btn || !chip) return;
     if (user) {
@@ -70,5 +100,5 @@ const AuthModule = (() => {
     }
   }
 
-  return { init, signIn, signOut };
+  return { init, signIn, signOut, deleteAccount };
 })();

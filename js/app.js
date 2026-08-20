@@ -1710,6 +1710,7 @@ const App = (() => {
         <button type="button" class="perfil-row" data-perfil="pessoas">${icon("users")}<span>Descobrir pessoas</span>${icon("chevron-right")}</button>
         <button type="button" class="perfil-row" data-perfil="tutorial">${icon("info")}<span>Rever tutorial</span>${icon("chevron-right")}</button>
         <button type="button" class="perfil-row perfil-row-danger" data-perfil="sair">${icon("log-in")}<span>Terminar sessão</span></button>
+        <button type="button" class="perfil-row perfil-row-danger" data-perfil="apagar">${icon("trash")}<span>Apagar conta</span></button>
       </div>
       <p class="perfil-versao" data-perfil-versao></p>`;
 
@@ -1719,7 +1720,8 @@ const App = (() => {
     wireProfileUpload();
     el.querySelectorAll("[data-perfil]").forEach((b) => b.addEventListener("click", () => {
       const what = b.dataset.perfil;
-      if (what === "gosto") showTasteProfile();
+      if (what === "apagar") abrirApagarConta();
+      else if (what === "gosto") showTasteProfile();
       else if (what === "pessoas") openPeopleModal();
       else if (what === "tutorial") showTour();
       else if (what === "sair") AuthModule.signOut();
@@ -2466,6 +2468,49 @@ const App = (() => {
       if (!mudou) return;
       if (st) st.textContent = "Guardado. Entra no perfil quando o atualizares.";
     });
+  }
+
+  // ---------- Apagar conta (App Store 5.1.1v) ----------
+  // Escrever "APAGAR" não é cerimónia: é a diferença entre um toque distraído
+  // num botão vermelho e uma decisão. O botão só fica ativo com a palavra certa.
+  function abrirApagarConta() {
+    const sheet = document.getElementById("apagar-sheet");
+    const input = document.getElementById("apagar-input");
+    const botao = document.getElementById("apagar-confirmar");
+    const status = document.querySelector("[data-apagar-status]");
+    if (!sheet || !input || !botao) return;
+    input.value = "";
+    botao.disabled = true;
+    if (status) status.textContent = "";
+    sheet.classList.remove("hidden");
+    sheet.setAttribute("aria-hidden", "false");
+    input.addEventListener("input", () => {
+      botao.disabled = input.value.trim().toUpperCase() !== "APAGAR";
+    });
+  }
+
+  function fecharApagarConta() {
+    const sheet = document.getElementById("apagar-sheet");
+    if (!sheet) return;
+    sheet.classList.add("hidden");
+    sheet.setAttribute("aria-hidden", "true");
+  }
+
+  async function confirmarApagarConta() {
+    const botao = document.getElementById("apagar-confirmar");
+    const status = document.querySelector("[data-apagar-status]");
+    if (!botao || botao.disabled) return;
+    botao.disabled = true;
+    if (status) status.textContent = "A apagar…";
+    try {
+      await AuthModule.deleteAccount();
+      // A sessão já caiu do lado do servidor. Recarregar é a forma mais honesta
+      // de não deixar em memória o estado de uma conta que já não existe.
+      window.location.reload();
+    } catch (e) {
+      botao.disabled = false;
+      if (status) status.textContent = e && e.message ? e.message : "Não foi possível apagar a conta agora.";
+    }
   }
 
   // Open the saved taste profile (from the profile modal). Generates it if none.
@@ -3862,6 +3907,9 @@ const App = (() => {
     if (fClear) fClear.addEventListener("click", clearFilters);
     document.querySelectorAll("[data-close-filters]").forEach((el) => el.addEventListener("click", closeFilters));
     document.querySelectorAll("[data-close-visit]").forEach((el) => el.addEventListener("click", closeVisitSheet));
+    document.querySelectorAll("[data-close-apagar]").forEach((el) => el.addEventListener("click", fecharApagarConta));
+    const apagarBtn = document.getElementById("apagar-confirmar");
+    if (apagarBtn) apagarBtn.addEventListener("click", confirmarApagarConta);
     wireSheetDrag("filters-sheet", closeFilters);
     wireSheetDrag("visit-sheet", closeVisitSheet);
     wireSheetDrag("people-sheet", hidePeopleModal);
@@ -3872,6 +3920,7 @@ const App = (() => {
       if (!document.getElementById("filters-sheet").classList.contains("hidden")) closeFilters();
       if (!document.getElementById("visit-sheet").classList.contains("hidden")) closeVisitSheet();
       if (!document.getElementById("people-sheet").classList.contains("hidden")) hidePeopleModal();
+      if (!document.getElementById("apagar-sheet").classList.contains("hidden")) fecharApagarConta();
     });
     document.querySelectorAll("[data-map-mode]").forEach((b) =>
       b.addEventListener("click", () => setMapMode(b.dataset.mapMode))
