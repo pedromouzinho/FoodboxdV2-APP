@@ -9,6 +9,7 @@ vês a atividade e os leaderboards dos amigos.
   (Hosting + Firestore + Storage + Auth) · Google Maps/Places.
 - **App iOS nativa (opcional):** casca Capacitor — ver [`SETUP_IOS.md`](SETUP_IOS.md).
 - **Continuidade / handoff técnico completo:** ver [`CONTEXT.md`](CONTEXT.md).
+- **Handoff de design (UI/UX):** índice e estado em [`DESIGN-HANDOFF.md`](DESIGN-HANDOFF.md); o pacote em [`design/handoff/`](design/handoff/).
 
 ## Funcionalidades
 
@@ -133,6 +134,7 @@ firebase/*.rules      – regras Firestore + Storage
 sw.js, manifest.webmanifest – PWA
 capacitor.config.json, package.json, scripts/build-www.js, SETUP_IOS.md – app iOS
 CONTEXT.md            – handoff técnico completo
+DESIGN-HANDOFF.md, design/handoff/ – handoff de design: índice, desenhos e auditoria
 ```
 
 ## Regras de segurança (atuais)

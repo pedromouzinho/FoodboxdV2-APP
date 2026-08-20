@@ -1,0 +1,281 @@
+# Auditoria UI/UX — texto extraído de auditoria.dc.html
+
+Extração automática, para poder ser pesquisada com grep. O original é o .dc.html.
+
+Bloqueador latente: tokens usados antes de existirem. .progress-head usa var(--fs-sm) por volta da linha 180, mas --fs-sm só é definido na linha ~1100. Funciona porque as custom properties resolvem ao nível do documento, não da ordem — mas basta alguém dividir o ficheiro em dois, ou carregar só a primeira metade, para metade da tipografia colapsar para o tamanho por omissão. É uma bomba silenciosa, não um erro de estilo.
+
+Princípio violado: uma declaração, um sítio. Enquanto a folha tiver eras sobrepostas, qualquer correção de espaçamento é uma aposta.
+
+## Ecrã Mapa — densidade antes do conteúdo
+
+Bloqueador. Em index.html, o #sidebar empilha nove blocos antes do primeiro restaurante: pesquisa, barra de progresso, 13 chips de cozinha, 5 de estilo, chips de região, 4 de preço, dois interruptores, o #planner-panel e a linha com dois botões de adicionar. Na captura que enviaste, o primeiro cartão está a mais de um ecrã de distância do topo. O utilizador abre a lista para ver sítios e vê um formulário.
+
+Agrava: os 13 chips de cozinha começam todos ligados (aria-pressed="true" em buildCategoryFilters). Treze controlos ativos que não filtram nada ocupam metade do painel para comunicar "sem filtro". Um contador — "Filtros · 2" — comunica o mesmo em 90 px.
+
+Importante. Os dois botões "Adicionar à Wishlist" / "Adicionar ao Logbook" têm peso visual idêntico e white-space: normal; line-height: 1.1, pelo que o segundo quebra para duas linhas e desalinha do primeiro — é o desalinhamento mais visível da app e vê-se na tua captura. Além disso, "adicionar um sítio" é uma ação, não dois destinos: a escolha wishlist/logbook pertence ao formulário, não à barra.
+
+## Chips de filtro — falha de acessibilidade, não de gosto
+
+Bloqueador. .chip[aria-pressed="false"] { opacity: 0.55 }. Texto #6b6152 a 55% sobre #fffefb dá um contraste efetivo de cerca de 2,6:1 — abaixo dos 4,5:1 do WCAG AA. Codificar estado por opacidade também baralha "desligado" com "desativado". Repara que o próprio código já sabe disto: .chip-tab e .chip-sort repõem opacity: 1 logo a seguir. A correção é generalizar essa exceção e marcar o estado ligado por inversão de fundo.
+
+## Ficha de detalhe — cinco ações com o mesmo peso
+
+Importante. Em openDetail, .detail-actions mostra Direções, Google, Partilhar, o alternador de visitado e o chip de prioridade — todos .btn-ghost ou equivalentes. A ação central da app (registar a experiência) não está aqui: está escondida no separador "As minhas experiências", atrás de um clique. A hierarquia está invertida — o que a app é para fazer tem menos presença do que um link para a Google.
+
+Polimento. Quatro separadores na ficha (Restaurante / As minhas experiências / Críticas / Amigos) sobre um .detail-tabs com scroll horizontal: numa folha de 393 px os dois últimos ficam fora de vista, sem indício de que existem.
+
+## Escalas a competir
+
+Importante. Contei sete alturas de controlo em uso: 34 px (.chip, .price-chip, .switch-chip, .hero-photo-btn), 36 (.seg-btn), 38 (.btn-sm, .groupbar-select), 40 (.list-add-btn), 44 (.btn, .field input), 46 (#search-input) e 48 (.panel-summary). Os chips de 34 px falham o alvo de toque de 44 px das HIG e das WCAG.
+
+O mesmo nos raios: cartões de igual estatuto usam raios diferentes — .card.rcard e .memory a 18 px, .critique a 12 px, .modal-card a 24 px. Nada disto é errado sozinho; junto, é a "sensação de eras diferentes".
+
+## A camada de IA não fala a mesma língua
+
+Importante. .topbar-ai é o único gradiente da app (linear-gradient(135deg, …star 22%…)) com uma borda tingida de dourado, e .modal-card.ai-card acrescenta um radial-gradient. Nenhum outro componente tem gradiente. O resultado é que a IA parece um anúncio colado por cima da app, não uma funcionalidade dela. A decisão de ter uma só entrada está certa; o traje é que não.
+
+## Estados vazios, de carregamento e de erro
+
+Importante. Existem quatro classes para dizer a mesma coisa — .empty, .screen-empty, .photo-empty, .cover-empty — todas texto cinzento centrado, nenhuma com ação. "Ainda não tem memórias" não diz o que fazer a seguir.
+
+No carregamento há um .skeleton bem feito, mas usado a três alturas diferentes (64, 70 px, sk-line) e ausente onde mais falta: PlacesModule.enrichCard preenche [data-meta] depois de a lista já estar desenhada, pelo que a linha de rating e preço aparece tarde e empurra o cartão — layout shift em cada scroll.
+
+Bloqueador de tom. Em renderPhotos, o erro de upload diz: "Não foi possível enviar. As fotos já estão ativadas no Firebase?". Estás a perguntar ao utilizador sobre a configuração do teu backend. Nenhuma mensagem de erro deve expor o nome de um serviço nem pedir diagnóstico a quem só queria pôr uma foto.
+
+## O que está bem — e não se mexe
+
+- O piso de 16 px nos campos de texto. input, textarea, select { font-size: max(16px, var(--fs-base)) }, com o comentário a explicar porquê. É a correção certa e o comentário evita que alguém a desfaça. Não regredir.
+
+- A lista não é checklist. O override .card.visited { opacity: 1 } no bloco "Iteração de produto" desfaz o 0.62 anterior. A decisão está certa e está implementada.
+
+- O pin do mapa. getMarkerIcon em js/map.js carrega três informações — cozinha pela cor, visitado por cheio/vazio, wishlist por emblema — e ainda ordena o zIndex para que o que falta fazer fique por cima do que já foi. É a peça de design mais bem pensada da app.
+
+- Os pins de pesquisa são deliberadamente diferentes — cinzentos, tracejados, temporários. Distinguir "sítios meus" de "sítios que estou só a ver" é exatamente a distinção certa.
+
+- As 13 cozinhas com trio cor / ink / soft. Ter --c-portuguesa-ink para texto e -soft para fundo, em claro e escuro, é trabalho de sistema a sério. Aproveita-o mais, não menos.
+
+- Fraunces + paleta quente. A app tem carácter. É o ativo a proteger — nada nesta auditoria propõe torná-la mais neutra.
+
+## 2 · Sistema de design consolidado
+
+## Tipografia com papéis
+
+PapelFonte / tamanhoOnde
+
+ | Título de ecrã | Fraunces 34 / 1.08 / −.025em | Diário, Amigos, Perfil
+
+ | Título de secção | Fraunces 20 / 600 | "Alentejo", cabeçalhos de sheet
+
+ | Título de cartão | Fraunces 18 / 600 / −.02em | nome do restaurante
+
+ | Corpo | Manrope 15 / 1.5 | notas, críticas
+
+ | Campo de texto | Manrope 16 — mínimo absoluto | inputs, textareas
+
+ | Meta | Manrope 13 / #6b6152 | localidade, contagens
+
+ | Etiqueta | Manrope 12 / 700 / .06em / caixa alta | cozinha, títulos de grupo
+
+ | Numérico | IBM Plex Mono 13 | datas, contagens de lista
+
+Proposta de troca: Hanken Grotesk → Manrope. Mais denso e mais estreito às medidas pequenas onde a app vive (12–15 px), o que devolve espaço em cartões apertados sem reduzir corpo. Fraunces fica reservado a títulos de ecrã e nomes de restaurante — é aí que a serifa faz o trabalho editorial; nos rótulos de interface só rouba legibilidade.
+
+## Cor: papéis semânticos
+
+A paleta mantém-se. O que muda é a disciplina: o terracota #b04a1c passa a ser reservado a três coisas — a ação primária, o separador ativo, o emblema de wishlist. Hoje aparece também em .chip-tab[aria-pressed=true], em .lb-score, no ícone da marca, na barra de progresso e em bordas de foco. Quando um acento está em todo o lado, deixa de apontar para nada.
+
+Chips ativos passam a inverter para tinta (#29231b sobre creme) em vez de terracota: liberta o acento e dá contraste de 12:1. O verde #5d7a47 fica só para "visitado" e confirmações; o dourado #d39a23 só para estrelas.
+
+Contraste a verificar já: --text-faint #a89c88 sobre --surface #fffefb dá ~2,5:1 — falha AA para texto normal. É usado em .critique-when, .feed-time, .rating .count e nos rótulos .stat .label. Ou se escurece o token para cerca de #8a7f6c (~4,6:1), ou se aceita que é decoração e não informação — mas datas são informação.
+
+## Espaço, raio, elevação, alturas
+
+- Espaço: mantém 4/8/12/16/24/32. Regra nova: dentro de um cartão só 8 e 12; entre cartões 8; entre secções 24.
+
+- Raio: reduz de cinco valores para três — 16 (tudo o que é cartão, botão, campo), 32 (sheets e modais), pill (chips, avatares, ações circulares). Sem valores intermédios.
+
+- Elevação: cartões passam a planos — fundo #fffefb sobre #f6f1e7 já os separa. Sombra só onde algo flutua mesmo: sheet, modal, cartão do mapa. Isto sozinho tira metade do ruído dos ecrãs de lista.
+
+- Alturas de controlo: sete → três. 36 (chip, com área de toque estendida para 44 por padding), 44 (botão, campo, item de lista), 52 (ação primária de sheet). Tudo o resto reajusta-se a estas.
+
+## Inventário: o que se funde, o que se elimina
+
+- Fundir: .chip + .chip-tab + .chip-sort + .price-chip + .switch-chip + .companion-chip num só chip com três estados. São seis classes a fazer uma coisa.
+
+- Fundir: .empty / .screen-empty / .photo-empty / .cover-empty num componente de estado vazio com título, frase e uma ação.
+
+- Eliminar: .seg/.seg-btn — declarado, estilizado e não usado (a navegação já migrou para chips). São 30 linhas mortas.
+
+- Eliminar: a barra de progresso "0 de 47 visitados". Transforma a lista numa checklist, que contraria explicitamente a decisão 3. Se quiseres o número, ele vive melhor no Perfil.
+
+- Eliminar do ecrã Mapa: o planeador de viagem sai do painel principal para dentro dos Filtros. É uma funcionalidade de exceção a ocupar espaço permanente.
+
+## 3 · Navegação e arquitetura de informação
+
+Os quatro separadores atuais não são os certos — mas o número é. O problema é que "Memórias" e "Críticas" são o mesmo objeto visto de dois ângulos: um sítio onde estive, e o que escrevi sobre ele. gatherMemories e gatherMyRatingCritiques leem literalmente a mesma estrutura (UserData.getRating). Dois separadores para uma entidade obriga o utilizador a decidir onde procurar uma coisa que só existe num sítio.
+
+Ao mesmo tempo, o perfil vive num chip da barra superior, ao lado do botão de terminar sessão — a definição de privacidade "quem vê a minha atividade" está enterrada dentro do ecrã Amigos, e o perfil de gosto atrás de um botão dentro de um modal.
+
+Estrutura proposta:
+
+- Mapa — mapa e lista como dois modos do mesmo separador (o mapa já está sempre montado por baixo; o painel lateral deixa de ser gaveta e passa a modo). Filtros num bottom sheet com contador.
+
+- Diário — Memórias + Críticas fundidos, com três vistas: Restaurantes, Críticas, Pratos. A vista "Pratos" é nova e é a que a app merece: 23 pratos registados é um ativo que hoje está invisível.
+
+- Amigos — feed, leaderboard e convites por confirmar. Os convites sobem para o topo, como cartão de ação.
+
+- Perfil — avatar, números, perfil de gosto, grupos, privacidade, tutorial, terminar sessão, e (obrigatório para a App Store) apagar conta.
+
+Na ficha de detalhe, quatro separadores passam a dois: "O sítio" (info, fotos, horário, críticas de toda a gente) e "A minha experiência" (nota, pratos, visitas, fotos minhas). A informação de amigos não é um separador — é uma linha dentro de "O sítio": três avatares e a média do grupo, onde é útil.
+
+Custo da migração: baixo a médio, e nenhum toca em dados. O router em app.js já é uma máquina de estados por data-screen; fundir Críticas em Diário é acrescentar uma vista ao state.criticasView existente e mudar o destino de um separador. O Perfil é mover markup do modal #profile-modal para uma <section class="screen">. Os filtros em sheet são o item mais caro — mas é markup, não lógica: getFiltered() continua a ler os mesmos seletores.
+
+## 4 · Fluxos-chave, redesenhados
+
+## Registar uma visita
+
+Hoje: abrir ficha → separador "As minhas experiências" → estrelas → pratos → nota → data → acompanhantes → botão. Sete paragens, num painel que também mostra fotos e histórico. E o botão está desativado até haver estrelas, com a explicação por baixo — o utilizador vê primeiro a porta fechada e só depois a chave.
+
+Proposto: um botão único e evidente na ficha ("Registar visita") abre um sheet dedicado, com cinco passos visíveis de uma vez, todos opcionais menos as estrelas: nota → pratos → nota pessoal → quando → com quem. Um só CTA em baixo, sempre presente. A data mostra "Hoje" com o valor ao lado, editável — não um input[type=date] nu. As fotos saem do fluxo: registar é rápido, fotografar é depois.
+
+## Descobrir e adicionar um sítio novo
+
+Hoje há três portas para a mesma intenção: "Pergunta-me" na barra, a lupa do mapa, e os dois botões de adicionar na lista. Fazem coisas diferentes mas o utilizador não tem como saber qual escolher.
+
+Proposto: uma porta, dois caminhos. Um botão "+" na barra superior abre um sheet com uma caixa de texto e duas sugestões: escrever o nome (fluxo atual de addRestaurant.js) ou perguntar à IA. A lupa do mapa mantém-se onde está — é uma ferramenta espacial, pertence ao mapa — mas os seus resultados passam a usar o mesmo cartão do sheet, para que "encontrei" e "escrevi" terminem no mesmo sítio. A escolha wishlist/logbook passa a ser o último passo do formulário, não uma bifurcação à entrada.
+
+## Primeira utilização — o que decide a retenção
+
+Hoje uma conta nova vê: um mapa com 47 pins que não são dela, um Diário vazio com uma frase cinzenta, um feed de Amigos vazio, e um tutorial guiado de vários passos por cima de tudo. O tutorial explica a interface antes de a pessoa ter razão para se importar com ela.
+
+Proposto, três ecrãs antes do tutorial:
+
+- "Onde comes normalmente?" — uma cidade. Centra o mapa em algo reconhecível em vez do centro geográfico de Portugal.
+
+- "Já foste a algum destes?" — seis a oito cartões da lista curada perto dessa cidade, toque para marcar. Em quinze segundos o diário deixa de estar vazio, e o mapa passa a ter pins que significam alguma coisa.
+
+- "Quem conheces?" — a lista de pessoas com um botão seguir por linha. Se ninguém, um código de convite para partilhar. Nunca deixar o feed vazio sem uma saída.
+
+O tutorial guiado passa a ser opcional, a partir do Perfil (já existe o botão "Rever tutorial" — passa a ser a única entrada).
+
+## Seguir alguém e ver a atividade
+
+O modelo assimétrico está certo e não se mexe. O que falha é a descoberta: "Descobrir pessoas" é um botão dentro de um cartão de grupo dentro do ecrã Amigos, e o cartão do grupo ocupa o topo do feed permanentemente — controlo de configuração à frente de conteúdo. Proposto: o cartão de grupo desce para o Perfil; o feed começa em cima; "Seguir" fica um botão na cabeça do ecrã Amigos. Os convites de ida conjunta (limitação real do Firestore, bem resolvida) sobem para cartão de ação verde no topo do feed — hoje estão num #amigos-invites escondido entre a barra de grupo e a lista.
+
+## 5 · iOS: PWA hoje, nativo depois
+
+A base está bem preparada: viewport-fit=cover, env(safe-area-inset-*) em topbar e tabbar, height: 100dvh; overflow: hidden no body com scroll interno por região, e o piso de 16 px nos campos. Isto já resolve a maior parte do que costuma partir.
+
+O que difere entre os dois contextos, e como resolver com uma base:
+
+- Detetar o contexto: uma classe no <html> no arranque — is-native quando window.Capacitor?.isNativePlatform(), is-standalone quando navigator.standalone. Todo o CSS condicional pendura-se daí. Uma linha de JS, zero duplicação.
+
+- Gesto de voltar: no iOS nativo não há swipe-from-edge dentro de um WebView. Já tens @capacitor/app: liga o evento backButton e trata o gesto de arrastar a sheet para baixo (já implementado em .detail-card.dragging) como o mecanismo universal de "voltar". Não inventar uma seta de voltar só no nativo.
+
+- Haptics: só no nativo, e só em três sítios — marcar visitado, registar visita, confirmar convite. Em PWA degrada para nada. Não usar em toques de navegação.
+
+- Barra de estado: hoje black-translucent na PWA. No nativo, @capacitor/status-bar com Style.Light em tema claro e Style.Dark em escuro, a seguir o prefers-color-scheme.
+
+- Splash: capacitor.config.json declara backgroundColor: #f6f1e8, mas o --bg atual é #f6f1e7 (o bloco REVAMP mudou-o). Um dígito de diferença, mas é um flash visível no arranque. Alinhar os dois, e alinhar também os dois theme-color do index.html.
+
+- Teclado: com contentInset: "never", o teclado tapa campos em sheets altas. A sheet de registar visita deve mover o CTA para cima do teclado — visualViewport.resize funciona nos dois contextos; não precisas do plugin de teclado.
+
+- Scroll bounce: já resolvido com overscroll-behavior: none no body e contain nas regiões. Não mexer.
+
+O que NÃO copiar do iOS nativo: barras de navegação grandes com título colapsante (matam o título em Fraunces, que é metade do carácter), listas agrupadas em estilo Definições no ecrã principal, ícones SF Symbols a substituir o conjunto Lucide atual (perde-se coerência com a web), e o azul de sistema em qualquer sítio. A app deve parecer ela no iPhone, não uma app da Apple.
+
+Conformidade App Store com impacto em design:
+
+- Sign in with Apple (4.8): obrigatório, porque há login social com a Google. É trabalho de design além do técnico — o botão tem regras próprias de tamanho e cor, e o ecrã de sessão passa a ter duas opções em vez de uma.
+
+- Apagar conta (5.1.1v): não existe hoje em lado nenhum do código. Tem de ser alcançável de dentro da app, sem email nem formulário externo. Vai no Perfil, no fim, e precisa de ecrã de confirmação que diga o que desaparece (críticas, fotos, visitas) e o que fica (restaurantes que adicionaste, que outros já usam).
+
+- Localização: NSLocationWhenInUseUsageDescription com justificação concreta em português — "para encontrar a morada do sítio que estás a adicionar", não "para melhorar a experiência". E pedir só no momento em que se toca em "Encontrar localização", nunca no arranque.
+
+- Câmara e fotos: NSCameraUsageDescription e NSPhotoLibraryUsageDescription — a app já usa capture="environment".
+
+- Privacidade: a app recolhe identificador, nome, foto e localização de sítios. Precisa de política de privacidade acessível de dentro da app e do preenchimento das nutrition labels.
+
+- Ícone e screenshots: os icons/* existentes servem; faltam capturas para 6,7" e 6,5". Sugestão: mapa com pins, Diário em grelha, ficha de restaurante — sem molduras de telemóvel dentro da imagem.
+
+## 6 · Plano faseado
+
+## Fase 1 — só CSS, sem tocar em JS
+
+Maior retorno por unidade de risco. Tudo reversível revertendo um ficheiro.
+
+- Consolidar os quatro :root num só, no topo, e apagar as declarações duplicadas.
+
+- Substituir .chip[aria-pressed="false"] { opacity: .55 } por estado de contraste pleno; chip ativo inverte para tinta.
+
+- Três alturas de controlo, três raios, cartões sem sombra.
+
+- Escurecer --text-faint para passar AA.
+
+- Trocar a família de corpo para Manrope (uma linha no --font-text e o <link>).
+
+- Tirar o gradiente do .topbar-ai e do .ai-card.
+
+Feito quando: o CSS tem um só bloco de tokens, nenhum seletor declarado duas vezes, e um verificador de contraste passa AA em todo o texto sobre --surface e --bg, em claro e escuro.
+
+## Fase 2 — primeira utilização
+
+Subiu de última para segunda depois de confirmares que escalar para além do círculo é objetivo deste ano. Os três ecrãs de arranque: cidade, "já foste a algum destes?", "quem conheces?". Requer um campo novo no modelo (cidade preferida) — é a única fase desta lista que toca em dados, e mesmo assim só acrescenta.
+
+Feito quando: uma conta nova chega ao mapa com pelo menos três sítios marcados e uma pessoa seguida.
+
+## Fase 3 — filtros em sheet
+
+Mover o conteúdo do #sidebar acima da lista para um sheet, com botão "Filtros" e contador. O planeador de viagem vai junto — continua a existir, deixa é de ocupar espaço permanente. getFiltered() não muda: continua a ler os mesmos ids.
+
+Feito quando: o primeiro cartão de restaurante está visível sem scroll num iPhone de 390 pt.
+
+## Fase 4 — sheet de registar visita + estados
+
+Os oito utilizadores já registam visitas, portanto isto é afinação de atrito, não resgate — daí não estar mais acima. O fluxo central ganha entrada própria na ficha. Em paralelo, um componente único de estado vazio / carregamento / erro, aplicado aos quatro sítios que hoje improvisam, e reserva de espaço para [data-meta] para acabar com o salto de layout.
+
+Feito quando: registar uma visita são três toques a partir da ficha, e nenhuma mensagem de erro menciona Firebase.
+
+## Fase 5 — nova navegação
+
+Diário (Críticas fundidas), Perfil como separador, ficha de detalhe de 4 para 2 separadores. É a fase com mais superfície e a única que mexe no router — mas continua sem tocar em dados.
+
+Feito quando: os oito utilizadores encontram as suas críticas sem perguntar onde estão.
+
+## Fase 6 — requisitos App Store
+
+Sign in with Apple, apagar conta, textos de permissão, política de privacidade, capturas. Pode correr em paralelo a partir da Fase 3; tem de estar fechada antes da submissão.
+
+## 7 · Riscos e o que ficou por saber
+
+O que não consegui avaliar sem usar a app a sério:
+
+- Desempenho com dados reais. renderList reconstrói o DOM inteiro a cada toque num filtro e renderMarkers recria todos os marcadores. Com 47 restaurantes não se nota; com 500 nota-se muito. Não sei onde está o teto.
+
+- Latência do Places: pouca, segundo tu. Então o esqueleto de carregamento é polimento, não bloqueador — mas a reserva de espaço para [data-meta] mantém-se na Fase 4, porque o salto de layout acontece mesmo com respostas rápidas: o cartão desenha primeiro e a linha de rating entra depois, seja isso 200 ms ou 2 s.
+
+- Modo escuro. A paleta escura existe e é completa, mas nunca a vi em uso. Não posso confirmar contrastes reais nem se as fotos da Google funcionam sobre os fundos escuros.
+
+- Frequência de uso. Se as pessoas registam visitas no restaurante ou em casa, dias depois, muda tudo no fluxo — a data por omissão, o teclado, a importância das fotos.
+
+Respondido entretanto — e o que muda:
+
+- Todos os oito já registaram pelo menos uma visita. Isso muda o diagnóstico: o fluxo central não tem problema de adoção, tem problema de atrito. A Fase 3 mantém-se onde está — não é resgate, é afinação.
+
+- O planeador e a lupa do mapa são usados. Retiro a hipótese de eliminar o planeador: fica, mas dentro do sheet de Filtros, onde não paga renda permanente no ecrã principal. A lupa fica onde está — é uma ferramenta espacial e pertence ao mapa.
+
+- Escalar para além do círculo é objetivo para este ano. Então a Fase 5 (primeira utilização) sobe para segunda, logo a seguir ao CSS. Sem ela, cada convite que enviares queima-se numa conta vazia — e a única coisa pior do que não ter utilizadores novos é tê-los uma vez.
+
+- Sobre a barra de progresso: é a linha "10 de 47 visitados" com a barra por baixo, no topo do painel da lista (.progress-block no #sidebar). Não a teres reconhecido é, em si, a resposta: sai.
+
+O que continua por responder:
+
+- Há data marcada para a submissão à App Store? Sign in with Apple e apagar conta têm prazo próprio e não se improvisam na véspera.
+
+- As visitas são registadas à mesa ou dias depois? Decide a data por omissão e o peso das fotos no fluxo.
+
+Risco maior de todos: há oito pessoas com dados em produção e nenhuma rede de segurança visível — sem ambiente de testes, sem sinalizadores de funcionalidade, e um service worker que serve uma versão em cache até ao próximo bump do CACHE. A Fase 1 é segura porque é CSS. Da Fase 2 em diante, vale mais um ambiente de pré-produção do que qualquer coisa nesta auditoria.
+
+  foodboxd.ptRevisão UI/UX
+
+
