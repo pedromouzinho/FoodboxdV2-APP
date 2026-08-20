@@ -655,8 +655,29 @@
   <script>
     (function () {
       const r = document.documentElement;
-      if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) r.classList.add("is-native");
+      const nativo = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+      if (nativo) r.classList.add("is-native");
       if (window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches) r.classList.add("is-standalone");
+      if (!nativo) return;
+
+      // Os plugins estavam no package.json desde o início e nunca eram usados:
+      // a barra de estado ficava com o estilo por omissão (texto claro sobre o
+      // creme da app, ilegível) e o splash só desaparecia por temporizador.
+      const P = window.Capacitor.Plugins || {};
+      // Fundo creme, texto escuro. `setStyle("LIGHT")` no Capacitor quer dizer
+      // "conteúdo claro" — para texto ESCURO é "DARK". A nomenclatura é
+      // contraintuitiva e é onde isto se engana.
+      if (P.StatusBar) {
+        P.StatusBar.setStyle({ style: "DARK" }).catch(function () {});
+        P.StatusBar.setBackgroundColor({ color: "#f6f1e7" }).catch(function () {});
+      }
+      // Esconder quando a app está pronta, e não ao fim de 600ms às cegas: num
+      // arranque lento via-se a app por baixo do splash a meio de se montar.
+      if (P.SplashScreen) {
+        window.addEventListener("load", function () {
+          P.SplashScreen.hide().catch(function () {});
+        });
+      }
     })();
   </script>
   <script src="js/config.js"></script>

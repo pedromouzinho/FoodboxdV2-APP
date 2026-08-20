@@ -470,6 +470,7 @@ const App = (() => {
     });
     card.querySelector("[data-visit]").addEventListener("click", (e) => {
       e.stopPropagation();
+      haptico("toque");
       setVisited(r.id, !UserData.isVisited(r.id));
     });
     const ph = card.querySelector(".rcard-thumb .ph");
@@ -493,6 +494,23 @@ const App = (() => {
   }
 
   // ---------- Visited ----------
+  // ---------- Haptics ----------
+  // Só no nativo, e só em três sítios: marcar visitado, registar visita e
+  // confirmar convite. Nunca em navegação — mudar de separador não é um
+  // acontecimento, e vibrar a cada toque deixa de querer dizer nada.
+  //
+  // Em PWA degrada para silêncio: não há plugin, e não se inventa um
+  // substituto com `navigator.vibrate`, que no telemóvel dá um zumbido
+  // grosseiro nada parecido com o toque do iOS.
+  function haptico(tipo) {
+    const H = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics;
+    if (!H) return;
+    try {
+      if (tipo === "sucesso") H.notification({ type: "SUCCESS" });
+      else H.impact({ style: "LIGHT" });
+    } catch (e) { /* um toque que não se sente não é motivo para nada falhar */ }
+  }
+
   function setVisited(id, visited) {
     UserData.setVisited(id, visited);
     const r = state.restaurants.find((x) => x.id === id);
@@ -1014,6 +1032,7 @@ const App = (() => {
     closeVisitSheet();
     renderMyMarks(r);
     renderAmigos(r);
+    haptico("sucesso");
     showSuccess(r.name);
   }
 
@@ -3556,6 +3575,7 @@ const App = (() => {
       if (accept) {
         UserData.addVisit(inv.restaurantId, inv.date, [inv.fromUid]);
         setVisited(inv.restaurantId, true);
+        haptico("sucesso");
       }
       await DB.respondVisitInvite(id, accept ? "accepted" : "declined", token);
       pendingInvites = pendingInvites.filter((i) => i.id !== id);

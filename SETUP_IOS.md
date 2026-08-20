@@ -76,9 +76,37 @@ npm run sync     # reconstrói www/ e copia para o iOS
 2. **Domínios autorizados no Firebase Auth:** confirma que `foodboxd.pt`,
    `app-restaurantes-499400.web.app` e `localhost` estão em
    *Authentication → Settings → Authorized domains*.
-3. **Permissões iOS (Info.plist):** se usares câmara/galeria para fotos, junta
-   `NSPhotoLibraryUsageDescription` / `NSCameraUsageDescription`.
-4. **Guideline 4.2 (App Review):** a app tem funcionalidade real (mapa, social,
+3. **Permissões iOS (Info.plist):** obrigatórias, e o texto conta. A App Review
+   rejeita justificações genéricas ("para usar a localização"); tem de dizer o
+   que a app faz com aquilo, em português, na linguagem da app.
+
+   Em `ios/App/App/Info.plist`:
+
+   ```xml
+   <key>NSLocationWhenInUseUsageDescription</key>
+   <string>Para encontrar a morada do sítio que estás a adicionar, e para te dizer a que distância ficam os restaurantes da tua lista.</string>
+   <key>NSCameraUsageDescription</key>
+   <string>Para tirares uma fotografia ao prato e a guardares na tua experiência.</string>
+   <key>NSPhotoLibraryUsageDescription</key>
+   <string>Para escolheres uma fotografia que já tiraste e a juntares a uma experiência ou ao teu perfil.</string>
+   ```
+
+   A localização é pedida **só dentro do "Pergunta-me"** (`submitSmartSuggest`
+   em `js/app.js`), nunca no arranque — verificado, é a única chamada a
+   `navigator.geolocation` na app. Um pedido de permissão à entrada, antes de a
+   pessoa perceber para que serve, é recusado quase sempre — e depois já não há
+   segunda vez.
+
+4. **Apagar conta (5.1.1v):** feito. Vive no fim do ecrã Perfil e corre na função
+   `conta`. **Tem de ser publicada** com `firebase deploy --only functions,hosting`
+   (a função e o rewrite `/api/conta`) — sem isso o botão está lá e não funciona,
+   que é pior do que não existir.
+
+5. **Sign in with Apple (4.8):** obrigatório porque há login com a Google. Falta.
+   Precisa do provider ativado em *Firebase → Authentication → Sign-in method*,
+   de um Service ID na conta de Apple Developer, e do botão no ecrã de sessão
+   com as regras de tamanho e cor da Apple.
+6. **Guideline 4.2 (App Review):** a app tem funcionalidade real (mapa, social,
    fotos, leaderboards), o que costuma passar; ainda assim convém destacar essas
    features na nota para o revisor.
 
