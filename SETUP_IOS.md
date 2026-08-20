@@ -38,7 +38,7 @@ npx cap sync ios
 
 ```bash
 # Coloca um ícone 1024x1024 em  resources/icon.png
-# e um splash 2732x2732 (logo centrado em #f6f1e8) em  resources/splash.png
+# e um splash 2732x2732 (logo centrado em #f6f1e7) em  resources/splash.png
 npm install -D @capacitor/assets
 npx capacitor-assets generate --ios
 ```

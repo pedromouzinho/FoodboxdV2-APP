@@ -10,6 +10,7 @@ vês a atividade e os leaderboards dos amigos.
 - **App iOS nativa (opcional):** casca Capacitor — ver [`SETUP_IOS.md`](SETUP_IOS.md).
 - **Continuidade / handoff técnico completo:** ver [`CONTEXT.md`](CONTEXT.md).
 - **Handoff de design (UI/UX):** índice e estado em [`DESIGN-HANDOFF.md`](DESIGN-HANDOFF.md); o pacote em [`design/handoff/`](design/handoff/).
+- **Brief de marca (ícone e formatos):** [`DESIGN-BRIEF-MARCA.md`](DESIGN-BRIEF-MARCA.md).
 
 ## Funcionalidades
 
