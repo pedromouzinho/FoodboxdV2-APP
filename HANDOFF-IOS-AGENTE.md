@@ -51,14 +51,27 @@ node --version                      # 20+
 xcodebuild -version                 # Xcode instalado
 xcode-select -p                     # command line tools apontadas
 pod --version                       # CocoaPods
-firebase projects:list              # sessão iniciada, e o projeto aparece
 ```
 
-**Prova:** os cinco comandos devolvem valores, nenhum erra. Se o `firebase`
-pedir login, corre `firebase login` — o dono autentica no browser.
+**Prova:** os quatro comandos devolvem valores, nenhum erra.
 
 Se algum falhar, **pára e diz qual**. Falhar aqui custa um minuto; falhar a meio
 do `cap add ios` deixa um projeto meio gerado que é chato de limpar.
+
+**Opcional — Firebase CLI.** Nenhum passo deste handoff precisa dele: o deploy
+corre em GitHub Actions com o segredo `FIREBASE_SERVICE_ACCOUNT`, a prova do
+Anexo A é `curl`, e o Bloco 1 é browser. A única coisa que se perde sem ele é o
+emulador (`npm run emu:start`) — ver a nota no Bloco 4.2 sobre testar o apagar
+conta. Instala-o só se quiseres essa rede de segurança.
+
+> Esta linha era obrigatória na primeira versão deste documento, e não devia:
+> mandava instalar uma ferramenta para correr um teste que não desbloqueava
+> nada. Foi o primeiro agente a executá-lo que reparou.
+
+**Nota:** o `package-lock.json` **está versionado** (commit `f1948ba`, que fixou
+as versões de desenvolvimento). Se o `npm install` o alterar, decide: commita se
+a mudança for real, ou `git checkout package-lock.json` se for só reordenação.
+Não o deixes pendurado.
 
 ---
 
@@ -142,6 +155,15 @@ Tem de abrir o ecrã da Apple e voltar com sessão iniciada. Confirma no Firebas
 npx cap add ios
 ```
 
+> ⚠️ **Xcode 26 com Capacitor 6.** O Capacitor 6 gera o projeto com um
+> deployment target antigo (iOS 13), que o Xcode 26 já não aceita. Se o
+> `cap add ios` ou a compilação falharem, é quase de certeza isto — e resolve-se
+> **subindo o target no projeto gerado**, não mexendo nas dependências. Saltar
+> para Capacitor 8 reescreve a casca nativa inteira e não é trabalho para o meio
+> deste handoff.
+>
+> (Achado do primeiro agente a correr isto, que tinha o Xcode à frente.)
+
 Depois edita `ios/App/App/Info.plist` e acrescenta os três textos de permissão.
 **Copia-os de `SETUP_IOS.md`, ponto 3 — não os reescrevas.** Foram redigidos
 para a App Review, que rejeita justificações genéricas, e estão na linguagem da
@@ -212,8 +234,14 @@ Simulador primeiro, device depois. Testar: entrar, registar uma visita com foto,
 "Pergunta-me" (pede localização — confirmar que o texto da permissão aparece e
 que é pedida **só aí**, nunca no arranque), e **apagar conta**.
 
-> Testa o apagar conta com uma conta descartável. É irreversível e corre contra
-> a base de dados real.
+> **Testa o apagar conta com uma conta acabada de criar, sem amigos e sem
+> grupos.** É irreversível e, sem emulador, corre contra a base de dados real. A
+> eliminação não se limita à conta: apaga também arestas de `follows` e mexe em
+> grupos. Numa conta virgem o raio de ação é zero; na tua conta do dia a dia,
+> não é.
+>
+> Se instalaste o Firebase CLI (opcional no Bloco 0), testa antes no emulador:
+> `npm run emu:start` e `npm run emu:seed`.
 
 ### 4.3 Etiquetas de privacidade — agente prepara, humano submete
 
