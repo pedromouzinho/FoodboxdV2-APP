@@ -1283,7 +1283,7 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
   flex-shrink: 0;
   gap: var(--sp-2);
   background: var(--surface-2);
-  border: 1px solid var(--border-strong);
+  border: none;
   color: var(--text);
 }
 .topbar-ai:hover { background: var(--surface-3); }
@@ -1373,7 +1373,7 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 
 /* ---- Lista de restaurantes (rcard) — design handoff ---- */
 
-.card.rcard:hover { box-shadow: var(--sh-md); transform: translateY(-1px); border-color: var(--border); }
+.card.rcard:hover { box-shadow: var(--sh-md); transform: translateY(-1px); }
 .card.rcard.visited { opacity: .72; }
 .card.rcard[data-cat="tradicional"] { --cat: var(--c-tradicional); }
 .card.rcard[data-cat="petiscos"]    { --cat: var(--c-petiscos); }
@@ -1500,9 +1500,9 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
   padding: var(--sp-3);
   align-items: center;
   border-radius: var(--r-lg);
-  border: 1px solid var(--hairline);
+  border: none;
   cursor: pointer;
-  transition: box-shadow var(--t) var(--ease), transform var(--t-fast) var(--ease), border-color var(--t) var(--ease);
+  transition: box-shadow var(--t) var(--ease), transform var(--t-fast) var(--ease);
 }
 
 /* Críticas — as minhas avaliações como críticas */
@@ -2313,6 +2313,8 @@ body.ob-open { overflow: hidden; }
   margin: 0; font-family: var(--font-display); font-size: var(--fs-2xl); font-weight: 600;
   line-height: 1.15; letter-spacing: -0.02em;
 }
+/* "Desde março de 2025" — 14px, por baixo do nome (ecrã 2f do handoff). */
+.perfil-desde { margin: 2px 0 0; font-size: var(--fs-ui); color: var(--text-muted); }
 .perfil-photo-btn { font-size: var(--fs-ui); color: var(--text-muted); text-decoration: none; cursor: pointer; }
 
 .perfil-tiles { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-5); }

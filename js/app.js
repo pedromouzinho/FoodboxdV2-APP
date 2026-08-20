@@ -1660,6 +1660,17 @@ const App = (() => {
   // ---------- Perfil (4.º separador) ----------
   // Estava atrás de um avatar na barra superior. Trouxe consigo a barra de
   // grupo e a definição de privacidade, que viviam à frente do feed de Amigos.
+  // "Desde março de 2025" — vem do metadata da conta, não de nada que guardemos.
+  // Sem data (sessão local, ou conta antiga sem metadata) a linha simplesmente
+  // não aparece: mais vale calar do que inventar.
+  function desdeQuando(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d)) return "";
+    const mes = d.toLocaleDateString("pt-PT", { month: "long" });
+    return `<p class="perfil-desde">Desde ${esc(mes)} de ${d.getFullYear()}</p>`;
+  }
+
   function renderPerfil() {
     const el = document.getElementById("perfil-body");
     if (!el) return;
@@ -1678,6 +1689,7 @@ const App = (() => {
           ? `<img class="perfil-avatar" data-profile-img src="${esc(me.photoURL)}" alt="" />`
           : `<span class="perfil-avatar perfil-avatar-empty" data-profile-img>${esc((me.displayName || "?").trim().charAt(0).toUpperCase())}</span>`}
         <h3 class="perfil-name">${esc(me.displayName || "Sem nome")}</h3>
+        ${desdeQuando(me.createdAt)}
         <label class="linklike perfil-photo-btn">
           Mudar foto
           <input type="file" accept="image/*" data-profile-input hidden />
@@ -1686,7 +1698,7 @@ const App = (() => {
       </div>
 
       <div class="perfil-tiles">
-        <div class="perfil-tile"><span class="perfil-tile-v">${sitios}</span><span class="perfil-tile-l">Sítios</span></div>
+        <div class="perfil-tile"><span class="perfil-tile-v">${sitios}</span><span class="perfil-tile-l">Restaurantes</span></div>
         <div class="perfil-tile"><span class="perfil-tile-v">${pratos}</span><span class="perfil-tile-l">Pratos</span></div>
         <div class="perfil-tile"><span class="perfil-tile-v">${amigos}</span><span class="perfil-tile-l">Amigos</span></div>
       </div>

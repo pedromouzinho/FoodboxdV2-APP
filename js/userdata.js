@@ -15,6 +15,7 @@ const UserData = (() => {
   let uid = "";
   let displayName = "";
   let photoURL = "";
+  let createdAt = ""; // quando a conta foi criada (metadata do Auth), para o Perfil
   let getToken = null; // async () => idToken
   let onboarded = false; // has this account already been through first-use?
   let homeTown = null;   // {name, lat, lng} — onde a pessoa come normalmente
@@ -48,7 +49,7 @@ const UserData = (() => {
     return cloud;
   }
   function me() {
-    return { uid, displayName, photoURL };
+    return { uid, displayName, photoURL, createdAt };
   }
 
   // ---- session lifecycle ----
@@ -56,6 +57,7 @@ const UserData = (() => {
     uid = user.uid;
     displayName = user.displayName || user.email || "Amigo";
     photoURL = user.photoURL || "";
+    createdAt = (user.metadata && user.metadata.creationTime) || "";
     getToken = tokenGetter;
     cloud = DB.isAvailable();
     if (!cloud) return;
@@ -122,6 +124,7 @@ const UserData = (() => {
     activeGroupId = null;
     tasteProfile = null;
     tasteGenDay = "";
+    createdAt = "";
     audienceGlobal = true;
     shareGroupIds = [];
     visibleTo = [];
