@@ -265,6 +265,7 @@ const DB = (() => {
       activeGroup: data.activeGroup || "",
       tasteProfile: data.tasteProfile || null,
       tasteGenDay: data.tasteGenDay || "",
+      tasteNote: data.tasteNote || "",
       audienceGlobal: data.audienceGlobal !== false, // default: shared globally
       visibleTo: Array.isArray(data.visibleTo) ? data.visibleTo : [],
       shareGroups: Array.isArray(data.shareGroups) ? data.shareGroups : [],

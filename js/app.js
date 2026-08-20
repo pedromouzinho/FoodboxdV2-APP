@@ -2241,7 +2241,10 @@ const App = (() => {
       // média por cozinha e quantos sítios — gosto e frequência separados
       cuisines: cozinhas.filter((c) => c.media > 2),
       dislikedCuisines: cozinhas.filter((c) => c.media <= 2),
-      likedDishes: [...pratos.values()].sort((a, b) => b.vezes - a.vezes || b.estrelas - a.estrelas).slice(0, 20)
+      likedDishes: [...pratos.values()].sort((a, b) => b.vezes - a.vezes || b.estrelas - a.estrelas).slice(0, 20),
+      // O que a pessoa escreveu sobre si. Vai como dados, nunca como instrução —
+      // a função embrulha-o num bloco delimitado antes de o dar ao modelo.
+      ownWords: UserData.isCloud() ? (UserData.getTasteNote() || "") : ""
     };
   }
 
@@ -2424,17 +2427,45 @@ const App = (() => {
         ${p.vibe ? `<div class="taste-row"><span class="taste-label">Ambiente</span><span class="taste-val">${esc(p.vibe)}</span></div>` : ""}
         ${p.price ? `<div class="taste-row"><span class="taste-label">Preço</span><span class="taste-val">${esc(p.price)}</span></div>` : ""}
         ${p.avoids ? `<div class="taste-row"><span class="taste-label">Não procuras</span><span class="taste-val">${esc(p.avoids)}</span></div>` : ""}
+
+        <div class="taste-note-block">
+          <span class="taste-label">O que eu não consigo adivinhar</span>
+          <p class="taste-note-hint">Alergias, o que não comes, o que te faz gostar de um sítio. As avaliações dizem onde foste — isto diz o resto.</p>
+          <textarea class="taste-note" data-taste-note rows="3" maxlength="600"
+            placeholder="Não como picante. Prefiro peixe a carne. Detesto sítios barulhentos."></textarea>
+          <p class="taste-note-status" data-taste-note-status aria-live="polite"></p>
+        </div>
+
         ${(p.mapsQueries && p.mapsQueries.length) ? `<div class="taste-discover" data-taste-discover></div>` : ""}
         <button class="btn btn-primary btn-block taste-suggest" data-taste-suggest>${icon("sparkles")} Pede-me uma sugestão</button>
         <button class="linklike taste-update" data-taste-update>Atualizar perfil de gosto</button>
         <p class="taste-source">Escrito a partir das tuas ${nCriticas} crítica${nCriticas === 1 ? "" : "s"} e ${nPratos} prato${nPratos === 1 ? "" : "s"}.</p>
       </div>`;
+    wireTasteNote();
     const sg = document.querySelector("#ai-body [data-taste-suggest]");
     if (sg) sg.addEventListener("click", () => { hideAi(); runSmartSuggest(); });
     const up = document.querySelector("#ai-body [data-taste-update]");
     if (up) up.addEventListener("click", runTasteProfile);
     const disc = document.querySelector("#ai-body [data-taste-discover]");
     if (disc && p.mapsQueries && p.mapsQueries.length) renderDiscoveries(disc, p.mapsQueries, null);
+  }
+
+  // O campo de texto livre. Guarda ao sair do campo, não a cada tecla: escrever
+  // não é motivo para uma escrita na base de dados por letra.
+  //
+  // Quando o texto muda, apaga-se a marca do dia da última geração — assim o
+  // perfil é reescrito na próxima oportunidade, em vez de a nota ficar guardada
+  // a não fazer diferença nenhuma até ao dia seguinte.
+  function wireTasteNote() {
+    const ta = document.querySelector("#ai-body [data-taste-note]");
+    const st = document.querySelector("#ai-body [data-taste-note-status]");
+    if (!ta) return;
+    ta.value = UserData.getTasteNote() || "";
+    ta.addEventListener("change", () => {
+      const mudou = UserData.setTasteNote(ta.value);
+      if (!mudou) return;
+      if (st) st.textContent = "Guardado. Entra no perfil quando o atualizares.";
+    });
   }
 
   // Open the saved taste profile (from the profile modal). Generates it if none.

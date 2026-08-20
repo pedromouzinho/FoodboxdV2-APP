@@ -21,6 +21,10 @@ const UserData = (() => {
   let homeTown = null;   // {name, lat, lng} — onde a pessoa come normalmente
   let tasteProfile = null; // last AI-generated taste profile (feeds "Sugere-me")
   let tasteGenDay = ""; // YYYY-MM-DD of the last background taste-profile run
+  // O que a pessoa escreve sobre o próprio gosto. É a única fonte de preferência
+  // sem sítio associado — "não como picante", "prefiro peixe", "detesto sítios
+  // barulhentos" — coisas que nenhuma avaliação consegue revelar.
+  let tasteNote = "";
 
   // my marks (used in cloud mode)
   let mine = { visited: new Set(), priority: new Set(), priorityAt: {}, ratings: {}, history: {} };
@@ -84,6 +88,7 @@ const UserData = (() => {
       activeGroupId = doc.activeGroup || null;
       tasteProfile = doc.tasteProfile || null;
       tasteGenDay = doc.tasteGenDay || "";
+      tasteNote = doc.tasteNote || "";
       audienceGlobal = doc.audienceGlobal !== false; // default + legacy: global
       shareGroupIds = Array.isArray(doc.shareGroups) ? doc.shareGroups : [];
       visibleTo = Array.isArray(doc.visibleTo) ? doc.visibleTo : [];
@@ -124,6 +129,7 @@ const UserData = (() => {
     activeGroupId = null;
     tasteProfile = null;
     tasteGenDay = "";
+    tasteNote = "";
     createdAt = "";
     audienceGlobal = true;
     shareGroupIds = [];
@@ -224,6 +230,7 @@ const UserData = (() => {
         activeGroup: activeGroupId || "",
         tasteProfile: tasteProfile || null,
         tasteGenDay: tasteGenDay || "",
+        tasteNote: tasteNote || "",
         audienceGlobal,
         visibleTo: computeVisibleTo(),
         shareGroups: shareGroupIds
@@ -274,6 +281,21 @@ const UserData = (() => {
     tasteProfile = p || null;
     if (cloud) persistNow().catch(() => {});
   }
+  // Limite generoso mas real: é uma nota, não um ensaio, e vai num prompt.
+  const TASTE_NOTE_MAX = 600;
+  function getTasteNote() { return tasteNote; }
+  function setTasteNote(t) {
+    const v = String(t || "").trim().slice(0, TASTE_NOTE_MAX);
+    if (v === tasteNote) return false;
+    tasteNote = v;
+    // A nota só vale se chegar ao perfil. Limpar a marca do dia faz com que a
+    // próxima geração corra, em vez de a nota ficar guardada sem efeito até
+    // amanhã. (`markTasteGen("")` não serve: o `||` lá dentro põe hoje.)
+    tasteGenDay = "";
+    if (cloud) persistNow().catch(() => {});
+    return true;
+  }
+
   function getTasteGenDay() { return tasteGenDay; }
   function markTasteGen(day) {
     tasteGenDay = day || new Date().toISOString().slice(0, 10);
@@ -528,6 +550,8 @@ const UserData = (() => {
     joinGroup,
     getTasteProfile,
     setTasteProfile,
+    getTasteNote,
+    setTasteNote,
     getTasteGenDay,
     markTasteGen,
     getSharing,
