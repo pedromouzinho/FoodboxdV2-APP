@@ -18,6 +18,8 @@
       "README.md",
       "CONTEXT.md",
       "DESIGN-BRIEF.md",
+      "DESIGN-HANDOFF.md",
+      "design/**",
       "AI_SETUP.md",
       ".git/**",
       ".github/**",
