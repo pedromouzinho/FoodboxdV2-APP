@@ -185,6 +185,43 @@ for (const scheme of ["light", "dark"]) {
   await ctx.close();
 }
 
+// ---------------------------------------------------------------------------
+// A app arranca sem o Google Maps?
+//
+// Nasceu de um defeito que nenhum destes arneses apanhava. `App.init()` era
+// chamado pelo callback da Google, pela ausência de chave, ou pelo `onerror` do
+// script — e faltava o caso do meio: o script carrega com 200 e a Google
+// recusa-se a arrancar (referrer não autorizado, quota, faturação). Aí o
+// `onerror` não dispara, o callback nunca vem, e a app não arrancava de todo.
+//
+// O arnês passava porque aqui não há rede: o script falha, o `onerror` dispara,
+// e caía-se no ramo que funciona. Para ver o defeito é preciso servir o script
+// com 200 e um corpo que não faz nada — que é exatamente o que a Google faz
+// quando recusa a chave.
+{
+  const ctx = await browser.newContext({ ...devices["iPhone 13 Pro"] });
+  const page = await ctx.newPage();
+  await page.route(/maps\.googleapis\.com/, (route) =>
+    route.fulfill({ status: 200, contentType: "application/javascript", body: "/* recusado */" }));
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
+  // A rede de segurança do arranque é de 10s; espera-se um pouco mais.
+  await page.waitForTimeout(13000);
+  const vivo = await page.evaluate(() => ({
+    lista: !!document.querySelector("#restaurant-list")?.children.length,
+    barra: !!document.querySelector(".tabbar"),
+    aviso: !!document.querySelector("#map-banner:not(.hidden)")
+  }));
+  console.log("\n[mapa recusado]");
+  if (vivo.lista && vivo.barra) {
+    console.log(`  a app arrancou à mesma · aviso do mapa à vista: ${vivo.aviso ? "sim" : "não"}`);
+  } else {
+    bloqueadores++;
+    console.log(`  ERRO — a app não arrancou sem o mapa: ${JSON.stringify(vivo)}`);
+  }
+  await page.screenshot({ path: join(OUT, "mapa-recusado.png") });
+  await ctx.close();
+}
+
 await browser.close();
 server?.close();
 console.log(`\nCapturas em ${OUT}`);

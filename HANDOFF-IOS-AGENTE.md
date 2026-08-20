@@ -51,6 +51,7 @@ node --version                      # 20+
 xcodebuild -version                 # Xcode instalado
 xcode-select -p                     # command line tools apontadas
 pod --version                       # CocoaPods
+echo "LANG=[$LANG]"                 # NÃO pode estar vazio — ver Bloco 2
 ```
 
 **Prova:** os quatro comandos devolvem valores, nenhum erra.
@@ -130,7 +131,25 @@ Confirma também **Authentication → Settings → Authorized domains**: têm de
 estar `foodboxd.pt`, `app-restaurantes-499400.web.app`,
 `app-restaurantes-499400.firebaseapp.com` e `localhost`.
 
-### 1.5 Publicar o botão
+### 1.5 Referrer do Google Maps para a app nativa
+
+**Faz isto no mesmo turno que o resto, é consola.** A WKWebView do Capacitor
+serve de `capacitor://localhost`, que não está na lista de referrers da chave do
+Maps. A própria Google diz o valor a autorizar na consola do browser:
+
+```
+Google Maps JavaScript API error: RefererNotAllowedMapError
+Your site URL to be authorized: capacitor://localhost
+```
+
+Consola do Google Cloud → **APIs e serviços → Credenciais** → a chave do Maps →
+*Restrições de aplicação* → acrescenta `capacitor://localhost`.
+
+> Não se contorna por configuração. Mudar o `server.hostname` do Capacitor para
+> `foodboxd.pt` faria o handler local intercetar `/api/ai` e `/api/conta`, e
+> partia o "Pergunta-me" e o apagar conta. Testado e descartado.
+
+### 1.6 Publicar o botão
 
 O código do botão está no ramo mas não em produção. GitHub Actions →
 **Deploy (produção)** → *Run workflow*, ref `claude/beautiful-davinci-vsyokk`,
@@ -155,14 +174,27 @@ Tem de abrir o ecrã da Apple e voltar com sessão iniciada. Confirma no Firebas
 npx cap add ios
 ```
 
-> ⚠️ **Xcode 26 com Capacitor 6.** O Capacitor 6 gera o projeto com um
-> deployment target antigo (iOS 13), que o Xcode 26 já não aceita. Se o
-> `cap add ios` ou a compilação falharem, é quase de certeza isto — e resolve-se
-> **subindo o target no projeto gerado**, não mexendo nas dependências. Saltar
-> para Capacitor 8 reescreve a casca nativa inteira e não é trabalho para o meio
-> deste handoff.
+> ⚠️ **Define o `LANG` antes de correr isto.** É o que rebenta, e o erro engana:
 >
-> (Achado do primeiro agente a correr isto, que tinha o Xcode à frente.)
+> ```
+> Unicode Normalization not appropriate for ASCII-8BIT (Encoding::CompatibilityError)
+> ```
+>
+> Com `LANG` vazio e `LC_CTYPE=C`, o CocoaPods 1.17 sobre Ruby 4 morre assim — e
+> morre **a meio**: o `cap add ios` já gerou o `.xcodeproj`, o `.xcworkspace` e o
+> `Podfile`, e só depois falha no `pod install`. Quem vir o erro vai suspeitar do
+> Ruby, do Homebrew ou do CocoaPods; a correção é uma variável de ambiente.
+>
+> ```bash
+> export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+> ```
+>
+> Não é preciso limpar nada: basta correr `pod install` por cima.
+>
+> **O deployment target NÃO é problema.** Uma versão anterior deste documento
+> avisava que o Xcode 26 recusaria o target iOS 13 do Capacitor 6. Está errado —
+> compilou sem um único aviso. Era uma suspeita minha escrita como se fosse
+> diagnóstico, e o primeiro agente a executá-la refutou-a.
 
 Depois edita `ios/App/App/Info.plist` e acrescenta os três textos de permissão.
 **Copia-os de `SETUP_IOS.md`, ponto 3 — não os reescrevas.** Foram redigidos
@@ -200,9 +232,22 @@ há app: o diário, os amigos e o perfil vivem todos de ter conta.
 
 A parte web está certa e é a que a diretriz 4.8 exige — mas é meio caminho.
 
-**Recomendação (não testada em iOS por quem escreveu isto):**
-`@capacitor-firebase/authentication`, com login nativo para os dois providers, e
-a web a continuar em popup.
+**Mas mede antes de reescrever.** O primeiro agente a correr isto testou dentro
+da WKWebView e encontrou o contrário do que este documento receava:
+
+```
+import gstatic: OK (22 exports) · fetch gstatic: 200
+FirebaseAuth existe? true · configured? true
+```
+
+O SDK carrega e o Auth inicializa. O login não funcionava por outra razão — o
+arranque da app morria antes de lá chegar, por causa do referrer do Maps (ver
+1.5). **Autoriza o referrer, volta a testar, e só depois decide.** Pode ser que
+não seja preciso plugin nenhum.
+
+**Se for preciso:** `@capacitor-firebase/authentication`, com login nativo para
+os dois providers e a web a continuar em popup. Alternativa mais barata:
+`signInWithRedirect`.
 
 Onde pendurar a bifurcação — já existe deteção de contexto:
 

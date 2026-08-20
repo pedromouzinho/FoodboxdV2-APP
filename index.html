@@ -718,12 +718,28 @@
   <script src="js/onboarding.js"></script>
   <script src="js/app.js"></script>
   <script>
-    window.initApp = function () {
-      App.init({ googleMapsLoaded: true });
-    };
+    // A app arranca UMA vez, e nunca fica à espera do Google Maps para o fazer.
+    //
+    // Havia aqui três caminhos — o callback da Google, a ausência de chave, e o
+    // onerror do script — e faltava o do meio: o script carrega com 200 e a
+    // Google recusa-se a arrancar. É o que acontece com RefererNotAllowedMapError,
+    // com a quota esgotada, ou com a faturação em falta. O onerror não dispara
+    // (o ficheiro veio), o callback nunca é chamado, e App.init() não corria.
+    // A app não ficava degradada: ficava morta, sem sequer mostrar o cartão de
+    // "o mapa não carregou", porque quem o desenha é a app que não arrancou.
+    let arrancou = false;
+    function arrancar(comMapa) {
+      if (arrancou) return;
+      arrancou = true;
+      App.init({ googleMapsLoaded: comMapa });
+    }
+    window.initApp = function () { arrancar(true); };
+    // Hook oficial da Google para chave recusada: rápido e preciso.
+    window.gm_authFailure = function () { arrancar(false); };
+
     (function loadGoogleMaps() {
       if (!CONFIG.GOOGLE_MAPS_API_KEY) {
-        App.init({ googleMapsLoaded: false });
+        arrancar(false);
         return;
       }
       const script = document.createElement('script');
@@ -732,8 +748,17 @@
         encodeURIComponent(CONFIG.GOOGLE_MAPS_API_KEY) +
         '&libraries=places,geometry&v=weekly&callback=initApp';
       script.async = true;
-      script.onerror = function () { App.init({ googleMapsLoaded: false }); };
+      script.onerror = function () { arrancar(false); };
       document.head.appendChild(script);
+
+      // Rede de segurança para tudo o que o gm_authFailure não cobre: rede que
+      // engasga, script servido mas nunca executado, um erro futuro da Google
+      // que ainda não tem nome. Ao fim do prazo pergunta-se ao próprio SDK se
+      // chegou a carregar, em vez de assumir — assim uma ligação lenta que
+      // ainda venha a trazer o mapa não fica sem ele por causa do relógio.
+      setTimeout(function () {
+        arrancar(!!(window.google && window.google.maps));
+      }, 10000);
     })();
 
     // PWA: register the service worker (relative scope for GitHub Pages subpath).
