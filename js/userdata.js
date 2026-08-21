@@ -59,7 +59,13 @@ const UserData = (() => {
   // ---- session lifecycle ----
   async function setUser(user, tokenGetter) {
     uid = user.uid;
-    displayName = user.displayName || user.email || "Amigo";
+    // O email serve de nome quando é um email de pessoa. Com "Ocultar o meu
+    // email" da Apple é um endereço de reencaminhamento — `b7r5f2k72k@
+    // privaterelay.appleid.com` — que não é nome de ninguém e ficava à vista
+    // no Perfil e na lista de amigos. Nesse caso vale mais "Amigo".
+    const emailUsavel = user.email && !/@privaterelay\.appleid\.com$/i.test(user.email)
+      ? user.email : "";
+    displayName = user.displayName || emailUsavel || "Amigo";
     photoURL = user.photoURL || "";
     createdAt = (user.metadata && user.metadata.creationTime) || "";
     getToken = tokenGetter;

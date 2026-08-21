@@ -897,13 +897,29 @@
           const u = cred && cred.user;
           if (!u || u.displayName) return cred;
           let nome = "";
+          // A Apple NÃO manda o nome dentro do ID token — manda-o no corpo do
+          // POST da primeira autorização, e o Firebase expõe-no em
+          // `_tokenResponse`. A primeira versão disto procurava em
+          // `getAdditionalUserInfo().profile`, que para a Apple traz as claims
+          // do token (email, sub) e nunca o nome. Resultado: a conta ficava sem
+          // nome e o Perfil mostrava o endereço de reencaminhamento como se
+          // fosse o nome da pessoa.
           try {
-            const extra = getAdditionalUserInfo(cred);
-            const p = (extra && extra.profile) || {};
-            const n = p.name || {};
-            nome = [n.firstName, n.lastName].filter(Boolean).join(" ").trim()
-              || (typeof p.name === "string" ? p.name : "");
-          } catch (e) { /* sem nome: segue-se sem inventar um */ }
+            const t = cred._tokenResponse || {};
+            nome = [t.firstName, t.lastName].filter(Boolean).join(" ").trim()
+              || (typeof t.displayName === "string" ? t.displayName : "");
+          } catch (e) { /* segue-se para o caminho seguinte */ }
+          // Caminho documentado, mantido por precaução: se um dia o SDK passar a
+          // trazer o nome aqui, isto apanha-o sem ninguém ter de voltar cá.
+          if (!nome) {
+            try {
+              const extra = getAdditionalUserInfo(cred);
+              const p = (extra && extra.profile) || {};
+              const n = p.name || {};
+              nome = [n.firstName, n.lastName].filter(Boolean).join(" ").trim()
+                || (typeof p.name === "string" ? p.name : "");
+            } catch (e) { /* sem nome: segue-se sem inventar um */ }
+          }
           if (nome) { try { await updateProfile(u, { displayName: nome }); } catch (e) {} }
           return cred;
         }
