@@ -30,6 +30,26 @@ const TYPES = {
   ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon"
 };
 
+// Este arnês serve o `js/config.js` com a chave do Maps vazia, de propósito.
+//
+// Sem isto dependem de a rede à Google falhar depressa: é o `onerror` do script
+// que faz a app arrancar. Num contentor sem rede falha em milissegundos e tudo
+// corre; num Mac com rede o script CARREGA e a Google recusa-o por referrer, o
+// `onerror` nunca dispara, e os testes esgotam o tempo à espera de uma app que
+// só arranca 10s depois. Testes verdes de um lado e vermelhos do outro, com o
+// mesmo código.
+//
+// Com a chave vazia o `index.html` toma o ramo que já existe — arranca já, sem
+// pedido nenhum à Google — e o resultado é o mesmo em qualquer máquina.
+function semChaveDoMaps(corpo, ficheiro) {
+  if (!ficheiro.endsWith("config.js")) return corpo;
+  return corpo.toString().replace(/GOOGLE_MAPS_API_KEY:\s*"[^"]*"/, 'GOOGLE_MAPS_API_KEY: ""');
+}
+
+// A cena "mapa recusado" é a única que quer o pedido a acontecer, para o
+// intercetar. Enquanto isto for verdade, o config.js vai como está.
+let querChave = false;
+
 function serve() {
   const s = createServer(async (req, res) => {
     const path = decodeURIComponent(req.url.split("?")[0]);
@@ -41,6 +61,7 @@ function serve() {
           .replaceAll("env(safe-area-inset-top)", SAFE.top)
           .replaceAll("env(safe-area-inset-bottom)", SAFE.bottom);
       }
+      if (!querChave) body = semChaveDoMaps(body, file);
       res.writeHead(200, { "Content-Type": TYPES[extname(file)] || "application/octet-stream" });
       res.end(body);
     } catch {
@@ -199,6 +220,8 @@ for (const scheme of ["light", "dark"]) {
 // com 200 e um corpo que não faz nada — que é exatamente o que a Google faz
 // quando recusa a chave.
 {
+  // A única cena que quer a chave: sem ela não há pedido para intercetar.
+  querChave = true;
   const ctx = await browser.newContext({ ...devices["iPhone 13 Pro"] });
   const page = await ctx.newPage();
   await page.route(/maps\.googleapis\.com/, (route) =>
@@ -220,6 +243,7 @@ for (const scheme of ["light", "dark"]) {
   }
   await page.screenshot({ path: join(OUT, "mapa-recusado.png") });
   await ctx.close();
+  querChave = false;
 }
 
 await browser.close();

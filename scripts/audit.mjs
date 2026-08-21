@@ -15,8 +15,28 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { join, extname } from "node:path";
 const T={".html":"text/html",".css":"text/css",".js":"text/javascript",".json":"application/json",".webmanifest":"application/manifest+json",".svg":"image/svg+xml",".png":"image/png"};
+// Este arnês serve o `js/config.js` com a chave do Maps vazia, de propósito.
+//
+// Sem isto dependem de a rede à Google falhar depressa: é o `onerror` do script
+// que faz a app arrancar. Num contentor sem rede falha em milissegundos e tudo
+// corre; num Mac com rede o script CARREGA e a Google recusa-o por referrer, o
+// `onerror` nunca dispara, e os testes esgotam o tempo à espera de uma app que
+// só arranca 10s depois. Testes verdes de um lado e vermelhos do outro, com o
+// mesmo código.
+//
+// Com a chave vazia o `index.html` toma o ramo que já existe — arranca já, sem
+// pedido nenhum à Google — e o resultado é o mesmo em qualquer máquina.
+//
+// (O `test-map.mjs` NÃO faz isto, e é de propósito: ele interceta o pedido e
+// responde com um script que chama o `initApp`, para poder provar o
+// enquadramento com o mapa a existir. Precisa da chave para o pedido acontecer.)
+function semChaveDoMaps(corpo, ficheiro) {
+  if (!ficheiro.endsWith("config.js")) return corpo;
+  return corpo.toString().replace(/GOOGLE_MAPS_API_KEY:\s*"[^"]*"/, 'GOOGLE_MAPS_API_KEY: ""');
+}
+
 const srv=createServer(async(rq,rs)=>{const p=rq.url.split("?")[0];const f=join(process.cwd(),p==="/"?"index.html":p);
-  try{const b=await readFile(f);rs.writeHead(200,{"Content-Type":T[extname(f)]||"application/octet-stream"});rs.end(b);}catch{rs.writeHead(404).end("x");}});
+  try{const b=semChaveDoMaps(await readFile(f),f);rs.writeHead(200,{"Content-Type":T[extname(f)]||"application/octet-stream"});rs.end(b);}catch{rs.writeHead(404).end("x");}});
 await new Promise(ok=>srv.listen(8799,"127.0.0.1",ok));
 
 const SEED = () => {
