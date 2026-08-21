@@ -21,6 +21,15 @@ const b=await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || und
 const c=await b.newContext({...devices["iPhone 13 Pro"]});
 const p=await c.newPage(); p.setDefaultTimeout(4000);
 
+// O convite de sessão abre-se sozinho a quem não tem sessão, e o scrim dele
+// intercepta os cliques deste ensaio — todas as cenas morriam em timeout. Só
+// aparece se `FirebaseAuth.configured`, ou seja, se o SDK tiver vindo do
+// gstatic: sem rede à Google não abre e o ensaio passa por acidente. Mesma
+// dependência de ambiente que saiu do test-update.
+await p.addInitScript(() => {
+  try { sessionStorage.setItem("rp.signinPrompt", "off"); } catch (e) {}
+});
+
 // Google Maps a fingir, só o suficiente para o MapModule se considerar
 // disponível e registar o que lhe pedem. É a única forma de provar o
 // enquadramento sem a chave real.
