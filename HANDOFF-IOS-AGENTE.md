@@ -10,6 +10,10 @@ sem consolas e sem iOS. Tudo o que falta precisa de uma dessas três coisas.
 comando ou um clique com resultado observável. Não avances sem a prova. Um passo
 falhado que passa despercebido custa mais adiante do que custa aqui.
 
+> ⚠️ **Antes de tudo, lê o [`CLAUDE.md`](CLAUDE.md).** Somos dois agentes no
+> mesmo ramo: puxa antes de começar, publica logo a seguir a cada commit, e
+> nunca trabalhes a partir de um zip. Já custou um rebase evitável a alguém.
+
 ---
 
 ## Estado atual (agosto de 2026)

@@ -16,7 +16,7 @@
       "firebase/**",
       "functions/**",
       "README.md",
-      "CONTEXT.md",
+      "CONTEXT.md", "CLAUDE.md",
       "DESIGN-BRIEF.md", "DESIGN-BRIEF-MARCA.md",
       "DESIGN-HANDOFF.md",
       "design/**",
