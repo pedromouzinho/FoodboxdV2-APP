@@ -116,7 +116,7 @@ const CHECKS = () => {
   return out;
 };
 
-const b=await chromium.launch({executablePath:"/opt/pw-browsers/chromium"});
+const b=await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
 const problemas={contraste:new Map(),alvos:new Map(),campos:new Set(),semNome:new Set(),semAlt:new Set(),idsRepetidos:new Set(),transbordo:new Set(),cortado:new Map(),erros:new Set()};
 const add=(m,k,v)=>{ if(!m.has(k)) m.set(k,v); };
 

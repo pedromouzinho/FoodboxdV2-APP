@@ -17,7 +17,7 @@ const T={".html":"text/html",".css":"text/css",".js":"text/javascript",".json":"
 const srv=createServer(async(rq,rs)=>{const p=rq.url.split("?")[0];const f=join(process.cwd(),p==="/"?"index.html":p);
   try{const b=await readFile(f);rs.writeHead(200,{"Content-Type":T[extname(f)]||"application/octet-stream"});rs.end(b);}catch{rs.writeHead(404).end("x");}});
 await new Promise(ok=>srv.listen(8803,"127.0.0.1",ok));
-const b=await chromium.launch({executablePath:"/opt/pw-browsers/chromium"});
+const b=await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
 const c=await b.newContext({...devices["iPhone 13 Pro"]});
 const p=await c.newPage(); p.setDefaultTimeout(4000);
 
