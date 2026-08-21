@@ -142,6 +142,23 @@ await page.waitForTimeout(1200);
 const corDepois = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 chk("recarrega quando volta à frente já sem a folha", corDepois === "rgb(4, 5, 6)", `cor=${corDepois}`);
 
+// ---- caso 3: o convite de sessão NÃO pode bloquear atualizações ----
+// Ele abre-se sozinho a quem não tem sessão e ninguém o fecha. Enquanto contava
+// como "ocupado", a app ficava ocupada para sempre: quem chegasse sem sessão
+// nunca mais recebia uma versão nova. Distingue-se de uma folha aberta, que é
+// trabalho a decorrer de verdade — essa continua a suspender o recarregamento.
+await page.reload({ waitUntil: "domcontentloaded", timeout: 60000 });
+await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, { timeout: 45000 });
+patch.set("css/style.css", css.replace("--bg: #f6f1e7;", "--bg: rgb(7, 8, 9);"));
+patch.set("sw.js", sw.replace(/foodboxd-v\d+/, "foodboxd-v1001"));
+const recarregou3 = page.waitForEvent("load", { timeout: 60000 });
+await page.evaluate(() => document.getElementById("signin-modal").classList.remove("hidden"));
+await page.evaluate(() => navigator.serviceWorker.getRegistration().then((r) => r.update()));
+await recarregou3.catch(() => {});
+await page.waitForTimeout(1500);
+const corConvite = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+chk("o convite de sessão não trava a atualização", corConvite === "rgb(7, 8, 9)", `cor=${corConvite}`);
+
 await browser.close();
 srv.close();
 console.log(falhas ? `\n${falhas} falha(s)` : "\natualização automática: funciona");

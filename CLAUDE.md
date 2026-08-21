@@ -89,6 +89,11 @@ Mac, e outros dois dependiam de não haver rede para a Google, passando de um
 lado e falhando do outro com o mesmo código. Um arnês que só funciona numa
 máquina não é um arnês, é um hábito.
 
+**E a quinta da mesma família foi a pior de ver:** um teste a **passar** por
+causa do ambiente. O convite de sessão só abre se o SDK do Firebase vier do
+gstatic; sem rede à Google nunca abria, e o ensaio media o contrário do que diz
+medir. O sintoma de um arnês dependente do ambiente nem sempre é vermelho.
+
 **Repara ainda que nem todos falham em voz alta.** O `test:map` imprime números
 em vez de os afirmar: sai com 0 mesmo quando o enquadramento está errado. Ao
 mexer nele, compara os números — `fitBounds: 1`, zoom travado em 14,

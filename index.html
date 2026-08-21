@@ -781,9 +781,18 @@
       var pendente = false;
       // Recarregar a meio de uma folha aberta perde o que a pessoa estava a
       // escrever. Se estiver ocupada, guarda-se para quando voltar e fechar.
+      // "Ocupado" quer dizer: a pessoa está a meio de alguma coisa, e recarregar
+      // por baixo dela perde trabalho. Vale para tudo o que ELA abriu.
+      //
+      // O convite de sessão é a exceção, e é a única: abre-se sozinho a quem não
+      // tem sessão (`maybePromptSignin`), e ninguém o começou. Enquanto contava
+      // como ocupado, a app ficava ocupada para sempre — quem chegasse sem
+      // sessão e não o dispensasse nunca mais recebia uma atualização. E não se
+      // perde nada ao recarregar por baixo dele: reaparece do outro lado.
       function ocupado() {
         return !!document.querySelector(
-          ".sheet:not(.hidden), .modal:not(.hidden), #onboarding:not(.hidden), #tour:not(.hidden)"
+          ".sheet:not(.hidden), .modal:not(.hidden):not(#signin-modal), " +
+          "#onboarding:not(.hidden), #tour:not(.hidden)"
         );
       }
       function recarregarSePuder() {

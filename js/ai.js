@@ -14,7 +14,7 @@ const AIModule = (() => {
   // A reescrita /api/ai só existe no Firebase Hosting. No emulador chama-se a
   // função diretamente, na porta e região dela.
   function endpoint() {
-    if (!CONFIG.EMULATORS) return "/api/ai";
+    if (!CONFIG.EMULATORS) return (CONFIG.API_BASE || "") + "/api/ai";
     return `http://127.0.0.1:${CONFIG.EMU.functions}/${CONFIG.FIREBASE_PROJECT_ID}/europe-west1/ai`;
   }
 

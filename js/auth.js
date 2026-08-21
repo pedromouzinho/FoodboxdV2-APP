@@ -71,7 +71,7 @@ const AuthModule = (() => {
   // conta continua de pé e a pessoa pode tentar outra vez, em vez de ficar de
   // fora de uma conta que ainda existe.
   function endpointConta() {
-    if (!CONFIG.EMULATORS) return "/api/conta";
+    if (!CONFIG.EMULATORS) return (CONFIG.API_BASE || "") + "/api/conta";
     return `http://127.0.0.1:${CONFIG.EMU.functions}/${CONFIG.FIREBASE_PROJECT_ID}/europe-west1/conta`;
   }
 

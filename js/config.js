@@ -45,6 +45,20 @@ window.CONFIG = CONFIG;
 const EM_NATIVO = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 CONFIG.EMULATORS = !EM_NATIVO && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 CONFIG.IS_PREVIEW = /--[a-z0-9-]+\.web\.app$/.test(location.hostname);
+CONFIG.NATIVO = EM_NATIVO;
+
+//  Onde vivem as funções, visto de dentro da app.
+//
+//  Na web é um caminho relativo, que a reescrita do Firebase Hosting apanha.
+//  Na app nativa NÃO PODE SER: a origem é `capacitor://localhost` e um `/api/`
+//  relativo resolve para o handler local de ficheiros, que devolve 404. Foi
+//  assim que o "Pergunta-me" e o apagar conta ficaram partidos no nativo sem
+//  ninguém dar por isso — não há erro de rede, há um 404 de um ficheiro que
+//  nunca existiu.
+//
+//  As funções já respondem com CORS (`cors: true` nas duas), por isso o pedido
+//  entre origens passa sem mudar nada do lado delas.
+CONFIG.API_BASE = EM_NATIVO ? "https://foodboxd.pt" : "";
 CONFIG.ENV = CONFIG.EMULATORS ? "emulador" : (CONFIG.IS_PREVIEW ? "QA" : "produção");
 
 // Portas iguais às de firebase.json.
