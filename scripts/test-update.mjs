@@ -66,6 +66,21 @@ const chk = (nome, ok, extra = "") => {
 // instalação do service worker demorar mais do que isso. Um ensaio que falha
 // por a máquina estar ocupada não distingue defeito de ruído — e a partir daí
 // deixa de valer como prova de coisa nenhuma.
+// O convite de sessão abre-se sozinho a quem não tem sessão, e `ocupado()`
+// conta qualquer `.modal:not(.hidden)` — com ele aberto a app nunca recarrega,
+// e o último caso deste ficheiro mede o contrário do que diz medir.
+//
+// Só que o convite depende de `FirebaseAuth.configured`, e isso depende de o
+// SDK ter vindo do gstatic. Sem rede à Google não abre, e o ensaio passava por
+// isso, não por a app estar certa: verde no contentor, vermelho no Mac. É a
+// mesma dependência de ambiente que saiu do audit e do preview.
+//
+// A pré-condição passa a ser dita em voz alta, antes da primeira carga, em vez
+// de ser herdada da rede.
+await page.addInitScript(() => {
+  try { sessionStorage.setItem("rp.signinPrompt", "off"); } catch (e) {}
+});
+
 await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
 await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, { timeout: 45000 });
 chk("service worker assume o controlo", true);
