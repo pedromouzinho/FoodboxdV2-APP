@@ -26,6 +26,15 @@ const srv = createServer(async (req, res) => {
   const rel = p === "/" ? "index.html" : p.replace(/^\//, "");
   try {
     let body = patch.has(rel) ? patch.get(rel) : await readFile(join(ROOT, rel));
+    // A chave do Maps sai, como no audit e no preview. Este ensaio mede
+    // MOMENTOS do arranque — quando o service worker assume, quando a versão
+    // nova entra — e com a chave presente esses momentos dependem da rede:
+    // onde a Google recusa o referrer, o script carrega na mesma, o `onerror`
+    // não dispara, e a app só arranca 10s depois pela rede de segurança. Aqui
+    // não há rede para a Google e nunca se vê; num Mac com rede, vê-se sempre.
+    if (rel.endsWith("config.js")) {
+      body = body.toString().replace(/GOOGLE_MAPS_API_KEY:\s*"[^"]*"/, 'GOOGLE_MAPS_API_KEY: ""');
+    }
     // Os mesmos cabeçalhos da produção: só o sw.js e o HTML são no-cache.
     const cc = /^(sw\.js|index\.html)$/.test(rel) ? "no-cache, no-store, must-revalidate" : "max-age=3600";
     res.writeHead(200, { "Content-Type": TYPES[extname(rel)] || "application/octet-stream", "Cache-Control": cc });

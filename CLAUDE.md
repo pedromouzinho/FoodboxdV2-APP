@@ -22,8 +22,22 @@ git pull --rebase origin claude/beautiful-davinci-vsyokk    # antes
 git push origin claude/beautiful-davinci-vsyokk             # depois de CADA commit
 ```
 
+**Quem publica em produção:** qualquer um dos dois, disparando o workflow
+*Deploy (produção)* — o agente da nuvem consegue fazê-lo pela API do GitHub, sem
+ninguém ter de carregar em botão nenhum. O que **não** se faz é publicar sem
+pedir.
+
 **Mais do que um commit por publicar é o sinal de que algo vai correr mal.** Se
 o trabalho é longo, parte-o em commits e publica cada um.
+
+3. **Só um trabalha de cada vez.** Não é uma otimização — é a regra. Quando um
+   lado está a trabalhar, o outro está parado e sincronizado. Quem acaba diz
+   explicitamente que acabou, com o que fez e o que fica por fazer; só depois o
+   outro começa, e começa por puxar.
+
+Duas sessões a mexer no mesmo ramo ao mesmo tempo produzem conflitos que nenhuma
+das duas vê enquanto os cria. E o custo não é o rebase: é que cada lado toma
+decisões sobre um ficheiro que o outro já mudou.
 
 Se o outro lado publicou entretanto: `git pull --rebase` e resolve. Rebase, não
 merge — o histórico fica legível e a ordem dos factos preserva-se.
