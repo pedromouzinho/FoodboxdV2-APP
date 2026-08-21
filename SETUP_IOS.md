@@ -84,7 +84,12 @@ npm run sync     # reconstrói www/ e copia para o iOS
    rejeita justificações genéricas ("para usar a localização"); tem de dizer o
    que a app faz com aquilo, em português, na linguagem da app.
 
-   Em `ios/App/App/Info.plist`:
+   **Não são para escrever à mão.** Vivem em [`ios-info.json`](ios-info.json), e
+   o `npm run sync` escreve-os no `Info.plist` no fim. A pasta `ios/` é gerada e
+   não vai para o git — antes disto, os três textos desapareciam em qualquer
+   clone novo. Editar no JSON; o que estiver no plist é sobrescrito.
+
+   Em `ios/App/App/Info.plist`, escritos a partir de lá:
 
    ```xml
    <key>NSLocationWhenInUseUsageDescription</key>

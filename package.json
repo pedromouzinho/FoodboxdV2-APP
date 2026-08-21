@@ -5,7 +5,7 @@
   "description": "Foodboxd — diário de restaurantes (PWA + casca iOS via Capacitor).",
   "scripts": {
     "build:www": "node scripts/build-www.js",
-    "sync": "npm run build:www && npx cap sync ios",
+    "sync": "npm run build:www && npx cap sync ios && node scripts/ios-info.mjs",
     "ios": "npm run sync && npx cap open ios",
     "preview": "node scripts/preview.mjs",
     "emu:start": "firebase emulators:start --only auth,firestore,functions,storage --project app-restaurantes-499400",
@@ -17,7 +17,8 @@
     "test:update": "node scripts/test-update.mjs",
     "ai:diff": "node scripts/ai-diff.mjs",
     "test:taste": "node scripts/test-taste.mjs",
-    "test:apagar": "node scripts/test-apagar.mjs"
+    "test:apagar": "node scripts/test-apagar.mjs",
+    "ios:info": "node scripts/ios-info.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^6.0.2",
