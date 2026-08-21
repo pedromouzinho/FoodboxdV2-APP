@@ -143,6 +143,11 @@ const add=(m,k,v)=>{ if(!m.has(k)) m.set(k,v); };
 for (const scheme of ["light","dark"]) {
   const c=await b.newContext({...devices["iPhone 13 Pro"],colorScheme:scheme});
   const p=await c.newPage();
+  // O convite de sessão abre-se sozinho a quem não tem sessão e o scrim dele
+  // intercepta todos os cliques — as 17 cenas de cada tema morriam em timeout.
+  // Só aparece se `FirebaseAuth.configured`, ou seja, se o SDK tiver vindo do
+  // gstatic: sem rede à Google não abre e a auditoria passava por acidente.
+  await p.addInitScript(()=>{try{sessionStorage.setItem("rp.signinPrompt","off");}catch(e){}});
   // Sem isto, cada seletor ausente custa 30s e a auditoria nunca acaba.
   p.setDefaultTimeout(3000);
   p.on("pageerror",e=>problemas.erros.add(scheme+": "+String(e).slice(0,140)));
