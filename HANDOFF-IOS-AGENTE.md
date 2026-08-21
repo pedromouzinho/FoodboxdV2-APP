@@ -16,23 +16,29 @@ falhado que passa despercebido custa mais adiante do que custa aqui.
 
 ---
 
-## Estado atual (agosto de 2026)
+## Estado atual (21 de agosto de 2026)
 
 | | |
 | --- | --- |
-| Produção | https://foodboxd.pt — service worker `foodboxd-v77` |
+| Produção | https://foodboxd.pt — service worker `foodboxd-v83` |
 | Ramo de trabalho | `claude/beautiful-davinci-vsyokk` |
 | Projeto Firebase | `app-restaurantes-499400` (número `909243049168`) |
 | Bundle ID | `pt.foodboxd.app` (em `capacitor.config.json`) |
-| Publicar | GitHub Actions → **Deploy (produção)** → *Run workflow* |
+| Publicar | GitHub Actions → **Deploy (produção)**, ou pela API do GitHub |
 
-**Já feito e em produção:** apagar conta (5.1.1v), textos de permissão redigidos,
-haptics, barra de estado, splash, chave da Anthropic no Secret Manager.
+**Blocos 0, 1 e 2: feitos.** Falta o 3 e o 4.
 
-**Feito mas ainda no ramo, por publicar:** o botão de Sign in with Apple no ecrã
-de sessão (commit `ad86cda`).
+**Em produção:** apagar conta (5.1.1v), **Sign in with Apple**, a marca nova em
+toda a app, favicon, haptics, barra de estado, splash, a chave da Anthropic no
+Secret Manager, a rede de segurança do arranque (a app já não precisa do Google
+Maps para arrancar), e o `/api/` absoluto no nativo.
 
-**Por fazer:** tudo o que está neste documento.
+**Por fazer:** o Bloco 3 (login dentro da app nativa — tem diagnóstico, ver lá),
+os `UsageDescription`, e o Bloco 4.
+
+> **Lê a secção "O que esta sessão apurou"**, no fim deste documento, antes de
+> começares. Tem cinco coisas que só se souberam a correr a app, e três delas
+> poupam-te trabalho que já está feito.
 
 > **Contexto que poupa tempo:** a app é vanilla JS sem framework nem build. Um
 > `index.html`, um `css/style.css`, módulos IIFE em `js/`. Não introduzas
@@ -80,11 +86,25 @@ Não o deixes pendurado.
 
 ---
 
-## Bloco 1 — Consolas · **humano executa, agente guia e verifica**
+## Bloco 1 — Consolas · ✅ **FEITO em 21/08/2026**
 
-O agente **não consegue** fazer este bloco: o portal da Apple e a consola do
-Firebase exigem autenticação de dois fatores. O que o agente faz é ditar os
-valores exatos e, no fim, provar que resultou.
+O dono fez as três consolas. **Não precisas de repetir nada disto** — fica como
+referência, e para a próxima app.
+
+**A prova:** existe no Firebase um utilizador com provider `apple.com`, criado a
+21 de agosto, e o `capacitor://localhost` está autorizado nos referrers da chave
+do Maps (o mapa carrega no simulador).
+
+**Duas coisas que vale a pena saber para não voltares a duvidar:**
+
+- A Apple **não** exigiu verificação do domínio no passo 1.2. O `firebaseapp.com`
+  passou. **O Anexo A nunca foi preciso.**
+- O `http://localhost` **não** foi autorizado, e não faz falta: os arneses
+  deixaram de precisar da chave do Maps.
+
+O agente **não conseguia** fazer este bloco: o portal da Apple e a consola do
+Firebase exigem autenticação de dois fatores. O que fez foi ditar os valores e
+provar o resultado.
 
 ### 1.1 App ID (Apple)
 
@@ -225,29 +245,47 @@ erros (ainda sem assinatura de device).
 
 ## Bloco 3 — Login dentro da app nativa · **agente** · ⚠️ o trabalho a sério
 
-**Lê isto antes de começar.** É o único ponto do handoff onde o que está escrito
-no código **não foi verificado por ninguém**.
+**Já está diagnosticado, e o dono já aprovou o caminho.** Não repitas a
+investigação — foi feita, com o referrer já autorizado e a app a arrancar.
 
-O `index.html` autentica com `signInWithPopup`, para Google e para Apple. Dentro
-da WKWebView do Capacitor, `signInWithPopup` **frequentemente não funciona** — é
-o ponto 1 do `SETUP_IOS.md`, escrito antes de o Apple existir. Ou seja:
-provavelmente **nenhum dos dois logins funciona na app nativa**, e sem login não
-há app: o diário, os amigos e o perfil vivem todos de ter conta.
-
-A parte web está certa e é a que a diretriz 4.8 exige — mas é meio caminho.
-
-**Mas mede antes de reescrever.** O primeiro agente a correr isto testou dentro
-da WKWebView e encontrou o contrário do que este documento receava:
+O `index.html` autentica com `signInWithPopup`. Dentro da WKWebView isso nunca
+chega a ser tentado, porque o problema é anterior:
 
 ```
-import gstatic: OK (22 exports) · fetch gstatic: 200
-FirebaseAuth existe? true · configured? true
+origin = capacitor://localhost
+localStorage: OK · indexedDB: ABRIU
+EVENTO firebase-auth-ready disparou
+fb=true  configured=true            (a 1s, 3s, 6s e 12s)
+onChange: NUNCA disparou em 8s
+current = null
 ```
 
-O SDK carrega e o Auth inicializa. O login não funcionava por outra razão — o
-arranque da app morria antes de lá chegar, por causa do referrer do Maps (ver
-1.5). **Autoriza o referrer, volta a testar, e só depois decide.** Pode ser que
-não seja preciso plugin nenhum.
+**O `onAuthStateChanged` aceita o callback e nunca o chama.** O Firebase Auth
+inicializa, expõe a API toda, e depois nunca resolve o estado. Como o `renderUI`
+do `js/auth.js` só corre a partir do `onChange`, o botão "Entrar" fica escondido
+para sempre e o `signInWithPopup` nem é alcançado.
+
+**O que já foi eliminado como causa:**
+
+- **Não é armazenamento.** O `localStorage` escreve e o `indexedDB` abre.
+- **Não é o referrer do Maps.** Já está autorizado; o mapa carrega.
+- **Não é o `iosScheme`.** Pôr `server: { iosScheme: "https" }` foi testado, com
+  reinstalação limpa e confirmação de que a config chegou ao bundle — o
+  Capacitor 6 **ignora-o** e a origem continua `capacitor://localhost`. Foi
+  revertido; não voltes a tentar.
+
+O que resta é a origem: o Firebase Auth valida `http(s)` e `capacitor://` não é.
+
+**Portanto: o plugin nativo. O dono aprovou.** `@capacitor-firebase/authentication`
+é a recomendação; `signInWithRedirect` é a alternativa mais barata. **A escolha é
+tua** — o critério de feito é entrar com Google **e** com Apple no simulador.
+
+**Mantém a interface do bridge.** `window.FirebaseAuth` expõe `signIn`,
+`signInApple`, `signOut`, `onChange`, `getToken`, `current`, e o `js/auth.js` e o
+`js/app.js` só falam com ela. A troca pode ficar contida no `index.html`.
+
+E atenção ao nome vindo da Apple no caminho nativo — ver o ponto 4 da secção
+final. O plugin devolve-o noutro sítio.
 
 **Se for preciso:** `@capacitor-firebase/authentication`, com login nativo para
 os dois providers e a web a continuar em popup. Alternativa mais barata:
@@ -366,6 +404,71 @@ A app já trata disto no caminho web (`guardarNomeDaApple`, em `index.html`): l�
 Firebase. É preciso ir a *appleid.apple.com → Início de sessão e segurança →
 Iniciar sessão com a Apple* e **parar de usar** a app — só assim a próxima
 autorização volta a ser "a primeira" e a devolver o nome.
+
+---
+
+## O que esta sessão apurou
+
+Cinco coisas que só se souberam a correr a app, e que não estão em mais lado
+nenhum. As três primeiras poupam-te trabalho que já está feito.
+
+**1. O `/api/` já está resolvido no nativo — não lhe toques.**
+O `js/ai.js` e o `js/auth.js` devolviam `/api/ai` e `/api/conta` relativos, que
+em `capacitor://localhost` resolvem para o handler local de ficheiros e dão 404.
+O "Pergunta-me" e o apagar conta não podiam funcionar na app. Passou a absoluto
+via `CONFIG.API_BASE` (`js/config.js`), só quando `isNativePlatform()`. As
+funções já respondem com `cors: true`, por isso **não é preciso republicá-las**.
+Confirma no simulador que o "Pergunta-me" responde; se não responder, é outra
+coisa.
+
+**2. O deploy não precisa do dono.** O agente da nuvem dispara o *Deploy
+(produção)* pela API do GitHub. O workflow tem guarda anti-retrocesso (compara a
+versão do service worker com a que está no ar) e uma caixa `funcoes` que só se
+liga quando `functions/` mudou. **Publicar sem pedir é que não se faz.**
+
+**3. Os arneses deixaram de depender da rede.** Os quatro correm em qualquer
+máquina. O `audit`, o `preview` e o `test-update` servem o `js/config.js` com a
+chave do Maps vazia; o `test-map` **não** leva essa mudança de propósito, porque
+interceta o pedido e responde com um script que chama o `initApp`. Está tudo
+comentado no código. Ver também as cinco dependências de ambiente no `CLAUDE.md`.
+
+**4. O nome vindo da Apple chega num sítio não documentado.**
+`cred._tokenResponse.firstName` / `.lastName` — **não** em
+`getAdditionalUserInfo().profile`, que para a Apple traz as claims do token
+(email, sub) e nunca o nome. Procurei-o no sítio errado e a conta do dono ficou a
+mostrar `b7r5f2k72k@privaterelay.appleid.com` no Perfil. Corrigido no bridge
+(`guardarNomeDaApple`), e o fallback deixou de aceitar endereços de
+reencaminhamento como nome.
+
+> **A conta que já existe não se repara sozinha.** A Apple só devolve o nome na
+> **primeira** autorização. Para a recuperar: `appleid.apple.com` → *Início de
+> sessão e segurança* → *Iniciar sessão com a Apple* → Foodboxd → **parar de
+> usar**, e entrar de novo. Vale a mesma armadilha ao testar o plugin nativo.
+
+**5. O convite de sessão trancava a app numa versão antiga.**
+O `ocupado()` (no `index.html`) suspende o recarregamento enquanto houver algo
+aberto. O convite de sessão **abre-se sozinho** a quem não tem sessão, e ninguém
+o fecha — a app ficava ocupada para sempre e nunca aplicava uma atualização.
+Passou a ser a única exceção do `ocupado()`. Tudo o que a pessoa **abre**
+continua a suspender.
+
+---
+
+## O que falta, por ordem
+
+1. **O plugin nativo** (Bloco 3). Aprovado pelo dono. É o que desbloqueia tudo o
+   resto: sem login não há sessão, e sem sessão não se testa nada que dependa de
+   conta.
+2. ~~Os `UsageDescription` a partir de fonte versionada.~~ **Feito** em
+   `7daabcd`: `scripts/ios-info.mjs` escreve-os no `Info.plist` a partir de fonte
+   versionada, e o `ios/` pode continuar no `.gitignore` sem se perder material
+   de App Review.
+3. **Registar visita com foto, e apagar conta** — com uma conta acabada de
+   criar, sem amigos e sem grupos (ver Bloco 4.2). Depende do ponto 1.
+4. **Bloco 4** — assinatura, build, etiquetas de privacidade, submissão.
+
+**Fora do iOS, por decidir com o dono:** a procura numa porta só, o ecrã de
+entrada, e o perfil público. Estão analisados; falta a decisão.
 
 ---
 
