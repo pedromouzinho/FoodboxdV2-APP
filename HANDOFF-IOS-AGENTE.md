@@ -33,9 +33,10 @@ toda a app, favicon, haptics, barra de estado, splash, a chave da Anthropic no
 Secret Manager, a rede de segurança do arranque (a app já não precisa do Google
 Maps para arrancar), e o `/api/` absoluto no nativo.
 
-**Por fazer:** o Bloco 3 (metade feita — falta o `GoogleService-Info.plist`, que
-é do dono; ver lá) e o Bloco 4. Os `UsageDescription` estão feitos (`7daabcd`):
-vivem em `ios-info.json` e o `scripts/ios-info.mjs` escreve-os a cada sync.
+**Por fazer:** o Bloco 3 — a ponte está escrita e o `.plist` já entrou; falta
+**ligar o pod ao target**, que é onde parou (ver lá, com a tabela dos subspecs) —
+e o Bloco 4. Os `UsageDescription` estão feitos (`7daabcd`): vivem em
+`ios-info.json` e o `scripts/ios-info.mjs` escreve-os a cada sync.
 
 > **Lê a secção "O que esta sessão apurou"**, no fim deste documento, antes de
 > começares. Tem cinco coisas que só se souberam a correr a app, e três delas
@@ -343,8 +344,60 @@ para `ios/App/App/` a cada `npm run sync`, e enquanto não existir avisa:
 ios-info: sem GoogleService-Info.plist na raiz — o login nativo fica por ligar
 ```
 
-**Assim que o `.plist` estiver na raiz:** `npm run sync`, reinstalar o plugin, e
-ligar o `signInWithCredential` ao Auth que agora inicializa.
+### Onde parou de verdade (`667eecc`) — o `.plist` já lá está
+
+O `.plist` entrou e **a app já não morre no arranque**: instalação limpa, zero
+exceções. Copiar o ficheiro para a pasta **não chega** — se não estiver nos
+recursos do projeto Xcode não entra no bundle e o `FirebaseApp.configure()`
+continua a não o encontrar. Custou um build a descobrir. O `ios-info.mjs` passou
+a fazer as três: copia, regista no `project.pbxproj`, e escreve o URL scheme do
+login com a Google lido do `REVERSED_CLIENT_ID` do próprio plist — para não haver
+dois sítios com o mesmo valor a divergir.
+
+**A ponte está escrita e revista.** O plugin devolve uma credencial, ela entra no
+SDK web por `signInWithCredential`, e daí para a frente é tudo igual à web: mesmo
+`currentUser`, mesmo token, Firestore e Storage sem saberem que houve caminho
+diferente. Com `skipNativeAuth: true` de propósito — sem isso ficavam dois
+estados de sessão lado a lado, e quem manda é o SDK web, que é quem a app lê.
+O nome da Apple no caminho nativo vem em `r.user.displayName`, do resultado do
+plugin, e é guardado no mesmo sítio. O `signOut` fecha os dois lados.
+
+**O bloqueio atual: o pod instala mas não é ligado ao target.**
+
+Não aparece nos `OTHER_LDFLAGS` do `Pods-App.debug.xcconfig`, ao contrário dos
+outros cinco plugins, e a classe não existe no binário — `nm` dá zero, no `App` e
+no `App.debug.dylib`. Em runtime o `Capacitor.Plugins.FirebaseAuthentication`
+fica ausente e o `signInWithGoogle` nem chega a ser chamado.
+
+| Subspec | O que aconteceu |
+|---|---|
+| `Lite` (o default) | plugin registado, mas `signInWithGoogle` fica **pendurado** — sem `GoogleSignIn` compilado a promessa nunca volta, sem erro e sem folha do sistema |
+| `['Google']` | `GoogleSignIn` entra, **plugin deixa de registar** |
+| `['Lite','Google']` | na mesma; `pod install` corre limpo, 19 pods, e o target continua sem o ligar |
+
+O Podfile ficou a pedir os dois e o `pod install` automatizado no sync, porque
+essa parte está certa e o `GoogleSignIn` entra mesmo.
+
+> **Suspeita, não medição:** o `static_framework = true` do podspec a interagir
+> com o `use_frameworks!` do Capacitor. Está escrito como suspeita de propósito —
+> nesta sessão prescreveu-se três vezes antes de medir e três vezes estava errado.
+> **Mede antes de agir.**
+
+**Uma porta que já está fechada, e convém saber porquê:** o `signInWithRedirect`
+parecia a alternativa barata ao plugin. Não é — precisa do resolver de
+popup/redirect, que é exatamente o que teve de sair para o Auth inicializar (ver
+acima). Tirar o resolver e usar redirect são coisas incompatíveis. **O plugin é o
+caminho.**
+
+**O critério não está cumprido:** não se entrou com Google nem com Apple. O que
+está provado é tudo o que vem antes — o Auth inicializa, o botão aparece, o ecrã
+de sessão abre com as duas opções, o plugin não mata a app, e o caminho até à
+credencial está escrito.
+
+**Nota para a Apple**, quando o resto destrancar: além disto, precisa da
+capacidade *Sign in with Apple* ligada **no target do Xcode**, e isso exige a
+equipa escolhida — é o Bloco 4.1, do dono. Com `CODE_SIGNING_ALLOWED=NO`, que é
+como se compila aqui, o entitlement não se aplica.
 
 **Mantém a interface do bridge.** `window.FirebaseAuth` expõe `signIn`,
 `signInApple`, `signOut`, `onChange`, `getToken`, `current`, e o `js/auth.js` e o
