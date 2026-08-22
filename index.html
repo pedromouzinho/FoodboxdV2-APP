@@ -856,7 +856,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import {
-      getAuth, GoogleAuthProvider, OAuthProvider, signInWithPopup, signOut,
+      getAuth, initializeAuth, GoogleAuthProvider, OAuthProvider, signInWithPopup, signOut,
       onAuthStateChanged, setPersistence, browserLocalPersistence, connectAuthEmulator,
       getAdditionalUserInfo, updateProfile
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
@@ -872,7 +872,33 @@
           projectId: CONFIG.FIREBASE_PROJECT_ID,
           storageBucket: CONFIG.FIREBASE_PROJECT_ID + ".firebasestorage.app"
         });
-        const auth = getAuth(app);
+        // Na app nativa o `getAuth()` NUNCA termina de inicializar, e isso não
+        // se vê: não há erro, não há aviso, o objeto existe e responde. Só que
+        // `_isInitialized` fica false para sempre, o `authStateReady()` nunca
+        // resolve e o `onAuthStateChanged` nunca chama o callback — por isso o
+        // botão "Entrar" ficava escondido e o login não chegava a ser tentado.
+        //
+        // A causa é o resolver de popup/redirect que o `getAuth()` do bundle
+        // browser regista por omissão: valida a origem, e `capacitor://` não é
+        // http(s). Medido no simulador — com `initializeAuth` sem resolver,
+        // `_isInitialized=true` e o `onChange` dispara no arranque.
+        //
+        // Não dá para fugir mudando o esquema: o Capacitor não deixa o
+        // `iosScheme` ser `https`, e pôr lá `https` é ignorado em silêncio
+        // (testado, com instalação limpa — a origem continuou `capacitor://`).
+        //
+        // O que isto NÃO resolve é entrar: sem resolver, o `signInWithPopup`
+        // não tem como abrir a janela. Resolve o que vinha antes disso — a
+        // sessão passa a poder existir, o Firestore e o Storage ficam com
+        // token, e o `signInWithCredential` do plugin nativo tem onde assentar.
+        //
+        // Na web fica tudo como estava: lá o popup é o caminho e funciona.
+        let auth;
+        if (CONFIG.NATIVO) {
+          auth = initializeAuth(app, { persistence: browserLocalPersistence });
+        } else {
+          auth = getAuth(app);
+        }
         // Só em localhost (ver CONFIG.EMULATORS em js/config.js). Em produção e
         // no canal de QA isto nunca corre.
         if (CONFIG.EMULATORS) {
