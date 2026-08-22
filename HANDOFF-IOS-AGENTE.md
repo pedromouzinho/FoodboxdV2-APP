@@ -26,16 +26,16 @@ falhado que passa despercebido custa mais adiante do que custa aqui.
 | Bundle ID | `pt.foodboxd.app` (em `capacitor.config.json`) |
 | Publicar | GitHub Actions → **Deploy (produção)**, ou pela API do GitHub |
 
-**Blocos 0, 1 e 2: feitos.** Falta o 3 e o 4.
+**Blocos 0, 1 e 2: feitos.** O 3 está a um passo humano do fim; falta o 4.
 
 **Em produção:** apagar conta (5.1.1v), **Sign in with Apple**, a marca nova em
 toda a app, favicon, haptics, barra de estado, splash, a chave da Anthropic no
 Secret Manager, a rede de segurança do arranque (a app já não precisa do Google
 Maps para arrancar), e o `/api/` absoluto no nativo.
 
-**Por fazer:** o Bloco 3 — a ponte está escrita e o `.plist` já entrou; falta
-**ligar o pod ao target**, que é onde parou (ver lá, com a tabela dos subspecs) —
-e o Bloco 4. Os `UsageDescription` estão feitos (`7daabcd`): vivem em
+**Por fazer:** o Bloco 3 está a um passo humano do fim — o pod já liga e o login
+nativo chega ao ecrã da Google a pedir a passkey; falta alguém autenticar-se (ver
+lá) — e o Bloco 4. Os `UsageDescription` estão feitos (`7daabcd`): vivem em
 `ios-info.json` e o `scripts/ios-info.mjs` escreve-os a cada sync.
 
 > **Lê a secção "O que esta sessão apurou"**, no fim deste documento, antes de
@@ -362,26 +362,71 @@ estados de sessão lado a lado, e quem manda é o SDK web, que é quem a app lê
 O nome da Apple no caminho nativo vem em `r.user.displayName`, do resultado do
 plugin, e é guardado no mesmo sítio. O `signOut` fecha os dois lados.
 
-**O bloqueio atual: o pod instala mas não é ligado ao target.**
+### O pod que não ligava — **resolvido** (`b27febe`)
 
-Não aparece nos `OTHER_LDFLAGS` do `Pods-App.debug.xcconfig`, ao contrário dos
-outros cinco plugins, e a classe não existe no binário — `nm` dá zero, no `App` e
-no `App.debug.dylib`. Em runtime o `Capacitor.Plugins.FirebaseAuthentication`
-fica ausente e o `signInWithGoogle` nem chega a ser chamado.
+Eram **duas** causas encadeadas, e nenhuma delas era a que se suspeitava. Ficam
+escritas porque as duas falham em silêncio: nenhuma dá erro, aviso ou rejeição.
 
-| Subspec | O que aconteceu |
-|---|---|
-| `Lite` (o default) | plugin registado, mas `signInWithGoogle` fica **pendurado** — sem `GoogleSignIn` compilado a promessa nunca volta, sem erro e sem folha do sistema |
-| `['Google']` | `GoogleSignIn` entra, **plugin deixa de registar** |
-| `['Lite','Google']` | na mesma; `pod install` corre limpo, 19 pods, e o target continua sem o ligar |
+> ⚠️ **A suspeita do `static_framework = true` × `use_frameworks!` estava
+> ERRADA.** O `build_type` é `static framework` também nas variantes que
+> funcionam. Não voltes a esse caminho.
 
-O Podfile ficou a pedir os dois e o `pod install` automatizado no sync, porque
-essa parte está certa e o `GoogleSignIn` entra mesmo.
+**Causa 1 — a linha do Podfile fazia o pod não compilar nada.**
 
-> **Suspeita, não medição:** o `static_framework = true` do podspec a interagir
-> com o `use_frameworks!` do Capacitor. Está escrito como suspeita de propósito —
-> nesta sessão prescreveu-se três vezes antes de medir e três vezes estava errado.
-> **Mede antes de agir.**
+O podspec declara `s.source_files` só na spec **raiz**, e no `cocoapods-core` o
+`source_files` **não é um atributo herdado** pelas subspecs
+(`Attribute#inherited?` é falso; `consumer.rb` corta a herança). Quando o Podfile
+pede só subspecs, a raiz nunca entra no target: ele fica com **zero** ficheiros,
+o `PodTarget#should_build?` dá falso, e o CocoaPods instala um
+**`PBXAggregateTarget` de placeholder** — um target que não compila nada e não
+produz produto. Daí o `nm` a zero e a ausência no `OTHER_LDFLAGS`.
+
+| Linha no Podfile | `should_build?` | source files |
+|---|---|---|
+| `:subspecs => ['Google']` | falso | 0 |
+| `:subspecs => ['Lite', 'Google']` | falso | 0 |
+| **raiz + `/Google`, em duas linhas** | **verdadeiro** | **26** |
+
+Depois da correção: `PBXNativeTarget` do tipo framework, `-framework
+"CapacitorFirebaseAuthentication"` no `OTHER_LDFLAGS`, e **22 símbolos** de
+`FirebaseAuthenticationPlugin` no binário, onde antes eram 0.
+
+A linha do subspec vive no `# Add your Pods here`, **dentro do target e fora do
+`def capacitor_pods`**: o `cap sync` regenera esse `def` a cada corrida e
+apagava-a de lá.
+
+**Causa 2 — o plugin não criava o handler da Google.**
+
+Mesmo ligado e compilado, o `signInWithGoogle` continuava a não voltar. O plugin
+só instancia o `GoogleAuthProviderHandler` **se** `config.providers` contiver o
+provider (`FirebaseAuthentication.swift:654`). Sem a lista declarada, a chamada
+vai para um handler nulo e a promessa fica pendurada — outra vez sem erro. O
+`capacitor.config.json` passa a declarar:
+
+```json
+"FirebaseAuthentication": { "skipNativeAuth": true, "providers": ["apple.com", "google.com"] }
+```
+
+**Um conflito que aparece mesmo num clone de raiz**, e que o `ios-info.mjs` já
+trata sozinho: o `cap sync` resolve os pods **antes** de a linha do subspec
+existir, prende o `GTMSessionFetcher` em 4.5.0, e o `GoogleSignIn` 7.1.0 recusa.
+O script apanha o conflito pelo nome e corre `pod update GTMSessionFetcher`, que
+resolve para 3.5.0.
+
+### Onde o login está agora, medido no simulador
+
+```
+toque em "Iniciar sessão com a Google"
+  -> consentimento do sistema: "App" Wants to Use "accounts.google.com"
+  -> accounts.google.com abre, reconhece a app e a conta, pede a passkey
+```
+
+Client ID válido, URL scheme correto, `ASWebAuthenticationSession` a abrir, e a
+Google a aceitar a app. **Falta o passo que é do dono e só dele: autenticar-se.**
+Um agente não entra com credenciais de ninguém.
+
+Para fechar, no simulador: **Entrar → Iniciar sessão com a Google → Continue →
+completar a passkey**. Depois confirma que o nome aparece no separador Perfil.
 
 **Uma porta que já está fechada, e convém saber porquê:** o `signInWithRedirect`
 parecia a alternativa barata ao plugin. Não é — precisa do resolver de
@@ -389,10 +434,9 @@ popup/redirect, que é exatamente o que teve de sair para o Auth inicializar (ve
 acima). Tirar o resolver e usar redirect são coisas incompatíveis. **O plugin é o
 caminho.**
 
-**O critério não está cumprido:** não se entrou com Google nem com Apple. O que
-está provado é tudo o que vem antes — o Auth inicializa, o botão aparece, o ecrã
-de sessão abre com as duas opções, o plugin não mata a app, e o caminho até à
-credencial está escrito.
+**O critério ainda não está cumprido:** não se entrou com Google nem com Apple.
+O que está provado é tudo o que vem antes, até ao ecrã da Google a pedir a
+passkey. O último passo é humano por definição.
 
 **Nota para a Apple**, quando o resto destrancar: além disto, precisa da
 capacidade *Sign in with Apple* ligada **no target do Xcode**, e isso exige a
