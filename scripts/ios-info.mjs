@@ -9,6 +9,7 @@
 // Corre no fim do `npm run sync`. Sem ios/ à frente (o agente da nuvem, o CI)
 // não faz nada e sai a zero — não é erro, é não haver onde escrever.
 import { readFile } from "node:fs/promises";
+import { readFileSync, writeFileSync } from "node:fs";
 import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
@@ -73,6 +74,79 @@ const GS = "GoogleService-Info.plist";
 if (existsSync(join(ROOT, GS))) {
   execFileSync("/bin/cp", [join(ROOT, GS), join(ROOT, "ios/App/App", GS)]);
   console.log(`ios-info: ${GS} copiado para o projeto iOS`);
+  registarNoXcode();
+  urlSchemeDaGoogle();
+  subspecDaGoogle();
 } else {
   console.log(`ios-info: sem ${GS} na raiz — o login nativo fica por ligar (bloco 1 do handoff)`);
+}
+
+// Copiar o ficheiro para a pasta NÃO chega: se não estiver nos recursos do
+// projeto, não entra no bundle e o FirebaseApp.configure() continua a não o
+// encontrar — a app compila e morre à mesma no arranque. Foi assim que gastei
+// um build a perceber porquê.
+//
+// Os ids são fixos e começados por FBD0 para se saber de onde vêm; o Xcode só
+// exige que sejam 24 hexadecimais únicos dentro do ficheiro.
+function registarNoXcode() {
+  const pbx = join(ROOT, "ios/App/App.xcodeproj/project.pbxproj");
+  let t = readFileSync(pbx, "utf8");
+  if (t.includes(GS)) return; // já registado — o sync corre muitas vezes
+  const REF = "FBD0FBD0FBD0FBD0FBD00002";
+  const BUILD = "FBD0FBD0FBD0FBD0FBD00001";
+  t = t.replace("/* End PBXBuildFile section */",
+    `\t\t${BUILD} /* ${GS} in Resources */ = {isa = PBXBuildFile; fileRef = ${REF} /* ${GS} */; };\n/* End PBXBuildFile section */`);
+  t = t.replace("/* End PBXFileReference section */",
+    `\t\t${REF} /* ${GS} */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "${GS}"; sourceTree = "<group>"; };\n/* End PBXFileReference section */`);
+  t = t.replace(/(\t\t\t\t504EC3131FED79650016851F \/\* Info\.plist \*\/,\n)/,
+    `$1\t\t\t\t${REF} /* ${GS} */,\n`);
+  t = t.replace(/(\t\t\t\t504EC30F1FED79650016851F \/\* Assets\.xcassets in Resources \*\/,\n)/,
+    `$1\t\t\t\t${BUILD} /* ${GS} in Resources */,\n`);
+  writeFileSync(pbx, t);
+  console.log(`ios-info: ${GS} registado nos recursos do Xcode`);
+}
+
+// O @capacitor-firebase/authentication instala por omissão o subspec `Lite`,
+// que traz o FirebaseAuth mas NÃO o GoogleSignIn. Com ele, o
+// signInWithGoogle() não rejeita nem resolve: fica pendurado para sempre, sem
+// erro e sem folha do sistema — o caminho nativo da Google simplesmente não
+// está compilado. Perdi um ciclo a olhar para uma promessa que nunca voltava.
+//
+// O Podfile é gerado pelo `cap sync` a cada corrida, portanto a linha tem de
+// ser reescrita aqui de cada vez, e não uma vez à mão. Se mudar, corre-se o
+// `pod install` outra vez — só nesse caso, que demora.
+function subspecDaGoogle() {
+  const podfile = join(ROOT, "ios/App/Podfile");
+  const antes = readFileSync(podfile, "utf8");
+  const linha = /pod 'CapacitorFirebaseAuthentication', :path => '([^']+)'(?!, :subspecs)/;
+  if (!linha.test(antes)) return; // já tem subspecs, ou o plugin não está cá
+  const depois = antes.replace(linha,
+    "pod 'CapacitorFirebaseAuthentication', :path => '$1', :subspecs => ['Lite', 'Google']");
+  writeFileSync(podfile, depois);
+  console.log("ios-info: Podfile com o subspec Google — a correr pod install");
+  execFileSync("/usr/bin/env", ["pod", "install"], {
+    cwd: join(ROOT, "ios/App"),
+    stdio: "ignore",
+    env: { ...process.env, LANG: "en_US.UTF-8", LC_ALL: "en_US.UTF-8" }
+  });
+  console.log("ios-info: GoogleSignIn ligado");
+}
+
+// O login nativo com a Google volta para a app por um URL scheme, e o scheme é
+// o REVERSED_CLIENT_ID do próprio GoogleService-Info.plist. Lê-se de lá em vez
+// de se escrever à mão: são o mesmo valor, e dois sítios divergem.
+function urlSchemeDaGoogle() {
+  const rev = execFileSync(PB, ["-c", "Print :REVERSED_CLIENT_ID", join(ROOT, GS)],
+    { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  if (!rev) return;
+  const jaLa = (() => {
+    try { return pb(["-c", "Print :CFBundleURLTypes"]).includes(rev); } catch { return false; }
+  })();
+  if (jaLa) return;
+  try { pb(["-c", "Print :CFBundleURLTypes"]); }
+  catch { pb(["-c", "Add :CFBundleURLTypes array"]); }
+  pb(["-c", "Add :CFBundleURLTypes:0 dict"]);
+  pb(["-c", "Add :CFBundleURLTypes:0:CFBundleURLSchemes array"]);
+  pb(["-c", `Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string ${rev}`]);
+  console.log("ios-info: URL scheme do login com a Google escrito no Info.plist");
 }

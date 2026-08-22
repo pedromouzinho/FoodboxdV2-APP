@@ -858,7 +858,7 @@
     import {
       getAuth, initializeAuth, GoogleAuthProvider, OAuthProvider, signInWithPopup, signOut,
       onAuthStateChanged, setPersistence, browserLocalPersistence, connectAuthEmulator,
-      getAdditionalUserInfo, updateProfile
+      getAdditionalUserInfo, updateProfile, signInWithCredential
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
     import {
       getStorage, ref as storageRef, uploadBytes, getDownloadURL, connectStorageEmulator
@@ -950,13 +950,79 @@
           return cred;
         }
 
+        // ---- Entrar na app nativa ----------------------------------------
+        //
+        // Na web entra-se por popup. Na app nativa não há popup que sirva: o
+        // `initializeAuth` acima é sem resolver (é o que faz o Auth arrancar de
+        // todo em `capacitor://`), portanto o `signInWithPopup` não tem janela
+        // para abrir.
+        //
+        // O plugin trata da parte nativa — a folha do sistema, a conta, o
+        // consentimento — e devolve uma credencial. Essa credencial entra no
+        // SDK web por `signInWithCredential`, e a partir daí é tudo igual à
+        // web: mesmo `currentUser`, mesmo token, Firestore e Storage sem saber
+        // que houve caminho diferente.
+        //
+        // `skipNativeAuth: true` de propósito: sem isto entrava-se DUAS vezes,
+        // uma no SDK nativo e outra no web, com dois estados de sessão a viver
+        // lado a lado. Quem manda é o SDK web, que é quem a app inteira lê.
+        //
+        // Não há import do plugin: a app é vanilla, sem bundler. O Capacitor
+        // pendura os plugins nativos em `window.Capacitor.Plugins`, tal como já
+        // acontece com o StatusBar e o Haptics.
+        function pluginAuth() {
+          const P = (window.Capacitor && window.Capacitor.Plugins) || {};
+          return P.FirebaseAuthentication || null;
+        }
+
+        async function entrarNativo(qual) {
+          const P = pluginAuth();
+          if (!P) throw new Error("plugin de autenticação nativo não está presente");
+          if (qual === "apple") {
+            // Os dois âmbitos pedidos aqui pela mesma razão do caminho web: a
+            // Apple só os devolve se forem pedidos, e só na PRIMEIRA vez.
+            const r = await P.signInWithApple({ skipNativeAuth: true, scopes: ["email", "name"] });
+            const c = r.credential || {};
+            const cred = new OAuthProvider("apple.com").credential({
+              idToken: c.idToken,
+              rawNonce: c.nonce
+            });
+            const res = await signInWithCredential(auth, cred);
+            // O nome da Apple não vem no token (ver guardarNomeDaApple). No
+            // caminho nativo vem no resultado do plugin, noutro sítio ainda:
+            // `r.user.displayName`. Se não o guardarmos agora, perde-se — e a
+            // Apple não o volta a dar.
+            const nome = (r.user && r.user.displayName) || "";
+            if (nome && res.user && !res.user.displayName) {
+              try { await updateProfile(res.user, { displayName: nome }); } catch (e) {}
+            }
+            return res;
+          }
+          const r = await P.signInWithGoogle({ skipNativeAuth: true });
+          const c = r.credential || {};
+          const cred = GoogleAuthProvider.credential(c.idToken, c.accessToken);
+          return signInWithCredential(auth, cred);
+        }
+
         window.FirebaseAuth = {
           configured: true,
-          signIn: function () { return signInWithPopup(auth, provider); },
-          signInApple: function () {
-            return signInWithPopup(auth, apple).then(guardarNomeDaApple);
+          signIn: function () {
+            return CONFIG.NATIVO ? entrarNativo("google") : signInWithPopup(auth, provider);
           },
-          signOut: function () { return signOut(auth); },
+          signInApple: function () {
+            return CONFIG.NATIVO
+              ? entrarNativo("apple")
+              : signInWithPopup(auth, apple).then(guardarNomeDaApple);
+          },
+          signOut: function () {
+            // No nativo há duas coisas a fechar: a sessão do SDK web, que é a
+            // que a app lê, e a do plugin, que guarda a conta escolhida. Sem a
+            // segunda, o "entrar" seguinte não voltava a perguntar com que
+            // conta — reentrava com a anterior, sem perguntar nada.
+            const P = CONFIG.NATIVO ? pluginAuth() : null;
+            const nativo = P ? P.signOut().catch(function () {}) : Promise.resolve();
+            return nativo.then(function () { return signOut(auth); });
+          },
           onChange: function (cb) { return onAuthStateChanged(auth, cb); },
           getToken: function () { return auth.currentUser ? auth.currentUser.getIdToken() : Promise.resolve(null); },
           current: function () { return auth.currentUser; }
