@@ -33,8 +33,9 @@ toda a app, favicon, haptics, barra de estado, splash, a chave da Anthropic no
 Secret Manager, a rede de segurança do arranque (a app já não precisa do Google
 Maps para arrancar), e o `/api/` absoluto no nativo.
 
-**Por fazer:** o Bloco 3 (login dentro da app nativa — tem diagnóstico, ver lá),
-os `UsageDescription`, e o Bloco 4.
+**Por fazer:** o Bloco 3 (metade feita — falta o `GoogleService-Info.plist`, que
+é do dono; ver lá) e o Bloco 4. Os `UsageDescription` estão feitos (`7daabcd`):
+vivem em `ios-info.json` e o `scripts/ios-info.mjs` escreve-os a cada sync.
 
 > **Lê a secção "O que esta sessão apurou"**, no fim deste documento, antes de
 > começares. Tem cinco coisas que só se souberam a correr a app, e três delas
@@ -272,72 +273,89 @@ erros (ainda sem assinatura de device).
 
 ---
 
-## Bloco 3 — Login dentro da app nativa · **agente** · ⚠️ o trabalho a sério
+## Bloco 3 — Login dentro da app nativa · **agente**
 
-**Já está diagnosticado, e o dono já aprovou o caminho.** Não repitas a
-investigação — foi feita, com o referrer já autorizado e a app a arrancar.
+**Metade está feita e commitada.** A outra metade está bloqueada num ficheiro de
+consola. Não repitas a investigação — foi feita duas vezes, e a primeira resposta
+estava errada.
 
-O `index.html` autentica com `signInWithPopup`. Dentro da WKWebView isso nunca
-chega a ser tentado, porque o problema é anterior:
+### O que já está resolvido (`99abd8f`)
+
+O problema **nunca foi o `signInWithPopup`**. Era mais cedo: a instância de Auth
+nunca chegava a inicializar.
 
 ```
-origin = capacitor://localhost
-localStorage: OK · indexedDB: ABRIU
-EVENTO firebase-auth-ready disparou
-fb=true  configured=true            (a 1s, 3s, 6s e 12s)
-onChange: NUNCA disparou em 8s
-current = null
+_isInitialized=false   _deleted=false
+authStateReady: PENDURADO em 10s
+onChange: NUNCA disparou
 ```
 
-**O `onAuthStateChanged` aceita o callback e nunca o chama.** O Firebase Auth
-inicializa, expõe a API toda, e depois nunca resolve o estado. Como o `renderUI`
-do `js/auth.js` só corre a partir do `onChange`, o botão "Entrar" fica escondido
-para sempre e o `signInWithPopup` nem é alcançado.
+Sem erro, sem aviso, sem rejeição — o objeto existe, responde a tudo, e nunca
+fica pronto. Foi descartado antes o que parecia mais provável: o `localStorage`
+escreve, o `indexedDB` abre, o SDK vem do gstatic com 200, o
+`firebase-auth-ready` dispara. Nada disso era.
 
-**O que já foi eliminado como causa:**
+**A causa:** o resolver de popup/redirect que o `getAuth()` do bundle browser
+regista por omissão valida a origem, e `capacitor://` não é http(s). Com
+`initializeAuth(app, { persistence })` **sem resolver**:
 
-- **Não é armazenamento.** O `localStorage` escreve e o `indexedDB` abre.
-- **Não é o referrer do Maps.** Já está autorizado; o mapa carrega.
-- **Não é o `iosScheme`.** Pôr `server: { iosScheme: "https" }` foi testado, com
-  reinstalação limpa e confirmação de que a config chegou ao bundle — o
-  Capacitor 6 **ignora-o** e a origem continua `capacitor://localhost`. Foi
-  revertido; não voltes a tentar.
+```
+_isInitialized=true
+onChange DISPAROU  user=null
+authStateReady RESOLVEU
+```
 
-O que resta é a origem: o Firebase Auth valida `http(s)` e `capacitor://` não é.
+E na app: o botão "Entrar" na barra, e o convite com as duas opções.
 
-**Portanto: o plugin nativo. O dono aprovou.** `@capacitor-firebase/authentication`
-é a recomendação; `signInWithRedirect` é a alternativa mais barata. **A escolha é
-tua** — o critério de feito é entrar com Google **e** com Apple no simulador.
+> **Isto ainda não é entrar** — é o que vinha antes. A sessão passa a poder
+> existir, o Firestore e o Storage ficam com token, e o `signInWithCredential` do
+> plugin tem onde assentar. **Sem isto**, o plugin entraria nativamente e o SDK
+> web ficaria sem saber de nada — e a camada de dados teria de migrar toda para
+> `@capacitor-firebase/firestore` e `/storage`. Já não precisa.
+
+**Também já foi fechada a porta ao atalho:** `iosScheme: "https"`, com a config
+confirmada dentro do bundle compilado e a app reinstalada de fresco — a origem
+continuou `capacitor://localhost`. O Capacitor 6 ignora-o sem dizer nada. Não
+voltes a tentar.
+
+### O que falta, e onde parou
+
+O `@capacitor-firebase/authentication@6.3.1` instala, compila, os pods entram —
+**e a app deixa de abrir**:
+
+```
+*** Terminating app due to uncaught exception 'com.firebase.core'
+    `FirebaseApp.configure()` could not find a valid GoogleService-Info.plist
+```
+
+Ecrã preto no arranque. O plugin chama `FirebaseApp.configure()` no `load()`, e
+sem o ficheiro isso é exceção não apanhada. **Foi desinstalado de propósito** —
+não se deixa o ramo com a app morta.
+
+**O desbloqueio é do dono e é consola:** registar a app iOS no Firebase e pôr o
+`GoogleService-Info.plist` na raiz do repositório. Ver o **passo 1.4b**. Esse
+mesmo registo é o que cria o OAuth client ID de iOS que o login com a Google usa.
+
+A canalização já está feita: o `scripts/ios-info.mjs` copia o `.plist` da raiz
+para `ios/App/App/` a cada `npm run sync`, e enquanto não existir avisa:
+
+```
+ios-info: sem GoogleService-Info.plist na raiz — o login nativo fica por ligar
+```
+
+**Assim que o `.plist` estiver na raiz:** `npm run sync`, reinstalar o plugin, e
+ligar o `signInWithCredential` ao Auth que agora inicializa.
 
 **Mantém a interface do bridge.** `window.FirebaseAuth` expõe `signIn`,
 `signInApple`, `signOut`, `onChange`, `getToken`, `current`, e o `js/auth.js` e o
-`js/app.js` só falam com ela. A troca pode ficar contida no `index.html`.
+`js/app.js` só falam com ela. A troca fica contida no `index.html`.
 
-E atenção ao nome vindo da Apple no caminho nativo — ver o ponto 4 da secção
+**Critério de feito:** entrar com Google **e** com Apple no simulador. A metade
+da Apple depende também do App ID com a capacidade ligada — mesmo turno de
+consolas.
+
+E atenção ao nome vindo da Apple no caminho nativo: ver o ponto 4 da secção
 final. O plugin devolve-o noutro sítio.
-
-**Se for preciso:** `@capacitor-firebase/authentication`, com login nativo para
-os dois providers e a web a continuar em popup. Alternativa mais barata:
-`signInWithRedirect`.
-
-Onde pendurar a bifurcação — já existe deteção de contexto:
-
-- `index.html:671` — põe `is-native` no `<html>` quando `Capacitor.isNativePlatform()`
-- `js/app.js:1904` — `matchMedia("(display-mode: standalone)")` para a PWA
-
-O bridge do Firebase está em `index.html`, à volta da linha 800: `window.FirebaseAuth`
-expõe `signIn`, `signInApple`, `signOut`, `onChange`, `getToken`, `current`.
-**Mantém esta interface** — `js/auth.js` e `js/app.js` só falam com ela, por isso
-a troca pode ficar contida no bridge sem tocar no resto da app.
-
-Atenção ao nome vindo da Apple: ver Anexo B. A lógica atual está no bridge
-(`guardarNomeDaApple`) e o caminho nativo precisa do equivalente — o plugin
-devolve o nome noutro sítio.
-
-**Prova:** no simulador, entrar com Google **e** com Apple, e em ambos os casos
-o nome aparecer no separador Perfil. Sem isto o Bloco 4 não vale a pena.
-
----
 
 ## Bloco 4 — Build e submissão · **humano decide, agente prepara**
 
@@ -442,6 +460,12 @@ Cinco coisas que só se souberam a correr a app, e que não estão em mais lado
 nenhum. As três primeiras poupam-te trabalho que já está feito.
 
 **1. O `/api/` já está resolvido no nativo — não lhe toques.**
+Verificado na camada de rede: preflight CORS das duas funções a partir de
+`capacitor://localhost`, ambas devolvem
+`access-control-allow-origin: capacitor://localhost`. **A prova de ponta a ponta
+fica atrás do login** — o "Pergunta-me" exige sessão, e tocar-lhe sem sessão só
+abre o convite. Não é por verificar: é verificado até onde dá sem conta.
+
 O `js/ai.js` e o `js/auth.js` devolviam `/api/ai` e `/api/conta` relativos, que
 em `capacitor://localhost` resolvem para o handler local de ficheiros e dão 404.
 O "Pergunta-me" e o apagar conta não podiam funcionar na app. Passou a absoluto
