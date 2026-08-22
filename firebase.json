@@ -31,7 +31,7 @@
       "scripts/**",
       "package.json",
       "package-lock.json",
-      "capacitor.config.json",
+      "capacitor.config.json", "GoogleService-Info.plist", "ios-info.json",
       "SETUP_IOS.md", "HANDOFF-IOS-AGENTE.md"
     ],
     "rewrites": [
