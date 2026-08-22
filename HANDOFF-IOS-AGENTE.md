@@ -155,6 +155,35 @@ Confirma também **Authentication → Settings → Authorized domains**: têm de
 estar `foodboxd.pt`, `app-restaurantes-499400.web.app`,
 `app-restaurantes-499400.firebaseapp.com` e `localhost`.
 
+### 1.4b App iOS no Firebase, e o `GoogleService-Info.plist`
+
+**Sem isto o login nativo não arranca**, e o modo de falha não é suave: o
+`@capacitor-firebase/authentication` chama `FirebaseApp.configure()` ao carregar,
+não encontra o ficheiro, levanta uma exceção não apanhada e a **app morre no
+arranque** — ecrã preto, antes de mostrar o que quer que seja. Medido: instalei
+o plugin, a app deixou de abrir, desinstalei-o e voltou.
+
+Firebase → **Definições do projeto → Os teus apps → Adicionar app → iOS**
+
+- Bundle ID: **`pt.foodboxd.app`** — o mesmo do `capacitor.config.json` e do
+  App ID da Apple, senão o ficheiro que sai não serve
+- Nome (App nickname): `Foodboxd iOS`
+- App Store ID: deixa vazio, ainda não existe
+- **Descarrega o `GoogleService-Info.plist`** e põe-no na **raiz do
+  repositório**, não dentro de `ios/`
+
+A raiz é de propósito: `ios/` é gerada e está no `.gitignore`, portanto o que lá
+estiver desaparece no clone seguinte. O `npm run sync` copia-o para
+`ios/App/App/` sozinho — e enquanto não existir, diz que não existe em vez de
+falhar em silêncio.
+
+> Sem sair da consola: o registo da app iOS também cria o **OAuth client ID de
+> iOS** que o login nativo com a Google usa. É por isso que este passo pertence
+> ao bloco das consolas e não ao trabalho do agente.
+
+**Prova:** `npm run sync` diz `GoogleService-Info.plist copiado para o projeto
+iOS`, e a app abre no simulador com o plugin instalado.
+
 ### 1.5 Referrer do Google Maps para a app nativa
 
 **Faz isto no mesmo turno que o resto, é consola.** A WKWebView do Capacitor

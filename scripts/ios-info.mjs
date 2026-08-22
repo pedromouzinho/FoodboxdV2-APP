@@ -59,3 +59,20 @@ for (const chave of chaves) {
 
 execFileSync("/usr/bin/plutil", ["-lint", PLIST], { stdio: "ignore" });
 console.log(`ios-info: ${escritas} textos de permissão escritos no Info.plist`);
+
+// GoogleService-Info.plist — pelo mesmo motivo dos textos: ios/ é gerada e não
+// vai para o git, portanto o ficheiro tem de viver na raiz e ser copiado a cada
+// sync, ou desaparece no clone seguinte.
+//
+// É o que falta para o @capacitor-firebase/authentication poder entrar: sem ele
+// o FirebaseApp.configure() do plugin levanta uma exceção não apanhada e a app
+// morre no arranque, antes de mostrar seja o que for. Descarrega-se da consola
+// do Firebase depois de registar lá uma app iOS — ver o bloco 1 do
+// HANDOFF-IOS-AGENTE.md.
+const GS = "GoogleService-Info.plist";
+if (existsSync(join(ROOT, GS))) {
+  execFileSync("/bin/cp", [join(ROOT, GS), join(ROOT, "ios/App/App", GS)]);
+  console.log(`ios-info: ${GS} copiado para o projeto iOS`);
+} else {
+  console.log(`ios-info: sem ${GS} na raiz — o login nativo fica por ligar (bloco 1 do handoff)`);
+}
