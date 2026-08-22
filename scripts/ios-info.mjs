@@ -107,28 +107,72 @@ function registarNoXcode() {
 }
 
 // O @capacitor-firebase/authentication instala por omissão o subspec `Lite`,
-// que traz o FirebaseAuth mas NÃO o GoogleSignIn. Com ele, o
+// que traz o FirebaseAuth mas NÃO o GoogleSignIn. Sem ele, o
 // signInWithGoogle() não rejeita nem resolve: fica pendurado para sempre, sem
-// erro e sem folha do sistema — o caminho nativo da Google simplesmente não
-// está compilado. Perdi um ciclo a olhar para uma promessa que nunca voltava.
+// erro e sem folha do sistema — o caminho nativo da Google não está compilado.
 //
-// O Podfile é gerado pelo `cap sync` a cada corrida, portanto a linha tem de
-// ser reescrita aqui de cada vez, e não uma vez à mão. Se mudar, corre-se o
-// `pod install` outra vez — só nesse caso, que demora.
+// A forma de o acrescentar importa, e custou três tentativas:
+//
+//   :subspecs => ['Google']            o pod deixa de registar
+//   :subspecs => ['Lite', 'Google']    idem
+//   duas linhas: raiz + '/Google'      funciona
+//
+// `:subspecs` SUBSTITUI a raiz em vez de a somar. Sem a raiz, o CocoaPods fica
+// sem source files para compilar e gera um PBXAggregateTarget — um target que
+// não compila nada e não produz produto. Daí não haver símbolo nenhum no
+// binário (`nm` a zero) nem entrada no OTHER_LDFLAGS, e o
+// Capacitor.Plugins.FirebaseAuthentication ficar undefined em runtime, sem um
+// único erro pelo caminho.
+//
+// Medido: com a raiz declarada e o '/Google' numa segunda linha, o target passa
+// a PBXNativeTarget do tipo framework e o pod aparece no OTHER_LDFLAGS.
+//
+// O Podfile é regenerado pelo `cap sync` a cada corrida, por isso isto tem de
+// ser reaplicado de cada vez, e não uma vez à mão. O `pod install` só corre
+// quando a linha muda, que é o passo lento.
 function subspecDaGoogle() {
   const podfile = join(ROOT, "ios/App/Podfile");
   const antes = readFileSync(podfile, "utf8");
-  const linha = /pod 'CapacitorFirebaseAuthentication', :path => '([^']+)'(?!, :subspecs)/;
-  if (!linha.test(antes)) return; // já tem subspecs, ou o plugin não está cá
-  const depois = antes.replace(linha,
-    "pod 'CapacitorFirebaseAuthentication', :path => '$1', :subspecs => ['Lite', 'Google']");
+  if (antes.includes("CapacitorFirebaseAuthentication/Google")) return; // já lá está
+  const caminho = antes.match(/pod 'CapacitorFirebaseAuthentication', :path => '([^']+)'/);
+  if (!caminho) return; // o plugin não está instalado
+
+  // A linha vai para o "# Add your Pods here", DENTRO do target e FORA do
+  // `def capacitor_pods`. O `cap sync` regenera esse def a cada corrida e
+  // apagaria a linha de lá; o corpo do target não lhe pertence e sobrevive.
+  const marca = "  # Add your Pods here";
+  if (!antes.includes(marca)) {
+    console.error("ios-info: o Podfile não tem a marca '# Add your Pods here' — o Capacitor mudou o template");
+    process.exit(1);
+  }
+  const depois = antes.replace(marca,
+    `  pod 'CapacitorFirebaseAuthentication/Google', :path => '${caminho[1]}'\n${marca}`);
   writeFileSync(podfile, depois);
+
   console.log("ios-info: Podfile com o subspec Google — a correr pod install");
-  execFileSync("/usr/bin/env", ["pod", "install"], {
+  // O LANG tem de ir explícito: com LANG vazio o CocoaPods rebenta com um erro
+  // de Unicode do Ruby, a meio, e a mensagem não diz nada sobre locale.
+  const cocoapods = (args) => execFileSync("/usr/bin/env", ["pod", ...args], {
     cwd: join(ROOT, "ios/App"),
-    stdio: "ignore",
+    encoding: "utf8",
     env: { ...process.env, LANG: "en_US.UTF-8", LC_ALL: "en_US.UTF-8" }
   });
+  try {
+    cocoapods(["install"]);
+  } catch (e) {
+    // Trazer o GoogleSignIn para um projeto que já resolveu sem ele pode
+    // colidir: o GTMSessionFetcher fica preso numa versão que o GoogleSignIn
+    // recusa. Num clone de raiz não acontece — o lock nasce já com os dois —
+    // mas a quem já tinha a pasta, acontece.
+    const saida = String((e && e.stdout) || "") + String((e && e.stderr) || "");
+    if (!/GTMSessionFetcher/.test(saida)) {
+      console.error("ios-info: o pod install falhou, e não foi o conflito conhecido:");
+      console.error(saida.split("\n").filter(Boolean).slice(-20).join("\n"));
+      process.exit(1);
+    }
+    console.log("ios-info: conflito de GTMSessionFetcher — a desprender a versão");
+    cocoapods(["update", "GTMSessionFetcher"]);
+  }
   console.log("ios-info: GoogleSignIn ligado");
 }
 
