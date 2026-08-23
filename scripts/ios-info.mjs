@@ -61,15 +61,6 @@ for (const chave of chaves) {
 execFileSync("/usr/bin/plutil", ["-lint", PLIST], { stdio: "ignore" });
 console.log(`ios-info: ${escritas} textos de permissão escritos no Info.plist`);
 
-// GoogleService-Info.plist — pelo mesmo motivo dos textos: ios/ é gerada e não
-// vai para o git, portanto o ficheiro tem de viver na raiz e ser copiado a cada
-// sync, ou desaparece no clone seguinte.
-//
-// É o que falta para o @capacitor-firebase/authentication poder entrar: sem ele
-// o FirebaseApp.configure() do plugin levanta uma exceção não apanhada e a app
-// morre no arranque, antes de mostrar seja o que for. Descarrega-se da consola
-// do Firebase depois de registar lá uma app iOS — ver o bloco 1 do
-// HANDOFF-IOS-AGENTE.md.
 entitlements();
 
 // Os entitlements vivem em ios-entitlements.plist, na raiz, pelo mesmo motivo
@@ -88,14 +79,35 @@ function entitlements() {
   const pbx = join(ROOT, "ios/App/App.xcodeproj/project.pbxproj");
   let t = readFileSync(pbx, "utf8");
   if (!t.includes("CODE_SIGN_ENTITLEMENTS")) {
-    t = t.replace(/(\n(\t+)INFOPLIST_FILE = App\/Info\.plist;)/g,
-      "$1\n$2CODE_SIGN_ENTITLEMENTS = App/App.entitlements;");
+    // Contar em vez de confiar. Se o template do Capacitor mudar — basta passar
+    // a `INFOPLIST_FILE = "App/Info.plist";`, com aspas — o replace acerta em
+    // zero, o ficheiro é escrito à mesma e o sucesso saía impresso na mesma. O
+    // login com a Google voltava a morrer com "keychain error", que é o sintoma
+    // mudo que já custou um bloco inteiro a diagnosticar.
+    const alvo = /(\n(\t+)INFOPLIST_FILE = App\/Info\.plist;)/g;
+    const encontradas = (t.match(alvo) || []).length;
+    if (!encontradas) {
+      console.error("ios-info: não encontrei nenhuma linha `INFOPLIST_FILE = App/Info.plist;`");
+      console.error("  o template do projeto mudou; sem CODE_SIGN_ENTITLEMENTS o login com a Google");
+      console.error("  falha com 'keychain error' e nada mais. Ver o Bloco 3 do HANDOFF-IOS-AGENTE.md.");
+      process.exit(1);
+    }
+    t = t.replace(alvo, "$1\n$2CODE_SIGN_ENTITLEMENTS = App/App.entitlements;");
     writeFileSync(pbx, t);
-    console.log("ios-info: CODE_SIGN_ENTITLEMENTS apontado no target da app");
+    console.log(`ios-info: CODE_SIGN_ENTITLEMENTS apontado em ${encontradas} configurações do target`);
   }
   console.log("ios-info: entitlements copiados");
 }
 
+// GoogleService-Info.plist — pelo mesmo motivo dos textos: ios/ é gerada e não
+// vai para o git, portanto o ficheiro tem de viver na raiz e ser copiado a cada
+// sync, ou desaparece no clone seguinte.
+//
+// É o que o @capacitor-firebase/authentication precisa para carregar: sem ele o
+// FirebaseApp.configure() do plugin levanta uma exceção não apanhada e a app
+// morre no arranque, antes de mostrar seja o que for. Descarrega-se da consola
+// do Firebase depois de registar lá uma app iOS — ver o bloco 1.4b do
+// HANDOFF-IOS-AGENTE.md.
 const GS = "GoogleService-Info.plist";
 if (existsSync(join(ROOT, GS))) {
   execFileSync("/bin/cp", [join(ROOT, GS), join(ROOT, "ios/App/App", GS)]);
@@ -124,10 +136,23 @@ function registarNoXcode() {
     `\t\t${BUILD} /* ${GS} in Resources */ = {isa = PBXBuildFile; fileRef = ${REF} /* ${GS} */; };\n/* End PBXBuildFile section */`);
   t = t.replace("/* End PBXFileReference section */",
     `\t\t${REF} /* ${GS} */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "${GS}"; sourceTree = "<group>"; };\n/* End PBXFileReference section */`);
-  t = t.replace(/(\t\t\t\t504EC3131FED79650016851F \/\* Info\.plist \*\/,\n)/,
-    `$1\t\t\t\t${REF} /* ${GS} */,\n`);
-  t = t.replace(/(\t\t\t\t504EC30F1FED79650016851F \/\* Assets\.xcassets in Resources \*\/,\n)/,
-    `$1\t\t\t\t${BUILD} /* ${GS} in Resources */,\n`);
+  // Estas duas âncoras são ids fixos do template do Capacitor. Se ele os
+  // mudar, o replace acerta em zero e o ficheiro fica escrito na mesma: o
+  // .plist não entraria no bundle, o FirebaseApp.configure() não o encontraria,
+  // e a app morreria no arranque com ecrã preto. Contar em vez de confiar.
+  const ancoras = [
+    [/(\t+504EC3131FED79650016851F \/\* Info\.plist \*\/,\n)/, `$1\t\t\t\t${REF} /* ${GS} */,\n`, "grupo App"],
+    [/(\t+504EC30F1FED79650016851F \/\* Assets\.xcassets in Resources \*\/,\n)/, `$1\t\t\t\t${BUILD} /* ${GS} in Resources */,\n`, "fase Resources"],
+  ];
+  for (const [alvo, subst, onde] of ancoras) {
+    if (!alvo.test(t)) {
+      console.error(`ios-info: não encontrei a âncora do ${onde} no project.pbxproj`);
+      console.error(`  o template do Capacitor mudou; sem isto o ${GS} não entra no bundle`);
+      console.error("  e a app morre no arranque. Ver o Bloco 3 do HANDOFF-IOS-AGENTE.md.");
+      process.exit(1);
+    }
+    t = t.replace(alvo, subst);
+  }
   writeFileSync(pbx, t);
   console.log(`ios-info: ${GS} registado nos recursos do Xcode`);
 }

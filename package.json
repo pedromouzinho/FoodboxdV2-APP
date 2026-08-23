@@ -19,7 +19,7 @@
     "test:taste": "node scripts/test-taste.mjs",
     "test:apagar": "node scripts/test-apagar.mjs",
     "ios:info": "node scripts/ios-info.mjs",
-    "ios:build": "npm run sync && xcodebuild -workspace ios/App/App.xcworkspace -scheme App -sdk iphonesimulator -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17 Pro' CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=- build"
+    "ios:build": "npm run sync && xcodebuild -workspace ios/App/App.xcworkspace -scheme App -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=- build"
   },
   "dependencies": {
     "@capacitor-firebase/authentication": "^6.3.1",

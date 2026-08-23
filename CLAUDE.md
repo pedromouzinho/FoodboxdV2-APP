@@ -99,6 +99,20 @@ em vez de os afirmar: sai com 0 mesmo quando o enquadramento está errado. Ao
 mexer nele, compara os números — `fitBounds: 1`, zoom travado em 14,
 `resetView` em 9 — e não o código de saída.
 
+**E a sexta é a pior de todas, porque a ferramenta não se cala: responde ao
+contrário.** O `codesign -d --entitlements` mostra um dict **vazio** numa app de
+simulador sem equipa de desenvolvimento, mesmo quando os entitlements estão a
+funcionar — o Xcode não os embute na assinatura, mas o simulador aplica-os à
+mesma. Quem acredita no comando conclui o oposto da verdade e vai desfazer o que
+estava certo. A prova a sério está no log do `securityd`:
+
+```
+inserted <genp,acct=OAuth,svce=auth,agrp=pt.foodboxd.app,...>
+```
+
+A regra que sai daqui vale para além do `codesign`: **antes de concluir a partir
+de uma ferramenta, pergunta se ela sabe responder à pergunta que lhe fizeste.**
+
 ## Onde está o resto
 
 | Ficheiro | O que é |

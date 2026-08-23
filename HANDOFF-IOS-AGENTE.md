@@ -26,17 +26,17 @@ falhado que passa despercebido custa mais adiante do que custa aqui.
 | Bundle ID | `pt.foodboxd.app` (em `capacitor.config.json`) |
 | Publicar | GitHub Actions → **Deploy (produção)**, ou pela API do GitHub |
 
-**Blocos 0, 1 e 2: feitos.** O 3 está a um passo humano do fim; falta o 4.
+**Blocos 0, 1 e 2: feitos.** Do 3 falta a metade da Apple; falta o 4.
 
 **Em produção:** apagar conta (5.1.1v), **Sign in with Apple**, a marca nova em
 toda a app, favicon, haptics, barra de estado, splash, a chave da Anthropic no
 Secret Manager, a rede de segurança do arranque (a app já não precisa do Google
 Maps para arrancar), e o `/api/` absoluto no nativo.
 
-**Por fazer:** do Bloco 3 falta só entrar com a Apple, e o que falta é o
-simulador ter um Apple ID em Definições — o login com a Google já funciona de
-ponta a ponta (ver lá) — e o Bloco 4. Os `UsageDescription` estão feitos (`7daabcd`): vivem em
-`ios-info.json` e o `scripts/ios-info.mjs` escreve-os a cada sync.
+**Por fazer:** ver a tabela **"O que falta, por ordem"**, no fim — é o estado, e
+é lá que se atualiza. Em resumo: o login com a Google funciona de ponta a ponta
+na app nativa; a metade da Apple está por medir e precisa primeiro de um Apple ID
+nas Definições do simulador.
 
 > **Lê a secção "O que esta sessão apurou"**, no fim deste documento, antes de
 > começares. Tem cinco coisas que só se souberam a correr a app, e três delas
@@ -651,27 +651,46 @@ continua a suspender.
 
 ## O que falta, por ordem
 
-1. **O plugin nativo** (Bloco 3). Aprovado pelo dono. É o que desbloqueia tudo o
-   resto: sem login não há sessão, e sem sessão não se testa nada que dependa de
-   conta.
-2. ~~Os `UsageDescription` a partir de fonte versionada.~~ **Feito** em
-   `7daabcd`: `scripts/ios-info.mjs` escreve-os no `Info.plist` a partir de fonte
-   versionada, e o `ios/` pode continuar no `.gitignore` sem se perder material
-   de App Review.
-3. **Registar visita com foto, e apagar conta** — com uma conta acabada de
-   criar, sem amigos e sem grupos (ver Bloco 4.2). Depende do ponto 1.
-4. **Bloco 4** — assinatura, build, etiquetas de privacidade, submissão.
+**Esta tabela é o estado.** Ao fechares um passo, atualiza-a no mesmo commit —
+quem chegar a seguir lê o repositório, não o chat.
 
-**Fora do iOS, por decidir com o dono:** a procura numa porta só, o ecrã de
-entrada, e o perfil público. Estão analisados; falta a decisão.
+| # | O quê | De quem | Estado |
+| --- | --- | --- | --- |
+| — | Os `UsageDescription` a partir de fonte versionada | agente | ✅ `7daabcd` |
+| — | O plugin nativo a ligar, e entrar com **Google** | agente | ✅ `f202bbc` |
+| — | Guardas nos `replace` do `pbxproj`, destino genérico no build | agente | ✅ |
+| 1 | **Apple ID nas Definições do simulador** | dono | por fazer |
+| 2 | **Medir a ponte da Apple**: `rawNonce`, `signInWithCredential`, `displayName` | agente | por fazer |
+| 3 | `appleid.apple.com` → *parar de usar*, para recuperar o nome real | dono | opcional |
+| 4 | Xcode: equipa + capacidade *Sign in with Apple* (4.1) | dono | por fazer |
+| 5 | Registar visita com foto, "Pergunta-me", apagar conta (4.2) | agente | por fazer |
+| 6 | Etiquetas de privacidade (4.3) | agente prepara, dono submete | por fazer |
+| 7 | Conta de teste com dados + nota ao revisor (4.4) | dono | por fazer |
+| 8 | A procura numa porta, o ecrã de entrada, o perfil público | decisão do dono | por decidir |
+
+**No 4:** com o `applesignin` já no `ios-entitlements.plist`, a assinatura
+automática costuma registar a capacidade sozinha ao escolher a equipa — e o 4.1
+fica feito de graça. Se em vez disso o build falhar com *"provisioning profile
+doesn't include the com.apple.developer.applesignin entitlement"*, é isso e não
+o código: a capacidade tem de ser ligada no portal.
+
+**No 5:** o apagar conta é o único passo destrutivo do plano todo, e corre
+contra a base de dados real, onde estão oito pessoas. Não se limita à conta —
+apaga arestas de `follows` e mexe em grupos. **Conta acabada de criar, sem
+amigos e sem grupos**, ou o emulador (`npm run emu:start`, `npm run emu:seed`).
 
 ---
 
 ## O que este documento não sabe
 
-- **Se o Bloco 3 resolve mesmo o login na WKWebView.** A recomendação vem da
-  documentação e do que estava escrito no `SETUP_IOS.md`; não foi corrida em iOS
-  por ninguém. Se o plugin não servir, o plano seguinte é `signInWithRedirect`.
+- ~~Se o Bloco 3 resolve mesmo o login na WKWebView.~~ **Resolvido.** O plugin
+  serve, e o `signInWithRedirect` está fechado (precisa do resolver que teve de
+  sair para o Auth inicializar). Falta só medir a metade da Apple.
+- **Se a ponte da Apple funciona.** É código diferente do da Google e **nunca
+  correu**. O `rawNonce` é onde isto costuma partir: se o plugin devolver o nonce
+  já em SHA256, o Firebase recusa com `auth/invalid-credential`. E o
+  `r.user.displayName`, o único sítio de onde o nome se salva no caminho nativo,
+  também nunca correu — e a Apple não o volta a dar.
 - **Se a Apple aceita o domínio do Firebase sem verificação** (ver Anexo A).
 - **Quanto tempo demora a App Review** nem o que ela vai levantar.
 
