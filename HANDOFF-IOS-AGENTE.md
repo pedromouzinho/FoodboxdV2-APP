@@ -511,15 +511,47 @@ O par que interessa é o último: o `providerData[apple.com].displayName` está 
 por `updateProfile`. **Logo, algum código guardou o nome**, e a conta não estava
 assim a 21 de agosto, quando o Perfil mostrava "Amigo".
 
-**O que isto ainda não diz:** qual dos dois caminhos o guardou — o
-`guardarNomeDaApple` da web ou o `updateProfile` do nativo. Os dois só correm
-numa autorização em que a Apple mande o nome, e a Apple só o manda na primeira
-depois de um *parar de usar*. Quem souber se esse passo foi dado, e por onde
-entrou a seguir, fecha isto sem gastar passagem nenhuma.
+**O dono confirmou que NÃO fez o *parar de usar*.** Isso põe de pé a única
+explicação que resta: a Apple mandou o nome numa autorização posterior à de 21 de
+agosto, e um dos dois caminhos guardou-o. O mais provável é o nativo, na primeira
+vez que correu — e isso descobriu o defeito abaixo.
 
-> **Antes de fazer o *parar de usar*, confirma se ele já foi feito.** Se já foi,
-> a captura já correu e está provada — gastar a passagem outra vez não acrescenta
-> nada e arrisca perder o nome se algo entretanto mudar.
+### O "Amigo" era a interface a mentir, não a captura a falhar
+
+O Perfil mostrou "Amigo" logo a seguir a um login com a Apple em que o nome foi
+guardado na conta. As duas coisas são verdade ao mesmo tempo, por causa de uma
+corrida:
+
+```
+signInWithCredential resolve
+  -> onAuthStateChanged dispara JÁ, com displayName ainda a null
+  -> a interface desenha "Amigo"
+  -> só DEPOIS corre o updateProfile
+```
+
+E o `onAuthStateChanged` **não volta a disparar** quando só o perfil muda — ele
+avisa mudanças de SESSÃO, não de perfil. Resultado: o nome fica certo na conta e
+errado no ecrã **até ao arranque seguinte**.
+
+Não é só do nativo. O caminho da web tem a mesma corrida —
+`signInWithPopup(...).then(guardarNomeDaApple)` — e **esse está em produção**:
+quem entrar com a Apple pela primeira vez em `foodboxd.pt` vê "Amigo" até
+recarregar, mesmo tendo o nome guardado.
+
+**Corrigido na ponte, que serve os dois.** O `onChange` passa a guardar os
+ouvintes, e o `nomeGuardado()` faz `updateProfile` → `user.reload()` → volta a
+avisá-los. Medido no simulador:
+
+```
+ouvintes registados na ponte: 2
+o ouvinte de teste disparou? SIM
+```
+
+> **O que continua por exercitar** é a captura em si numa primeira autorização,
+> com nome à frente. O caminho está lido no código do plugin e a re-emissão está
+> medida, mas nunca correu de ponta a ponta com a Apple a mandar um nome. Se
+> alguém fizer o *parar de usar*, faça-o com a instrumentação ligada — é a única
+> passagem.
 
 **Nota de produto, não defeito:** entrar com a Apple e entrar com a Google dão
 **duas contas Firebase diferentes**, com uid e dados separados. Ver a secção
