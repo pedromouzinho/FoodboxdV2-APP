@@ -33,9 +33,9 @@ toda a app, favicon, haptics, barra de estado, splash, a chave da Anthropic no
 Secret Manager, a rede de segurança do arranque (a app já não precisa do Google
 Maps para arrancar), e o `/api/` absoluto no nativo.
 
-**Por fazer:** o Bloco 3 está a um passo humano do fim — o pod já liga e o login
-nativo chega ao ecrã da Google a pedir a passkey; falta alguém autenticar-se (ver
-lá) — e o Bloco 4. Os `UsageDescription` estão feitos (`7daabcd`): vivem em
+**Por fazer:** do Bloco 3 falta só entrar com a Apple, e o que falta é o
+simulador ter um Apple ID em Definições — o login com a Google já funciona de
+ponta a ponta (ver lá) — e o Bloco 4. Os `UsageDescription` estão feitos (`7daabcd`): vivem em
 `ios-info.json` e o `scripts/ios-info.mjs` escreve-os a cada sync.
 
 > **Lê a secção "O que esta sessão apurou"**, no fim deste documento, antes de
@@ -413,20 +413,65 @@ existir, prende o `GTMSessionFetcher` em 4.5.0, e o `GoogleSignIn` 7.1.0 recusa.
 O script apanha o conflito pelo nome e corre `pod update GTMSessionFetcher`, que
 resolve para 3.5.0.
 
+### Causa 3 — o `keychain error`, o mais mudo dos três
+
+Com tudo o resto ligado, a folha da Google abria, a pessoa autenticava-se, a
+folha fechava — **e a app não mudava de estado**. O que chegava ao JS era:
+
+```
+FALHOU: code=undefined msg=keychain error
+```
+
+Nada sobre entitlements. O GoogleSignIn guarda o token no keychain, e sem grupo
+de acesso o `SecItemAdd` não passa. A app compilava **sem entitlements nenhuns**:
+não há identidade de assinatura na máquina (`security find-identity` → *0 valid
+identities*) e o `cap add ios` gera o projeto sem `CODE_SIGN_ENTITLEMENTS`.
+
+Ficam em `ios-entitlements.plist`, na raiz, e o `ios-info.mjs` copia-os e aponta
+lá a definição. O `$(AppIdentifierPrefix)` serve os dois mundos: com equipa
+resolve para `TEAMID.pt.foodboxd.app`, que é o que o build assinado exige; sem
+equipa fica vazio e dá `pt.foodboxd.app`, que é o que o simulador aceita.
+
+> ⚠️ **Duas armadilhas aqui, ambas custaram tempo.**
+>
+> `codesign -d --entitlements` mostra um **dict vazio** nesta app, mesmo quando
+> os entitlements estão a funcionar. Num build de simulador sem equipa o Xcode
+> não os embute na assinatura, mas o simulador aplica-os à mesma. Não acredites
+> nesse comando — confirma no log do `securityd`, que mostra
+> `inserted <genp,acct=OAuth,svce=auth,agrp=pt.foodboxd.app,...>`.
+>
+> A definição `CODE_SIGN_ENTITLEMENTS` tem de ir **só nas configurações do
+> target da app**. Passá-la na linha de comandos aplica-a também aos Pods, e aí
+> o caminho relativo não resolve: o build rebenta com *"Build input file cannot
+> be found"* em cada pod.
+
 ### Onde o login está agora, medido no simulador
 
+**Google: ✅ FEITO.** Com a `ios/` apagada e regenerada do zero, `npm run sync`,
+build e instalação limpos:
+
 ```
-toque em "Iniciar sessão com a Google"
-  -> consentimento do sistema: "App" Wants to Use "accounts.google.com"
-  -> accounts.google.com abre, reconhece a app e a conta, pede a passkey
+plugin devolveu: idToken len=1233 · accessToken len=253
+onChange -> SESSAO <conta>@gmail.com
+signInWithCredential OK -> uid=...
 ```
 
-Client ID válido, URL scheme correto, `ASWebAuthenticationSession` a abrir, e a
-Google a aceitar a app. **Falta o passo que é do dono e só dele: autenticar-se.**
-Um agente não entra com credenciais de ninguém.
+E no ecrã: o avatar na barra, o Perfil com nome e foto reais, 13 restaurantes,
+17 pratos, 8 amigos, os sítios visitados preenchidos no mapa. Dados do Firestore
+real, autenticados.
 
-Para fechar, no simulador: **Entrar → Iniciar sessão com a Google → Continue →
-completar a passkey**. Depois confirma que o nome aparece no separador Perfil.
+**Apple: falta só o simulador ter conta.** O botão apresenta o
+`ASAuthorizationController` nativo e o sistema responde:
+
+> *Sign in to your Apple Account — You need to sign in to your Apple Account in
+> Settings.*
+
+Ou seja: o plugin, o entitlement e a ponte estão certos — o simulador é que não
+tem Apple ID. **Definições do simulador → iniciar sessão com um Apple ID**, e
+depois repetir. É passo de quem tem a conta; um agente não entra com credenciais
+de ninguém.
+
+Para compilar com as flags certas sem as ter de lembrar: `npm run ios:build`.
 
 **Uma porta que já está fechada, e convém saber porquê:** o `signInWithRedirect`
 parecia a alternativa barata ao plugin. Não é — precisa do resolver de
@@ -434,9 +479,9 @@ popup/redirect, que é exatamente o que teve de sair para o Auth inicializar (ve
 acima). Tirar o resolver e usar redirect são coisas incompatíveis. **O plugin é o
 caminho.**
 
-**O critério ainda não está cumprido:** não se entrou com Google nem com Apple.
-O que está provado é tudo o que vem antes, até ao ecrã da Google a pedir a
-passkey. O último passo é humano por definição.
+**Critério: metade cumprida.** Entrou-se com Google no simulador, com sessão
+real e dados reais. A Apple falta só porque o simulador não tem Apple ID — não
+por código.
 
 **Nota para a Apple**, quando o resto destrancar: além disto, precisa da
 capacidade *Sign in with Apple* ligada **no target do Xcode**, e isso exige a
