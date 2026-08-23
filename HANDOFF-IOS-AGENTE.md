@@ -488,19 +488,42 @@ Três coisas que isto fecha:
 > Ou seja: `r.user.displayName` **é** o sítio certo a ler no caminho nativo. Eu
 > cheguei a escrever que era código morto; não é.
 
-**O que continua por exercitar:** a captura do nome numa **primeira**
-autorização. Nesta medição a Apple não mandou nome nenhum — a conta já existia —
-por isso o caminho `r.user.displayName -> updateProfile` está verificado contra o
-código do plugin, mas **nunca correu com nome à frente**. A única forma de o
-exercitar é `appleid.apple.com → Iniciar sessão com a Apple → Foodboxd → parar de
-usar`, e entrar outra vez. **Só há uma passagem:** se o código estiver errado, o
-nome queima-se e não volta.
+### A conta da Apple, lida da própria app
+
+Não é preciso ir à consola para saber com que conta se está: o objeto do
+utilizador do Firebase traz tudo. Medido com a sessão da Apple aberta:
+
+```
+uid            iPxT5Ywxd7QMGbAvQajbadxWYcg2
+displayName    "Pedro Mouzinho"
+email          …@privaterelay.appleid.com
+emailVerified  true
+criada em      Fri, 21 Aug 2026 10:15:22 GMT
+providers      apple.com
+  [apple.com]  nome=null
+```
+
+**É a mesma conta criada a 21 de agosto**, com *Ocultar o meu email* ligado.
+
+O par que interessa é o último: o `providerData[apple.com].displayName` está a
+**`null`** — a Apple nunca preencheu o nome no registo do provider — mas o
+`user.displayName` de topo tem o nome certo. Em Firebase o de topo só lá chega
+por `updateProfile`. **Logo, algum código guardou o nome**, e a conta não estava
+assim a 21 de agosto, quando o Perfil mostrava "Amigo".
+
+**O que isto ainda não diz:** qual dos dois caminhos o guardou — o
+`guardarNomeDaApple` da web ou o `updateProfile` do nativo. Os dois só correm
+numa autorização em que a Apple mande o nome, e a Apple só o manda na primeira
+depois de um *parar de usar*. Quem souber se esse passo foi dado, e por onde
+entrou a seguir, fecha isto sem gastar passagem nenhuma.
+
+> **Antes de fazer o *parar de usar*, confirma se ele já foi feito.** Se já foi,
+> a captura já correu e está provada — gastar a passagem outra vez não acrescenta
+> nada e arrisca perder o nome se algo entretanto mudar.
 
 **Nota de produto, não defeito:** entrar com a Apple e entrar com a Google dão
-**duas contas Firebase diferentes**, com uid e dados separados — a da Apple está
-a 0 restaurantes / 0 pratos / 0 amigos. É o comportamento normal sem account
-linking. Se a mesma pessoa deve ver o mesmo diário venha por onde vier, isso é
-decisão do dono e trabalho a mais.
+**duas contas Firebase diferentes**, com uid e dados separados. Ver a secção
+seguinte — isto não é trabalho futuro, já está publicado.
 
 Para compilar com as flags certas sem as ter de lembrar: `npm run ios:build`.
 
@@ -697,8 +720,40 @@ quem chegar a seguir lê o repositório, não o chat.
 | 3 | Registar visita com foto, "Pergunta-me", apagar conta (4.2) | agente | por fazer |
 | 4 | Etiquetas de privacidade (4.3) | agente prepara, dono submete | por fazer |
 | 5 | Conta de teste com dados + nota ao revisor (4.4) | dono | por fazer |
-| 6 | Ligar as contas Apple e Google, se a mesma pessoa deve ver o mesmo diário | decisão do dono | por decidir |
+| — | ⚠️ **Contas Apple e Google separadas — já em produção** | dono decide o quê, agente executa | ver abaixo |
 | 7 | A procura numa porta, o ecrã de entrada, o perfil público | decisão do dono | por decidir |
+
+### ⚠️ Duas contas para a mesma pessoa — e já está no ar
+
+**Isto não é uma funcionalidade a mais, é um incidente de suporte à espera de
+acontecer.** O Sign in with Apple está em produção no `foodboxd.pt` desde o v83,
+com oito pessoas lá dentro. Quem entrou com a Google e um dia toque no botão da
+Apple vê **0 restaurantes, 0 pratos, 0 amigos** — e a conclusão natural é que
+perdeu tudo.
+
+E não há rede de segurança nenhuma, o que está medido:
+
+```
+conta Google   pedromouzinho812@gmail.com    uid OW3B2oJHk…
+conta Apple    …@privaterelay.appleid.com    uid iPxT5Ywxd…   providers: apple.com
+```
+
+Com *Ocultar o meu email* ligado — que é o que está — a Apple devolve um
+`@privaterelay.appleid.com`. É um **email diferente** do da Google, portanto a
+proteção *one account per email address* do Firebase **nunca as pode juntar**:
+para ele são duas pessoas. Não há colisão para detetar.
+
+Não é defeito de código e não bloqueia a submissão. Mas está publicado, e a
+decisão do que fazer é do dono:
+
+- **ligar as contas** (`linkWithCredential`), que junta os diários mas obriga a
+  pensar no caso de já existirem dados dos dois lados;
+- **ou avisar antes de entrar**, dizendo que a conta é por método de entrada;
+- **ou não fazer nada**, sabendo que é isto que acontece.
+
+Qualquer das três é trabalho meu; a escolha é tua.
+
+---
 
 **No 1:** é a única passagem que existe. A Apple só manda o nome na **primeira**
 autorização, e o `parar de usar` é o que faz a próxima contar como primeira. Se o
