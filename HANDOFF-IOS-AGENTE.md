@@ -538,13 +538,26 @@ Não é só do nativo. O caminho da web tem a mesma corrida —
 quem entrar com a Apple pela primeira vez em `foodboxd.pt` vê "Amigo" até
 recarregar, mesmo tendo o nome guardado.
 
-**Corrigido na ponte, que serve os dois.** O `onChange` passa a guardar os
-ouvintes, e o `nomeGuardado()` faz `updateProfile` → `user.reload()` → volta a
-avisá-los. Medido no simulador:
+**Corrigido na ponte, que serve os dois**, com um canal **separado**:
+`onProfileChange`. O `nomeGuardado()` faz `updateProfile` → `user.reload()` →
+avisa **só** esse canal, e o `js/auth.js` regista lá o `renderUI` e mais nada.
+
+> ⚠️ **A separação não é arrumação, é o que impede um estrago.** A primeira
+> versão desta correção reavisava os ouvintes do `onChange` — e esse ouvinte não
+> desenha só, corre o `onAuthChange` inteiro. O `onAuthChange` faz
+> `await UserData.setUser(...)` e, a seguir, `startOnboarding()` se a conta não
+> estiver marcada. Com o primeiro ainda pendurado no await, as duas passagens
+> viam `isOnboarded()` falso — a marca só se escreve depois do `setUser` — e **o
+> onboarding arrancava duas vezes**. Precisamente na primeira autorização da
+> Apple, que é a única que existe, e a única onde a primeira impressão conta.
+
+Medido no simulador:
 
 ```
-ouvintes registados na ponte: 2
-o ouvinte de teste disparou? SIM
+ouvintes de perfil: 2  (a app + o de teste)
+disparou o desenho?      SIM
+disparou o onAuthChange? NAO (bom)
+cancelar remove mesmo?   SIM (2 -> 1)
 ```
 
 > **O que continua por exercitar** é a captura em si numa primeira autorização,

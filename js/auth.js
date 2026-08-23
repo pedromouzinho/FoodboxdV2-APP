@@ -42,6 +42,12 @@ const AuthModule = (() => {
       renderUI(user);
       if (onUser) onUser(user, fb.getToken);
     });
+    // Só o desenho. Quando o nome da Apple é guardado depois de a sessão já
+    // existir, é isto que faz o chip e o Perfil deixarem de mostrar "Amigo" sem
+    // esperar pelo arranque seguinte. De propósito NÃO chama o `onUser`: esse é
+    // o `onAuthChange` inteiro, e corrê-lo outra vez com o primeiro ainda a meio
+    // arrancava o onboarding duas vezes numa conta acabada de criar.
+    if (fb.onProfileChange) fb.onProfileChange(renderUI);
   }
 
   function signIn() {

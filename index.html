@@ -970,16 +970,27 @@
         // Não há import do plugin: a app é vanilla, sem bundler. O Capacitor
         // pendura os plugins nativos em `window.Capacitor.Plugins`, tal como já
         // acontece com o StatusBar e o Haptics.
-        // Ver a nota no `onChange`: o Firebase não avisa ninguém quando só o
-        // perfil muda, por isso guarda-se a lista e volta-se a chamá-la à mão.
-        const ouvintes = [];
+        // Canal SÓ para mudanças de perfil, separado do `onChange`.
+        //
+        // A separação não é arrumação: é o que impede um estrago. O ouvinte do
+        // `onChange` (js/auth.js) não desenha só — corre o `onAuthChange`
+        // inteiro, que faz `await UserData.setUser(...)` e, a seguir, chama o
+        // `startOnboarding()` se a conta ainda não estiver marcada. Se o aviso
+        // de perfil passasse por aí, corria tudo outra vez com o primeiro ainda
+        // pendurado no await: as duas passagens viam `isOnboarded()` falso — a
+        // marca só se escreve depois do `setUser` — e o onboarding arrancava
+        // duas vezes. Precisamente na primeira autorização da Apple, que é a
+        // única que existe, e a única onde a primeira impressão conta.
+        const perfilOuvintes = [];
         async function nomeGuardado(user, nome) {
           if (!nome || !user || user.displayName === nome) return;
           await updateProfile(user, { displayName: nome });
           // reload() para o objeto em memória passar a ter o nome novo; sem ele
           // os ouvintes voltavam a ver o displayName antigo.
           try { await user.reload(); } catch (e) {}
-          ouvintes.forEach(function (cb) { try { cb(auth.currentUser); } catch (e) {} });
+          perfilOuvintes.slice().forEach(function (cb) {
+            try { cb(auth.currentUser); } catch (e) {}
+          });
         }
 
         function pluginAuth() {
@@ -1035,19 +1046,29 @@
             const nativo = P ? P.signOut().catch(function () {}) : Promise.resolve();
             return nativo.then(function () { return signOut(auth); });
           },
-          // Os ouvintes ficam guardados para se poder voltar a avisá-los quando
-          // o PERFIL muda — o `onAuthStateChanged` só dispara quando a SESSÃO
-          // muda, e não quando se escreve um nome numa sessão que já existe.
+          onChange: function (cb) { return onAuthStateChanged(auth, cb); },
+
+          // Mudanças de PERFIL, que o `onAuthStateChanged` não avisa — ele
+          // dispara quando a SESSÃO muda, e escrever um nome numa sessão que já
+          // existe não é isso.
           //
-          // Sem isto havia uma corrida com um sintoma mau: no login com a Apple,
-          // o `signInWithCredential` resolve, o onAuthStateChanged dispara já com
-          // `displayName` a null, a interface desenha "Amigo" — e só depois é que
-          // o `updateProfile` guarda o nome. O nome ficava certo na conta e
-          // errado no ecrã até ao arranque seguinte. Vale para os dois caminhos:
-          // o nativo e o `signInWithPopup(...).then(guardarNomeDaApple)` da web.
-          onChange: function (cb) {
-            ouvintes.push(cb);
-            return onAuthStateChanged(auth, cb);
+          // Sem este canal havia uma corrida com um sintoma mau: no login com a
+          // Apple, o `signInWithCredential` resolve, o onAuthStateChanged dispara
+          // já com `displayName` a null, a interface desenha "Amigo" — e só
+          // depois é que o `updateProfile` guarda o nome. O nome ficava certo na
+          // conta e errado no ecrã até ao arranque seguinte. Vale para os dois
+          // caminhos: o nativo e o `signInWithPopup(...).then(guardarNomeDaApple)`
+          // da web, que está em produção.
+          //
+          // Devolve como se cancela, e o cancelar remove mesmo — senão o array
+          // só crescia e quem cancelasse deixava de receber do Firebase e
+          // continuava a receber daqui.
+          onProfileChange: function (cb) {
+            perfilOuvintes.push(cb);
+            return function () {
+              const i = perfilOuvintes.indexOf(cb);
+              if (i >= 0) perfilOuvintes.splice(i, 1);
+            };
           },
           getToken: function () { return auth.currentUser ? auth.currentUser.getIdToken() : Promise.resolve(null); },
           current: function () { return auth.currentUser; }
