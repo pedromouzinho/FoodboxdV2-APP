@@ -26,7 +26,7 @@ falhado que passa despercebido custa mais adiante do que custa aqui.
 | Bundle ID | `pt.foodboxd.app` (em `capacitor.config.json`) |
 | Publicar | GitHub Actions → **Deploy (produção)**, ou pela API do GitHub |
 
-**Blocos 0, 1 e 2: feitos.** Do 3 falta a metade da Apple; falta o 4.
+**Blocos 0, 1, 2 e 3: feitos.** Falta o 4.
 
 **Em produção:** apagar conta (5.1.1v), **Sign in with Apple**, a marca nova em
 toda a app, favicon, haptics, barra de estado, splash, a chave da Anthropic no
@@ -34,9 +34,8 @@ Secret Manager, a rede de segurança do arranque (a app já não precisa do Goog
 Maps para arrancar), e o `/api/` absoluto no nativo.
 
 **Por fazer:** ver a tabela **"O que falta, por ordem"**, no fim — é o estado, e
-é lá que se atualiza. Em resumo: o login com a Google funciona de ponta a ponta
-na app nativa; a metade da Apple está por medir e precisa primeiro de um Apple ID
-nas Definições do simulador.
+é lá que se atualiza. Em resumo: o login nativo funciona com a **Google e com a
+Apple**, com sessão real e nome certo no Perfil. Falta o Bloco 4.
 
 > **Lê a secção "O que esta sessão apurou"**, no fim deste documento, antes de
 > começares. Tem cinco coisas que só se souberam a correr a app, e três delas
@@ -460,16 +459,48 @@ E no ecrã: o avatar na barra, o Perfil com nome e foto reais, 13 restaurantes,
 17 pratos, 8 amigos, os sítios visitados preenchidos no mapa. Dados do Firestore
 real, autenticados.
 
-**Apple: falta só o simulador ter conta.** O botão apresenta o
-`ASAuthorizationController` nativo e o sistema responde:
+**Apple: ✅ FEITO.** Com um Apple ID nas Definições do simulador, o login passa e
+o Perfil mostra o nome certo — não o "Amigo" do fallback.
 
-> *Sign in to your Apple Account — You need to sign in to your Apple Account in
-> Settings.*
+O que o plugin devolve, medido (sem valores de token):
 
-Ou seja: o plugin, o entitlement e a ponte estão certos — o simulador é que não
-tem Apple ID. **Definições do simulador → iniciar sessão com um Apple ID**, e
-depois repetir. É passo de quem tem a conta; um agente não entra com credenciais
-de ninguém.
+```
+raiz: credential,additionalUserInfo,user
+user: (null)
+credential: nonce,idToken,providerId,authorizationCode
+  idToken=str(914)  nonce=str(32)  accessToken=undefined
+signInWithCredential OK -> uid=iPxT5...  displayName="Pedro Mouzinho"
+```
+
+Três coisas que isto fecha:
+
+- **O `rawNonce` não parte.** O plugin devolve o nonce em claro, 32 caracteres, e
+  o Firebase aceita-o. Era o sítio onde isto costuma dar `auth/invalid-credential`.
+- **O `signInWithCredential` funciona** com a credencial da Apple, tal como com a
+  da Google.
+- **O `accessToken` vem `undefined`** — a Apple não devolve um neste fluxo, e não
+  faz falta. Só o caminho da Google o usa.
+
+> ⚠️ **O `user: (null)` não é defeito, e enganou-me à primeira.** Com
+> `skipNativeAuth: true` o plugin devolve `user` **nulo quando a Apple não manda
+> nome**, e `{ displayName: "..." }` quando manda — está em
+> `FirebaseAuthenticationHelper.createUserResult`, no `guard let user = user else`.
+> Ou seja: `r.user.displayName` **é** o sítio certo a ler no caminho nativo. Eu
+> cheguei a escrever que era código morto; não é.
+
+**O que continua por exercitar:** a captura do nome numa **primeira**
+autorização. Nesta medição a Apple não mandou nome nenhum — a conta já existia —
+por isso o caminho `r.user.displayName -> updateProfile` está verificado contra o
+código do plugin, mas **nunca correu com nome à frente**. A única forma de o
+exercitar é `appleid.apple.com → Iniciar sessão com a Apple → Foodboxd → parar de
+usar`, e entrar outra vez. **Só há uma passagem:** se o código estiver errado, o
+nome queima-se e não volta.
+
+**Nota de produto, não defeito:** entrar com a Apple e entrar com a Google dão
+**duas contas Firebase diferentes**, com uid e dados separados — a da Apple está
+a 0 restaurantes / 0 pratos / 0 amigos. É o comportamento normal sem account
+linking. Se a mesma pessoa deve ver o mesmo diário venha por onde vier, isso é
+decisão do dono e trabalho a mais.
 
 Para compilar com as flags certas sem as ter de lembrar: `npm run ios:build`.
 
@@ -659,22 +690,28 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | Os `UsageDescription` a partir de fonte versionada | agente | ✅ `7daabcd` |
 | — | O plugin nativo a ligar, e entrar com **Google** | agente | ✅ `f202bbc` |
 | — | Guardas nos `replace` do `pbxproj`, destino genérico no build | agente | ✅ |
-| 1 | **Apple ID nas Definições do simulador** | dono | por fazer |
-| 2 | **Medir a ponte da Apple**: `rawNonce`, `signInWithCredential`, `displayName` | agente | por fazer |
-| 3 | `appleid.apple.com` → *parar de usar*, para recuperar o nome real | dono | opcional |
-| 4 | Xcode: equipa + capacidade *Sign in with Apple* (4.1) | dono | por fazer |
-| 5 | Registar visita com foto, "Pergunta-me", apagar conta (4.2) | agente | por fazer |
-| 6 | Etiquetas de privacidade (4.3) | agente prepara, dono submete | por fazer |
-| 7 | Conta de teste com dados + nota ao revisor (4.4) | dono | por fazer |
-| 8 | A procura numa porta, o ecrã de entrada, o perfil público | decisão do dono | por decidir |
+| — | Apple ID nas Definições do simulador | dono | ✅ feito |
+| — | A ponte da Apple: `rawNonce` e `signInWithCredential` | agente | ✅ medidos |
+| 1 | **Exercitar a captura do nome da Apple** numa primeira autorização: `appleid.apple.com` → *parar de usar*, entrar outra vez | dono destranca, agente mede | por fazer |
+| 2 | Xcode: equipa + capacidade *Sign in with Apple* (4.1) | dono | por fazer |
+| 3 | Registar visita com foto, "Pergunta-me", apagar conta (4.2) | agente | por fazer |
+| 4 | Etiquetas de privacidade (4.3) | agente prepara, dono submete | por fazer |
+| 5 | Conta de teste com dados + nota ao revisor (4.4) | dono | por fazer |
+| 6 | Ligar as contas Apple e Google, se a mesma pessoa deve ver o mesmo diário | decisão do dono | por decidir |
+| 7 | A procura numa porta, o ecrã de entrada, o perfil público | decisão do dono | por decidir |
 
-**No 4:** com o `applesignin` já no `ios-entitlements.plist`, a assinatura
+**No 1:** é a única passagem que existe. A Apple só manda o nome na **primeira**
+autorização, e o `parar de usar` é o que faz a próxima contar como primeira. Se o
+código estiver errado, o nome queima-se e não volta — por isso mede-se com a
+instrumentação ligada, não à sorte.
+
+**No 2:** com o `applesignin` já no `ios-entitlements.plist`, a assinatura
 automática costuma registar a capacidade sozinha ao escolher a equipa — e o 4.1
 fica feito de graça. Se em vez disso o build falhar com *"provisioning profile
 doesn't include the com.apple.developer.applesignin entitlement"*, é isso e não
 o código: a capacidade tem de ser ligada no portal.
 
-**No 5:** o apagar conta é o único passo destrutivo do plano todo, e corre
+**No 3:** o apagar conta é o único passo destrutivo do plano todo, e corre
 contra a base de dados real, onde estão oito pessoas. Não se limita à conta —
 apaga arestas de `follows` e mexe em grupos. **Conta acabada de criar, sem
 amigos e sem grupos**, ou o emulador (`npm run emu:start`, `npm run emu:seed`).
