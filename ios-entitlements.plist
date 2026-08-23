@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Entitlements da app iOS. Fonte única, versionada, pelo mesmo motivo dos textos
+  de permissão: a pasta ios/ é gerada e não vai para o git, portanto o que só lá
+  vivesse desaparecia no clone seguinte. O scripts/ios-info.mjs copia isto para
+  ios/App/App/App.entitlements e aponta lá o CODE_SIGN_ENTITLEMENTS.
+
+  keychain-access-groups — sem isto o login com a Google falha com "keychain
+  error" e mais nada: o GoogleSignIn guarda o token no keychain, e sem grupo de
+  acesso o SecItemAdd não passa. O erro não diz nada sobre entitlements.
+
+  O $(AppIdentifierPrefix) é de propósito: com equipa escolhida resolve para
+  TEAMID.pt.foodboxd.app, que é a forma que o build assinado exige; sem equipa
+  (simulador, como se compila aqui) fica vazio e resolve para pt.foodboxd.app,
+  que é o que o simulador aceita. Medido nos dois sentidos — no log do securityd
+  vê-se `inserted <genp,acct=OAuth,svce=auth,agrp=pt.foodboxd.app,...>`.
+
+  com.apple.developer.applesignin — o entitlement do Sign in with Apple. Só tem
+  efeito num build assinado com a equipa (Bloco 4.1); num build de simulador sem
+  equipa é ignorado sem estorvar.
+-->
+<plist version="1.0">
+<dict>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)pt.foodboxd.app</string>
+	</array>
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
+</dict>
+</plist>

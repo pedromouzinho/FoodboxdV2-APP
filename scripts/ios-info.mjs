@@ -70,6 +70,32 @@ console.log(`ios-info: ${escritas} textos de permissão escritos no Info.plist`)
 // morre no arranque, antes de mostrar seja o que for. Descarrega-se da consola
 // do Firebase depois de registar lá uma app iOS — ver o bloco 1 do
 // HANDOFF-IOS-AGENTE.md.
+entitlements();
+
+// Os entitlements vivem em ios-entitlements.plist, na raiz, pelo mesmo motivo
+// dos textos de permissão. Sem eles o login com a Google falha com "keychain
+// error" e mais nada — o GoogleSignIn não consegue guardar o token.
+//
+// Não chega copiar: o target tem de saber onde está, e o `cap add ios` gera o
+// projeto sem CODE_SIGN_ENTITLEMENTS. A definição vai só nas configurações do
+// target da app (as que têm INFOPLIST_FILE = App/Info.plist) — pô-la na linha
+// de comandos aplica-a também aos Pods, e aí o caminho relativo não resolve e o
+// build rebenta em cada pod.
+function entitlements() {
+  const fonte = join(ROOT, "ios-entitlements.plist");
+  if (!existsSync(fonte)) return;
+  execFileSync("/bin/cp", [fonte, join(ROOT, "ios/App/App/App.entitlements")]);
+  const pbx = join(ROOT, "ios/App/App.xcodeproj/project.pbxproj");
+  let t = readFileSync(pbx, "utf8");
+  if (!t.includes("CODE_SIGN_ENTITLEMENTS")) {
+    t = t.replace(/(\n(\t+)INFOPLIST_FILE = App\/Info\.plist;)/g,
+      "$1\n$2CODE_SIGN_ENTITLEMENTS = App/App.entitlements;");
+    writeFileSync(pbx, t);
+    console.log("ios-info: CODE_SIGN_ENTITLEMENTS apontado no target da app");
+  }
+  console.log("ios-info: entitlements copiados");
+}
+
 const GS = "GoogleService-Info.plist";
 if (existsSync(join(ROOT, GS))) {
   execFileSync("/bin/cp", [join(ROOT, GS), join(ROOT, "ios/App/App", GS)]);
