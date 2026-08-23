@@ -47,7 +47,20 @@ const AuthModule = (() => {
     // esperar pelo arranque seguinte. De propósito NÃO chama o `onUser`: esse é
     // o `onAuthChange` inteiro, e corrê-lo outra vez com o primeiro ainda a meio
     // arrancava o onboarding duas vezes numa conta acabada de criar.
-    if (fb.onProfileChange) fb.onProfileChange(renderUI);
+    if (fb.onProfileChange) fb.onProfileChange((user) => {
+      renderUI(user);
+      // O chip é metade. O nome que os AMIGOS veem sai do UserData, pelo
+      // `upsertProfile` — e o UserData só o calcula uma vez, dentro do
+      // `setUser`. Sem esta linha, quem entrasse pela Apple passava a primeira
+      // sessão inteira a aparecer como "Amigo" na lista de toda a gente.
+      // `typeof` e não `window.UserData`: o UserData é um `const` de topo, e um
+      // `const` de topo é global léxico — NÃO é propriedade do window. A mesma
+      // armadilha que está anotada no js/config.js. Com `window.UserData` a
+      // guarda era sempre falsa e isto nunca corria, em silêncio.
+      if (user && typeof UserData !== "undefined" && UserData.nomeMudou) {
+        UserData.nomeMudou(user.displayName);
+      }
+    });
   }
 
   function signIn() {

@@ -56,6 +56,31 @@ const UserData = (() => {
     return { uid, displayName, photoURL, createdAt };
   }
 
+  // O nome chegou depois de a sessão já existir — é o caso da Apple, que só o
+  // manda na primeira autorização e já com o `setUser` feito.
+  //
+  // Isto importa para lá do Perfil: o nome que os AMIGOS veem sai daqui, pelo
+  // `upsertProfile`, e não do chip. Sem esta função, a pessoa passava a primeira
+  // sessão inteira a aparecer como "Amigo" na lista de toda a gente — porque com
+  // "Ocultar o meu email" o `emailUsavel` é vazio e o fallback do `setUser` é
+  // mesmo esse. Curava-se no arranque seguinte, e a primeira sessão de uma conta
+  // acabada de criar é precisamente onde isso não serve.
+  //
+  // De propósito não passa pelo `onAuthChange`: esse corre o `setUser` inteiro e
+  // arranca o onboarding, e chamá-lo outra vez a meio da primeira sessão fá-lo-ia
+  // arrancar duas vezes.
+  async function nomeMudou(novo) {
+    if (!novo || !uid || novo === displayName) return;
+    displayName = novo;
+    syncMineToGroup();          // a minha entrada no grupo passa a ter o nome
+    if (onChange) onChange();   // redesenha o Perfil e as listas
+    if (!cloud) return;
+    try {
+      const token = await getToken();
+      await DB.upsertProfile(uid, { displayName, photoURL }, token);
+    } catch (e) { /* fica para o arranque seguinte */ }
+  }
+
   // ---- session lifecycle ----
   async function setUser(user, tokenGetter) {
     uid = user.uid;
@@ -521,6 +546,7 @@ const UserData = (() => {
     init,
     isCloud,
     me,
+    nomeMudou,
     setUser,
     setPhotoURL,
     isOnboarded,

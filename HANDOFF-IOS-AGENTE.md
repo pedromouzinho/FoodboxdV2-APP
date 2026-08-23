@@ -560,6 +560,49 @@ disparou o onAuthChange? NAO (bom)
 cancelar remove mesmo?   SIM (2 -> 1)
 ```
 
+**E o chip é só metade.** O nome que os AMIGOS veem não sai do chip — sai do
+`UserData`, pelo `upsertProfile`, e o `UserData` só o calcula uma vez, dentro do
+`setUser`:
+
+```js
+displayName = user.displayName || emailUsavel || "Amigo";   // userdata.js
+DB.upsertProfile(uid, { displayName, photoURL }, token);
+```
+
+Com *Ocultar o meu email* o `emailUsavel` é vazio, portanto o que vai para o
+Firestore é **"Amigo"** — no perfil público, no `persistNow()` de cada gravação e
+no `syncMineToGroup()`. Durante a primeira sessão inteira era assim que os amigos
+dessa pessoa a viam. Curava-se no arranque seguinte, e é precisamente a primeira
+sessão de uma conta acabada de criar que isso não serve.
+
+O `UserData` ganhou `nomeMudou(novo)`: atualiza o nome em memória, refaz o
+`syncMineToGroup()`, avisa o `onChange` do UserData para o Perfil se redesenhar,
+e volta a escrever o `upsertProfile`. O `js/auth.js` chama-o do canal de perfil —
+nunca pelo `onAuthChange`, pela razão do aviso acima.
+
+Corrido primeiro contra o defeito, com o ramo como estava:
+
+```
+UserData.nomeMudou existe?  undefined
+o UserData foi recalculado? NAO
+>>> NAO HA CAMINHO do nomeGuardado ate ao UserData
+```
+
+E depois da correção, com a divergência forçada em memória para imitar a primeira
+sessão da Apple:
+
+```
+antes:  auth="Pedro Mouzinho"  ·  UserData="Amigo"
+  upsertProfile -> "Pedro Mouzinho"
+recalculou? SIM · escreveu no Firestore? SIM · disparou o onAuthChange? NAO
+```
+
+> **Uma armadilha pelo caminho, e já estava anotada noutro sítio.** A primeira
+> versão da guarda era `window.UserData && UserData.nomeMudou`, e nunca corria:
+> o `UserData` é um `const` de topo, e um `const` de topo é **global léxico — não
+> é propriedade do `window`**. É a mesma nota que está no `js/config.js` sobre o
+> `CONFIG`. Falhava em silêncio, e só o ensaio contra o defeito é que a apanhou.
+
 > **O que continua por exercitar** é a captura em si numa primeira autorização,
 > com nome à frente. O caminho está lido no código do plugin e a re-emissão está
 > medida, mas nunca correu de ponta a ponta com a Apple a mandar um nome. Se
@@ -791,12 +834,24 @@ para ele são duas pessoas. Não há colisão para detetar.
 Não é defeito de código e não bloqueia a submissão. Mas está publicado, e a
 decisão do que fazer é do dono:
 
-- **ligar as contas** (`linkWithCredential`), que junta os diários mas obriga a
-  pensar no caso de já existirem dados dos dois lados;
-- **ou avisar antes de entrar**, dizendo que a conta é por método de entrada;
-- **ou não fazer nada**, sabendo que é isto que acontece.
+### ✅ Decidido: não fazer nada, de propósito
 
-Qualquer das três é trabalho meu; a escolha é tua.
+O dono decidiu **não ligar as contas nem avisar**. Fica escrito como decisão, não
+como esquecimento, com a razão e com o que a reabriria.
+
+**A razão:** são oito pessoas, todas entram pela Google, e o Sign in with Apple
+só existe porque a diretriz 4.8 obriga a tê-lo onde há login social de terceiros.
+O caminho que produz o problema — entrar pela Google e um dia tocar no botão da
+Apple — não é o caminho de ninguém hoje.
+
+**O que reabre isto**, e vale a pena vigiar:
+
+- alguém aparecer com duas contas a sério, e perguntar pelo diário que "perdeu";
+- ou a base de utilizadores deixar de ser oito pessoas conhecidas.
+
+Nesse dia as opções continuam a ser as mesmas: `linkWithCredential` para juntar
+os diários (com o cuidado de já poderem existir dados dos dois lados), ou um
+aviso antes de entrar a dizer que a conta é por método de entrada.
 
 ---
 
