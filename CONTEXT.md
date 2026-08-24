@@ -1,7 +1,37 @@
 # CONTEXT.md — Foodboxd handoff (estado completo do projeto)
 
 > Documento de continuidade. Captura tudo o que é preciso para retomar o projeto
-> sem perder contexto. Última atualização: 2026‑06‑14.
+> sem perder contexto. Última atualização: **2026‑08‑24**.
+
+## Se chegaste agora, lê isto primeiro
+
+**Três minutos, por esta ordem:**
+
+1. **[`CLAUDE.md`](CLAUDE.md)** — as regras. Somos **dois agentes no mesmo ramo**
+   (um em contentor na nuvem, outro no Mac do dono). Só um trabalha de cada vez,
+   puxa-se antes de começar e publica-se logo a seguir a cada commit. Tem também
+   uma lista de **arneses que já mentiram** — vale a pena, poupa horas.
+2. **Esta secção e a 9** — onde o projeto está hoje.
+3. **[`HANDOFF-IOS-AGENTE.md`](HANDOFF-IOS-AGENTE.md)** — se o teu trabalho é
+   iOS. É a ordem de trabalhos, com a tabela "O que falta, por ordem" no fim, que
+   **é o estado** e é lá que se atualiza.
+
+**O que está no ar agora:** `foodboxd.pt`, service worker `foodboxd-v84`, oito
+pessoas com dados lá dentro. Nada vai a produção sem pedir.
+
+**O que a app é, em duas linhas:** vanilla JS sem framework nem build — um
+`index.html`, um `css/style.css`, módulos IIFE em `js/`. Isso é **decisão do
+dono**, não descuido. Não introduzas frameworks, bundlers nem bibliotecas de
+componentes.
+
+**A regra que governa tudo o resto:** o que vive só numa janela de contexto morre
+com ela. Ao fechares um passo, escreve-o no repositório **no mesmo commit** — na
+tabela do handoff se for iOS, aqui se for do projeto, no `CLAUDE.md` se for uma
+lição sobre ferramentas que enganam.
+
+**E não chames provado ao que não mediste.** Nesta saga houve quatro diagnósticos
+confiantes e errados — um por sessão, em média — e todos foram desfeitos por uma
+medição de dois minutos.
 
 ## 1. O que é
 
@@ -237,11 +267,10 @@ all; write se `auth && file começa por uid + imagem + <6MB`; delete se auth.
 
 ## 9. Itens em aberto / TODO
 
-- **Login Google no WKWebView (Capacitor):** a app usa `signInWithPopup`, que
-  costuma falhar dentro da webview nativa → usar `@capacitor-firebase/
-  authentication` quando se fizer o build iOS. Web/PWA não é afetada.
-- **Authorized domains (Firebase Auth):** confirmar `foodboxd.pt` em
-  Authentication → Settings → Authorized domains.
+- ~~**Login Google no WKWebView (Capacitor)**~~ — **feito** (agosto). E a causa
+  não era o `signInWithPopup`: era o `getAuth()` a nunca inicializar em
+  `capacitor://`. Ver a secção 12 e o Bloco 3 do handoff.
+- ~~**Authorized domains (Firebase Auth)**~~ — confirmado.
 - **Dead‑band iOS standalone:** corrigido com `body{height:100dvh;overflow:hidden}`.
   Se reaparecer nalguma versão de iOS, fazer refactor para flex‑column com a
   tabbar no fluxo (plano já delineado).
@@ -251,19 +280,118 @@ all; write se `auth && file começa por uid + imagem + <6MB`; delete se auth.
 - Confirmar que novas localidades relevantes ficam no fallback `regionForTown`
   quando a geocodificação não devolver distrito.
 
-## 10. App nativa iOS (Capacitor) — roadmap
+## 10. App nativa iOS (Capacitor) — estado
 
-Ver `SETUP_IOS.md`. Resumo: Capacitor envolve a web app numa casca iOS
-(reaproveita 100% do código). `appId = pt.foodboxd.app`, `webDir = www`
-(gerado por `npm run build:www`). **Build/assinatura/submissão só num Mac com
-Xcode** (este ambiente é Linux). Custo: **Apple Developer 99 USD/ano**; Firebase
-Blaze ≈ 0 €/mês. Comandos no Mac: `npm install && npm run build:www &&
-npx cap add ios && npx cap open ios`.
+**Blocos 0 a 3 do handoff: feitos.** Do Bloco 4 falta o que é consola e decisão.
+
+Capacitor envolve a web app numa casca iOS e reaproveita 100% do código.
+`appId = pt.foodboxd.app`, `webDir = www` (gerado por `npm run build:www`).
+Build, assinatura e submissão **só num Mac com Xcode**.
+
+```bash
+npm install
+npm run ios:build     # sync + build para simulador, com as flags certas
+```
+
+**O que já funciona no simulador, medido:** entrar com Google e com Apple (sessão
+real, dados reais do Firestore), o "Pergunta-me" de ponta a ponta, carregar fotos,
+apagar a conta, e a permissão de localização com o texto certo e pedida **só**
+dentro do "Pergunta-me".
+
+**O que falta é do dono:** equipa no Xcode (4.1), submeter as etiquetas de
+privacidade (já levantadas, 4.3), e a conta de teste com nota ao revisor (4.4).
+
+A pasta `ios/` é **gerada e está no `.gitignore`**. Tudo o que ela precisa e que
+se perderia num clone novo vive na raiz e é reposto pelo `scripts/ios-info.mjs`
+a cada `npm run sync`: os textos de permissão (`ios-info.json`), os entitlements
+(`ios-entitlements.plist`), o `GoogleService-Info.plist`, o registo desse ficheiro
+nos recursos do Xcode, o URL scheme do login com a Google, e o subspec
+`CapacitorFirebaseAuthentication/Google` no Podfile.
 
 ## 11. Correr / verificar localmente
 
 - É um site estático: servir a pasta (ex.: `python3 -m http.server`) ou abrir
   `index.html`. Sem build.
-- `node --check js/<ficheiro>.js` para validar sintaxe (não há testes).
-- Não há browser/jsdom neste ambiente → verificação funcional é manual no
-  browser/telemóvel do utilizador.
+- **Há arneses, e correm nos dois ambientes** (já não é verdade que "não há
+  testes"):
+
+```bash
+npm run audit          # contraste, alvos de toque, transbordo, ids repetidos, erros de JS
+npm run test:map       # enquadramento do mapa — IMPRIME em vez de afirmar, compara os números
+npm run test:update    # o service worker apanhar uma versão nova (6 casos)
+npm run preview        # telemóvel e ecrã grande, claro e escuro
+```
+
+  No contentor o Chromium está noutro sítio: `CHROMIUM_PATH=... npm run audit`.
+
+- **Se mexeres em ficheiros que a app corre, corre-os.** Se só mexeres em
+  documentação, **diz que não os correste e porquê** — dar por corridos um
+  `audit=0` que não tem relação nenhuma com o que mudou já aconteceu, e não vale
+  nada.
+
+---
+
+## 12. O que se aprendeu a correr a app (agosto de 2026)
+
+Nada disto se descobre a ler código. São armadilhas que **falham em silêncio** —
+sem erro, sem aviso, às vezes com a ferramenta a responder o contrário da
+verdade. Estão aqui para não custarem duas vezes.
+
+### As que enganam pelo silêncio
+
+| O que se vê | O que é, na verdade |
+| --- | --- |
+| `cap add ios` rebenta com um erro de Unicode do Ruby | O `LANG` está vazio. `export LANG=en_US.UTF-8` e correr `pod install` por cima. Não é o CocoaPods nem o Ruby. |
+| O plugin nativo não aparece em `Capacitor.Plugins` | O Podfile pediu **só subspecs**. O `source_files` está na spec raiz e **não é herdado** — sem a raiz o CocoaPods gera um target agregado que não compila nada. Declara raiz **e** `/Google`, em duas linhas. |
+| `signInWithGoogle()` fica pendurado, sem erro nem folha | O provider não está em `plugins.FirebaseAuthentication.providers` do `capacitor.config.json`. O handler nunca é criado e a promessa nunca volta. |
+| Login com a Google devolve `keychain error` | Faltam **entitlements**. A app compila sem eles quando não há identidade de assinatura, e o GoogleSignIn não consegue guardar o token. |
+| `codesign -d --entitlements` mostra um dict **vazio** | **Não acredites.** Num build de simulador sem equipa o Xcode não os embute na assinatura, mas o simulador aplica-os à mesma. A prova está no log do `securityd`. |
+| Uma guarda `window.UserData && …` nunca corre | `UserData` e `CONFIG` são `const` de topo — **globais léxicos, não propriedades do `window`**. Usa `typeof X !== "undefined"`. |
+| O Perfil mostra "Amigo" logo depois de entrar com a Apple | O `onAuthStateChanged` avisa mudanças de **sessão**, não de **perfil**. O nome é guardado a seguir e ninguém é avisado. Resolvido com o canal `onProfileChange`. |
+| O limite diário da IA parecia estar a funcionar | Não estava. O `checkRateLimit` **falha aberto** de propósito, e a conta de serviço não tinha acesso ao Firestore — `rate-limit skipped` em todas as chamadas, durante dias. |
+
+### As que mudam o desenho do trabalho
+
+**O Auth do Firebase não inicializa em `capacitor://`.** O `getAuth()` do bundle
+browser regista um resolver de popup/redirect que valida a origem, e
+`capacitor://` não é http(s). O objeto existe, responde a tudo, e
+`_isInitialized` fica `false` para sempre — o `onAuthStateChanged` nunca chama o
+callback. Resolve-se com `initializeAuth(app, { persistence })`, **sem** resolver.
+
+Duas consequências que poupam trabalho a quem vier:
+
+- **O `signInWithRedirect` está fechado.** Precisa do resolver, que é exatamente
+  o que teve de sair. Não é alternativa ao plugin nativo.
+- **A camada de dados não precisa de migrar.** Com o Auth inicializado, o
+  `signInWithCredential` funciona e o Firestore/Storage ficam com token — não é
+  preciso `@capacitor-firebase/firestore` nem `/storage`.
+
+**O `iosScheme: "https"` não serve.** O Capacitor ignora-o em silêncio; testado
+com config confirmada no bundle compilado e instalação limpa, e a origem
+continuou `capacitor://localhost`.
+
+**A origem nativa é `capacitor://localhost`, e isso morde em três sítios:**
+o `location.hostname` é `localhost` (a app dava-se como emulador), os pedidos
+relativos a `/api/` resolvem para o handler local e dão 404 (daí o
+`CONFIG.API_BASE`), e a chave do Maps precisa de `capacitor://localhost` nos
+referrers.
+
+### O que ainda está por medir
+
+- **A captura do nome da Apple numa primeira autorização.** O caminho está lido
+  no código do plugin e a re-emissão está medida, mas nunca correu com a Apple a
+  mandar um nome. **Só há uma passagem:** o *parar de usar* em `appleid.apple.com`.
+  Quem a gastar, que a gaste com instrumentação ligada.
+- **O segundo pedido de localização, que diz "localhost".** A WKWebView pede a
+  sua própria permissão por cima da nativa. Não bloqueia a submissão, mas é feio
+  e é dos detalhes que a App Review comenta. A saída é o `@capacitor/geolocation`.
+
+### Decisões tomadas, para não se reabrirem por engano
+
+- **Contas Apple e Google ficam separadas, de propósito.** São oito pessoas,
+  todas entram pela Google, e o Sign in with Apple só existe porque a 4.8 obriga.
+  Reabre-se se alguém aparecer com duas contas a sério, ou quando a base deixar
+  de ser oito pessoas conhecidas.
+- **Capacitor fica no 6.** O `npm audit` aponta um `tar` transitivo do
+  `@capacitor/cli` — é devDependency, não chega aos utilizadores, e o `--force`
+  saltaria para o 8 e reescrevia a casca nativa inteira.

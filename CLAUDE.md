@@ -120,5 +120,5 @@ de uma ferramenta, pergunta se ela sabe responder à pergunta que lhe fizeste.**
 | [`HANDOFF-IOS-AGENTE.md`](HANDOFF-IOS-AGENTE.md) | Levar a app à App Store: quem executa o quê, e a prova de cada passo |
 | [`SETUP_IOS.md`](SETUP_IOS.md) | Referência técnica do Capacitor e do projeto iOS |
 | [`DESIGN-HANDOFF.md`](DESIGN-HANDOFF.md) | Handoff de UI/UX: estado das fases e desvios deliberados |
-| [`CONTEXT.md`](CONTEXT.md) | Handoff técnico completo do projeto |
+| [`CONTEXT.md`](CONTEXT.md) | **Começa aqui se chegaste agora.** Estado do projeto, e a secção 12 com o que só se soube a correr a app |
 | [`README.md`](README.md) | O que a app é e como está montada |
