@@ -759,7 +759,12 @@ em produção**. Não é um defeito de submissão, é exposição de custo — c
 pode chamar a Anthropic sem limite nenhum. O comentário no código previu o
 cenário; ninguém tinha ido ver que era o cenário real.
 
-#### A correção: dar permissões à conta de serviço
+#### A correção: dar permissões à conta de serviço — ✅ **DADAS pelo dono (24/08)**
+
+> **Os três papéis abaixo já foram dados.** Falta **confirmar** que resultou, e
+> isso são dois comandos — ver "Como confirmar", no fim desta secção. Enquanto a
+> confirmação não estiver feita, o apagar conta continua a contar como por
+> verificar.
 
 Provavelmente é herança de uma mudança da Google: desde 2024 a conta
 `…@appspot.gserviceaccount.com` **deixou de receber o papel Editor por omissão**
@@ -786,8 +791,27 @@ for P in roles/datastore.user roles/firebaseauth.admin roles/storage.objectAdmin
 done
 ```
 
-**Prova de que resultou:** apagar uma conta descartável deixa de dar erro, e o
-`firebase functions:log --only ai` deixa de mostrar `rate-limit skipped`.
+#### Como confirmar que os papéis pegaram
+
+Os dois são rápidos, e o segundo não precisa do simulador:
+
+```bash
+# 1. o limite da IA volta a ser aplicado: usa o "Pergunta-me" uma vez e vê
+firebase functions:log --only ai --project app-restaurantes-499400 | grep "rate-limit skipped"
+#    -> deixa de haver linhas novas depois da hora em que os papéis foram dados
+
+# 2. o apagar conta deixa de dar 500
+firebase functions:log --only conta --project app-restaurantes-499400 | tail -5
+#    -> não deve aparecer PERMISSION_DENIED numa tentativa nova
+```
+
+O teste de ponta a ponta continua a ser apagar **uma conta descartável** no
+simulador — ver o aviso do ponto 3 da tabela. Uma conta acabada de criar, sem
+amigos e sem grupos.
+
+> **Atenção ao tempo de propagação:** uma alteração de IAM pode demorar alguns
+> minutos a chegar às instâncias já a correr. Se falhar logo a seguir, esperar e
+> repetir vale mais do que voltar a mexer nos papéis.
 
 > ⚠️ **Uma segunda coisa a decidir, e é de produto.** O `apagarFicheiros` apanha
 > os próprios erros e devolve `null` — se o Storage falhar, **a conta é apagada à
@@ -992,7 +1016,8 @@ quem chegar a seguir lê o repositório, não o chat.
 | 2 | Xcode: equipa + capacidade *Sign in with Apple* (4.1) | dono | por fazer |
 | — | "Pergunta-me" + permissão de localização (4.2) | agente | ✅ medido |
 | — | Carregar foto para um sítio (4.2) | agente | ✅ sobe e aparece |
-| **1** | ❌ **Dar 3 papéis IAM à conta de serviço** — destranca o apagar conta (5.1.1v) **e** o limite diário da IA | dono | **bloqueador** |
+| — | Dar 3 papéis IAM à conta de serviço | dono | ✅ dados 24/08 |
+| **1** | **Confirmar** que os papéis pegaram: apagar uma conta descartável, e o log do `ai` sem `rate-limit skipped` | agente | por verificar |
 | 1b | Decidir se o apagar deve falhar alto quando o Storage falha | dono decide, agente executa | por decidir |
 | 3b | O 2.º pedido de localização diz "localhost" — `@capacitor/geolocation` | dono decide, agente executa | por decidir |
 | — | Etiquetas de privacidade (4.3) | agente | ✅ levantadas do código |
