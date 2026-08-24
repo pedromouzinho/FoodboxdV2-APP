@@ -324,6 +324,18 @@ npm run preview        # telemóvel e ecrã grande, claro e escuro
 
   No contentor o Chromium está noutro sítio: `CHROMIUM_PATH=... npm run audit`.
 
+- **E há um quinto, que precisa do emulador** — apagar conta, a única operação
+  irreversível da app:
+
+```bash
+npm run emu:start      # noutro terminal; precisa de JDK (brew install openjdk)
+npm run test:apagar    # 26 afirmações: leva o que é meu, deixa o que é dos outros
+```
+
+  O `emu:start` encontra o JDK sozinho, incluindo a fórmula keg-only do
+  Homebrew. Se não houver nenhum, diz o que instalar em vez de despejar um erro
+  de Java. **Não corras isto contra a base real** — são oito pessoas.
+
 - **Se mexeres em ficheiros que a app corre, corre-os.** Se só mexeres em
   documentação, **diz que não os correste e porquê** — dar por corridos um
   `audit=0` que não tem relação nenhuma com o que mudou já aconteceu, e não vale

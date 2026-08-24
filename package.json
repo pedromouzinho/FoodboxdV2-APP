@@ -8,7 +8,7 @@
     "sync": "npm run build:www && npx cap sync ios && node scripts/ios-info.mjs",
     "ios": "npm run sync && npx cap open ios",
     "preview": "node scripts/preview.mjs",
-    "emu:start": "firebase emulators:start --only auth,firestore,functions,storage --project app-restaurantes-499400",
+    "emu:start": "node scripts/emu.mjs",
     "emu:seed": "node scripts/seed-emulator.js",
     "qa": "firebase hosting:channel:deploy qa-local --expires 30d --project app-restaurantes-499400",
     "audit": "node scripts/audit.mjs",

@@ -113,6 +113,29 @@ inserted <genp,acct=OAuth,svce=auth,agrp=pt.foodboxd.app,...>
 A regra que sai daqui vale para além do `codesign`: **antes de concluir a partir
 de uma ferramenta, pergunta se ela sabe responder à pergunta que lhe fizeste.**
 
+**A sétima é o `test:apagar`, e corria a meio sem nunca o dizer.** Duas coisas,
+a mesma família:
+
+- O emulador do Firestore é uma aplicação **Java**, e o macOS não traz Java
+  nenhum. Pior: o `brew install openjdk` instala uma fórmula **keg-only**, que
+  fica fora do PATH de propósito — a máquina tem Java e o comando diz que não
+  tem. O `npm run emu:start` passou a ser o [`scripts/emu.mjs`](scripts/emu.mjs),
+  que **procura** o JDK (PATH → `/usr/libexec/java_home` → Homebrew nas duas
+  arquiteturas) em vez de ter um caminho escrito à mão, que é o erro do
+  Chromium outra vez.
+- O ensaio punha `FIRESTORE_EMULATOR_HOST` e `FIREBASE_AUTH_EMULATOR_HOST` e
+  **esquecia-se do Storage**. Sem `STORAGE_EMULATOR_HOST` o Admin SDK fala com o
+  Google a sério — e as três afirmações sobre ficheiros caíam sempre num ramo
+  `if (contagem.ficheirosRestaurantes === null)` que **não afirma nada e não
+  conta como falha**. Nunca correram. Correram pela primeira vez a 24/08/2026.
+
+Repara no que isto tem de comum com a quinta: **o ramo de escape que existe para
+o ensaio ser tolerante é o sítio onde ele se esconde.** Um `if (não dá para
+medir) { não medir }` é honesto no código e mentiroso no resumo, porque o
+contador de falhas fica a zero na mesma. Quando escreveres um, faz com que ele
+**diga em voz alta** o que deixou de medir — e vai ver se não está a ser o
+caminho normal.
+
 ## Onde está o resto
 
 | Ficheiro | O que é |
