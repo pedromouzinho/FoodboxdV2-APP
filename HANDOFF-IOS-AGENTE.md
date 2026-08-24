@@ -662,8 +662,8 @@ que é pedida **só aí**, nunca no arranque), e **apagar conta**.
 | Texto da permissão de localização | ✅ igual ao de `ios-info.json`, palavra por palavra |
 | "Pergunta-me" de ponta a ponta | ✅ resposta real da IA, com o perfil de gosto lá dentro |
 | Leitura de fotos do Storage | ✅ o Diário mostra 15 sítios com fotos |
-| Registar visita **com foto** | ⬜ por testar — ver abaixo |
-| Apagar conta | ⬜ por testar — espera conta descartável |
+| Carregar foto para um sítio | ✅ sobe e aparece na ficha |
+| Apagar conta | ❌ **FALHA** — ver abaixo, é bloqueador |
 
 O "Pergunta-me" a responder prova de caminho o `CONFIG.API_BASE`: o pedido saiu
 de `capacitor://localhost` para `https://foodboxd.pt/api/ai` e voltou com
@@ -690,6 +690,62 @@ sugestões que citam o perfil de gosto da conta.
 > foto entra pelo "Mudar foto" da ficha do sítio, ou pelo separador "A minha
 > experiência" depois de a visita estar gravada. Quem testar isto conta com uma
 > gravação real no diário da conta usada.
+
+> **A fototeca não pede permissão, e isso é normal.** O carregamento usa um
+> `<input type="file">`, que na WKWebView abre o `PHPickerViewController`. Esse
+> seletor corre **fora do processo** da app e devolve só a imagem escolhida —
+> por isso **nunca** dispara o `NSPhotoLibraryUsageDescription`. Não é sinal de
+> que a permissão já tenha sido dada. O `NSCameraUsageDescription` só entra se
+> alguém usar o caminho da câmara.
+
+#### ❌ Apagar a conta falha — e é bloqueador de submissão
+
+**A diretriz 5.1.1(v) exige que apagar a conta funcione.** Não funciona:
+
+```
+Perfil → Apagar a conta → escrever APAGAR → Apagar a minha conta
+  → "falha ao apagar"
+```
+
+A mensagem **não é do cliente**. O `js/auth.js` só mostra o campo `error` que o
+servidor devolve, e o `"falha ao apagar"` está em `functions/index.js:678` — o
+`catch` do endpoint `conta`. Ou seja: a cascata `apagarConta()` lançou, e o
+servidor respondeu **500**.
+
+**O que já foi descartado, lendo o código:**
+
+- não é o bucket do Storage: o `admin.initializeApp` já usa
+  `…firebasestorage.app` explicitamente, que é o correto neste projeto;
+- não é o `apagarFicheiros`: apanha os próprios erros e devolve `null`, não pode
+  ser ele a lançar;
+- não é o `deleteUser` já não existir: o `user-not-found` está tratado de
+  propósito;
+- não é CORS nem o `API_BASE`: o preflight de `/api/conta` responde com
+  `access-control-allow-origin: capacitor://localhost`, e o `/api/ai` do
+  "Pergunta-me" funciona pelo mesmo caminho.
+
+**O que sobra, e é onde apostar:** algo em `apagarDocsDaQuery`, `sairDosGrupos`
+ou `admin.auth().deleteUser()` — e o candidato mais forte é o **último**, por
+permissões da conta de serviço (`RUNTIME_SA`, o
+`…@appspot.gserviceaccount.com`). O `ai` corre com a mesma conta e funciona, mas
+o `ai` só lê o Firestore e o Secret Manager; apagar exige **escrita no Firestore,
+Storage e Firebase Auth Admin**.
+
+> **Isto é suspeita, não medição.** A resposta está no log da função:
+> `console.error("apagar conta", uid, e.message)`, na linha acima do 500.
+> Quem for lá primeiro fecha isto em dois minutos:
+>
+> ```bash
+> firebase login          # uma vez, autentica no browser
+> firebase functions:log --only conta
+> ```
+>
+> Ou na consola: **Firebase → Functions → `conta` → Registos**.
+
+**O caminho seguro para o testar sem tocar em produção** é o emulador, e o ensaio
+já existe: `npm run test:apagar` corre a cascata direta contra
+`exports.__test.apagarConta`. Precisa de `npm run emu:start`, que precisa do
+**Java** — não instalado nesta máquina (`brew install openjdk`).
 
 > **Testa o apagar conta com uma conta acabada de criar, sem amigos e sem
 > grupos.** É irreversível e, sem emulador, corre contra a base de dados real. A
@@ -881,7 +937,8 @@ quem chegar a seguir lê o repositório, não o chat.
 | 1 | **Exercitar a captura do nome da Apple** numa primeira autorização: `appleid.apple.com` → *parar de usar*, entrar outra vez | dono destranca, agente mede | por fazer |
 | 2 | Xcode: equipa + capacidade *Sign in with Apple* (4.1) | dono | por fazer |
 | — | "Pergunta-me" + permissão de localização (4.2) | agente | ✅ medido |
-| 3 | Registar visita **com foto**, e apagar conta (4.2) | agente | por fazer |
+| — | Carregar foto para um sítio (4.2) | agente | ✅ sobe e aparece |
+| **1** | ❌ **Apagar conta devolve 500** — bloqueia a 5.1.1(v) | dono abre o log, agente corrige | **bloqueador** |
 | 3b | O 2.º pedido de localização diz "localhost" — `@capacitor/geolocation` | dono decide, agente executa | por decidir |
 | — | Etiquetas de privacidade (4.3) | agente | ✅ levantadas do código |
 | 4 | **Submeter** as etiquetas na App Store Connect (4.3) | dono | por fazer |
