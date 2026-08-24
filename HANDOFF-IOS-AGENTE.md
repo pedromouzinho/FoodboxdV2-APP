@@ -1095,6 +1095,56 @@ A app fala com **quatro** destinos externos. Estão todos no código:
 Para **todos** os itens acima: *Funcionalidade da app* e *Personalização*. Nunca
 *Publicidade* nem *Analytics* — não há nada disso na app.
 
+### 4.0 ⛔ Diretriz 1.2 — conteúdo gerado por utilizadores sem moderação
+
+**Encontrado a 25/08, e não estava em lado nenhum.** É o risco de rejeição mais
+provável dos que aqui estão, e é o único que exige **código novo**.
+
+A app tem conteúdo gerado por utilizadores e visível entre estranhos:
+
+| O quê | Onde | Quem vê |
+| --- | --- | --- |
+| Críticas (texto livre) | `comments/{id}` | toda a gente — `read: if true` |
+| Fotos de pratos e de sítios | `photos/{id}` + Storage | toda a gente — `read: if true` |
+| Nome e foto de perfil | `userData/{uid}` | quem abrir o perfil |
+| Nomes de pratos, notas de visita | `userData/{uid}` | quem segue |
+
+A ficha de cada restaurante mostra as críticas e as fotos de **qualquer** pessoa,
+sem ser preciso segui-la. Ou seja: é uma app social com UGC público, e a
+diretriz **1.2 (Safety — User-Generated Content)** aplica-se por inteiro.
+
+**O que a 1.2 exige, e o que existe:**
+
+| Exigido pela Apple | Existe? |
+| --- | --- |
+| Filtrar material questionável | ❌ nada |
+| **Denunciar** conteúdo ofensivo | ❌ nada — procurado, não há |
+| **Bloquear** utilizadores abusivos | ❌ nada — procurado, não há |
+| Responder às denúncias em tempo útil | — depende do dono |
+| Contacto publicado | ⚠️ é o *Support URL* da loja, ainda por definir |
+| Apagar o que é meu | ✅ o autor apaga a sua crítica e a sua foto |
+
+> **Porque é que isto rejeita e a falta de moderação de outras apps não.** A
+> App Review testa isto à mão em apps sociais: abre uma crítica de outra pessoa
+> e procura o botão de denunciar. Não estando lá, é *Guideline 1.2* e volta para
+> trás. Não adianta argumentar que são oito pessoas conhecidas — a app está numa
+> loja aberta a toda a gente, e é assim que é avaliada.
+
+**O menor caminho que cumpre**, e é mesmo pequeno:
+
+1. **Denunciar** — um item no menu de cada crítica e de cada foto que escreve
+   em `reports/{id}` `{ tipo, alvoId, autorUid, denuncianteUid, quando }` e
+   agradece. Não é preciso interface de gestão: o dono vê no Firestore.
+2. **Bloquear** — uma lista `blocked[]` no `userData/{uid}`; quem lá está deixa
+   de aparecer no feed, nas críticas e nas fotos. Filtra-se no cliente, que é
+   onde o resto do social já é filtrado.
+3. **Termos** com uma linha a dizer que não se tolera conteúdo ofensivo — a
+   Apple pede o compromisso, e ele vive ao lado da política de privacidade.
+
+É meio dia de trabalho, e é do agente. **Mas a decisão de o fazer agora ou de
+arriscar a rejeição é do dono** — há quem submeta sem isto e passe à primeira,
+e há quem volte para trás e perca uma semana de revisão.
+
 ### 4.3b ⛔ Política de privacidade — NÃO EXISTE, e é bloqueador
 
 **Procurada a 24/08 e não existe em lado nenhum:** não há página no
@@ -1375,6 +1425,7 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | Publicar a função `conta` (1b) | dono autorizou, agente disparou | ✅ publicada 24/08 |
 | — | O 2.º pedido de localização diz "localhost" (3b) | dono decidiu, agente fez | ✅ resolvido e medido 24/08 |
 | — | Etiquetas de privacidade (4.3) | agente | ✅ levantadas do código |
+| **0** | ⛔ **Diretriz 1.2 — sem denunciar nem bloquear** (4.0). Risco de rejeição, e é o único item que exige código novo | agente faz, dono decide se agora | **por decidir** |
 | **0** | ⛔ **Política de privacidade — não existe** (4.3b). Bloqueia a submissão: o campo é obrigatório | agente escreve, dono assume, dono autoriza publicar | **por fazer** |
 | 4 | **Submeter** as etiquetas na App Store Connect (4.3) | dono | por fazer |
 | 5 | Nota ao revisor (4.4) — **já escrita**, falta colar e confirmar | dono | por fazer |
