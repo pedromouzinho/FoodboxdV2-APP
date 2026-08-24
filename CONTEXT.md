@@ -267,6 +267,14 @@ all; write se `auth && file começa por uid + imagem + <6MB`; delete se auth.
 
 ## 9. Itens em aberto / TODO
 
+- ⏳ **Node 20 das Cloud Functions é decomissionado a 30/10/2026.** Apareceu no
+  deploy de 24/08. As duas funções (`ai` e `conta`) estão em `nodejs20`; a
+  partir dessa data **não se publica mais nenhuma** sem migrar. A app não pára
+  nesse dia — o que se perde é poder corrigir o lado do servidor. Mudar o
+  `engines` do `functions/package.json` e republicar; o aviso pede também um
+  `firebase-functions` mais recente, que traz mudanças que partem. Fazer com
+  calma, não em cima de um incidente.
+
 - ~~**Login Google no WKWebView (Capacitor)**~~ — **feito** (agosto). E a causa
   não era o `signInWithPopup`: era o `getAuth()` a nunca inicializar em
   `capacitor://`. Ver a secção 12 e o Bloco 3 do handoff.

@@ -832,9 +832,46 @@ As três últimas **falharam primeiro** contra o código com o defeito, que é a
 única forma de saber que afirmam alguma coisa. As duas primeiras passavam já
 antes — de propósito: se falhassem, o teste seria um espantalho.
 
-> ⚠️ **Isto ainda não está em produção.** Só mexe em `functions/`, e a função
-> `conta` tem de ser republicada (`--only functions`) para a mudança valer. Em
-> produção, hoje, uma falha do Storage continua a ser um `null` calado.
+**✅ Publicado em produção a 24/08**, com autorização do dono:
+
+```
+firebase deploy --only functions:conta --project app-restaurantes-499400
+  ✔ functions[conta(europe-west1)] Successful update operation.
+```
+
+Só a `conta`. A `ai` não foi tocada — e não precisava de o ser: a chave da
+Anthropic é um segredo do Secret Manager declarado apenas na função que a usa
+(`defineSecret` em `functions/index.js:19`), por isso não há `.env` nenhum a
+faltar neste Mac.
+
+Confirmado a seguir, sem chamar a cascata destrutiva contra a base real:
+
+```
+POST /api/conta sem token                  -> HTTP 401 {"error":"auth"}
+OPTIONS /api/conta de capacitor://localhost -> HTTP 204
+                                              access-control-allow-origin: capacitor://localhost
+```
+
+> **O que isto NÃO prova:** que o caminho novo funciona em produção. Ele só se
+> mostra quando o Storage falha a sério, e com os papéis IAM dados isso já não
+> acontece. A prova do comportamento é a do emulador (`test:apagar`, 26/26);
+> aqui prova-se que a versão nova está no ar e responde.
+
+> ⚠️ **Prazo que apareceu no deploy e ninguém tinha visto:**
+>
+> ```
+> functions: Runtime Node.js 20 was deprecated on 2026-04-30 and will be
+> decommissioned on 2026-10-30, after which you will not be able to deploy
+> ```
+>
+> **A partir de 30/10/2026 não se publica mais nenhuma função** sem migrar o
+> runtime. As duas funções (`ai` e `conta`) estão em `nodejs20`. Não afeta a
+> submissão à App Store, e a app não deixa de funcionar nesse dia — o que deixa
+> de haver é a possibilidade de corrigir seja o que for do lado do servidor.
+> Migrar é mudar o `engines` no `functions/package.json` e voltar a publicar;
+> o aviso pede também um `firebase-functions` mais recente, que traz mudanças
+> que partem. **Vale a pena fazer antes de outubro e com calma, não em cima de
+> um incidente.**
 
 > **Consequência a ter em conta:** apagar a conta do Firebase **não** revoga a
 > autorização do lado da Apple. O próximo login com a Apple cria uma conta nova
@@ -1291,7 +1328,7 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | Dar 3 papéis IAM à conta de serviço | dono | ✅ dados 24/08 |
 | — | Confirmar que os papéis pegaram | agente | ✅ confirmado 24/08 |
 | — | O apagar falhar alto quando o Storage falha (1b) | dono decidiu, agente fez | ✅ decidido e medido 24/08 |
-| 3 | **Publicar a função `conta`** — sem isto o 1b não vale em produção | dono autoriza, agente dispara | por fazer |
+| — | Publicar a função `conta` (1b) | dono autorizou, agente disparou | ✅ publicada 24/08 |
 | — | O 2.º pedido de localização diz "localhost" (3b) | dono decidiu, agente fez | ✅ resolvido e medido 24/08 |
 | — | Etiquetas de privacidade (4.3) | agente | ✅ levantadas do código |
 | **0** | ⛔ **Política de privacidade — não existe** (4.3b). Bloqueia a submissão: o campo é obrigatório | agente escreve, dono assume, dono autoriza publicar | **por fazer** |
