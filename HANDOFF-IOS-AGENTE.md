@@ -652,6 +652,45 @@ Simulador primeiro, device depois. Testar: entrar, registar uma visita com foto,
 "Pergunta-me" (pede localização — confirmar que o texto da permissão aparece e
 que é pedida **só aí**, nunca no arranque), e **apagar conta**.
 
+#### O que já está medido no simulador (24/08/2026)
+
+| O quê | Estado |
+| --- | --- |
+| Entrar com Google e com Apple | ✅ sessão real, nome certo, dados do Firestore |
+| Localização **não** pedida no arranque | ✅ |
+| Localização pedida **só** no "Pergunta-me" | ✅ |
+| Texto da permissão de localização | ✅ igual ao de `ios-info.json`, palavra por palavra |
+| "Pergunta-me" de ponta a ponta | ✅ resposta real da IA, com o perfil de gosto lá dentro |
+| Leitura de fotos do Storage | ✅ o Diário mostra 15 sítios com fotos |
+| Registar visita **com foto** | ⬜ por testar — ver abaixo |
+| Apagar conta | ⬜ por testar — espera conta descartável |
+
+O "Pergunta-me" a responder prova de caminho o `CONFIG.API_BASE`: o pedido saiu
+de `capacitor://localhost` para `https://foodboxd.pt/api/ai` e voltou com
+sugestões que citam o perfil de gosto da conta.
+
+> ⚠️ **Aparecem DOIS pedidos de localização seguidos, e o segundo diz
+> "localhost".** O primeiro é o nativo, com o texto certo. O segundo é da própria
+> WKWebView:
+>
+> > *"localhost" would like to use your current location.*
+>
+> É a webview a tratar a página como um site e a pedir a sua própria permissão
+> por cima da nativa. Duas caixas seguidas já é mau; a segunda dizer **localhost**
+> a um utilizador é pior — não quer dizer nada a ninguém e parece avaria. **Não
+> bloqueia a submissão, mas é dos detalhes que a App Review comenta.**
+>
+> A saída habitual é usar o `@capacitor/geolocation`, que faz a localização pelo
+> lado nativo e entrega-a ao JS, e assim a webview nunca chega a pedir nada. É
+> mudar o `navigator.geolocation` do `submitSmartSuggest` para o plugin, só no
+> caminho nativo. **Por medir**, e a decisão de o adicionar é do dono.
+
+> **Nota de método para o registo de visita com foto:** o botão "foto" do
+> formulário não é um seletor — a app diz "Podes acrescentar fotos depois". A
+> foto entra pelo "Mudar foto" da ficha do sítio, ou pelo separador "A minha
+> experiência" depois de a visita estar gravada. Quem testar isto conta com uma
+> gravação real no diário da conta usada.
+
 > **Testa o apagar conta com uma conta acabada de criar, sem amigos e sem
 > grupos.** É irreversível e, sem emulador, corre contra a base de dados real. A
 > eliminação não se limita à conta: apaga também arestas de `follows` e mexe em
@@ -805,7 +844,9 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | A ponte da Apple: `rawNonce` e `signInWithCredential` | agente | ✅ medidos |
 | 1 | **Exercitar a captura do nome da Apple** numa primeira autorização: `appleid.apple.com` → *parar de usar*, entrar outra vez | dono destranca, agente mede | por fazer |
 | 2 | Xcode: equipa + capacidade *Sign in with Apple* (4.1) | dono | por fazer |
-| 3 | Registar visita com foto, "Pergunta-me", apagar conta (4.2) | agente | por fazer |
+| — | "Pergunta-me" + permissão de localização (4.2) | agente | ✅ medido |
+| 3 | Registar visita **com foto**, e apagar conta (4.2) | agente | por fazer |
+| 3b | O 2.º pedido de localização diz "localhost" — `@capacitor/geolocation` | dono decide, agente executa | por decidir |
 | 4 | Etiquetas de privacidade (4.3) | agente prepara, dono submete | por fazer |
 | 5 | Conta de teste com dados + nota ao revisor (4.4) | dono | por fazer |
 | — | ⚠️ **Contas Apple e Google separadas — já em produção** | dono decide o quê, agente executa | ver abaixo |
