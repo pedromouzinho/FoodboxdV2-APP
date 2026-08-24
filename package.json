@@ -19,6 +19,7 @@
     "test:taste": "node scripts/test-taste.mjs",
     "test:apagar": "node scripts/test-apagar.mjs",
     "ios:info": "node scripts/ios-info.mjs",
+    "ios:apple-diag": "node scripts/ler-apple-diag.mjs",
     "ios:build": "npm run sync && xcodebuild -workspace ios/App/App.xcworkspace -scheme App -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=- build"
   },
   "dependencies": {

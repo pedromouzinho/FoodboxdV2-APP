@@ -62,6 +62,54 @@ execFileSync("/usr/bin/plutil", ["-lint", PLIST], { stdio: "ignore" });
 console.log(`ios-info: ${escritas} textos de permissão escritos no Info.plist`);
 
 entitlements();
+equipaDeAssinatura();
+
+// A equipa de assinatura, pelo mesmo motivo dos entitlements: escolhe-se no
+// Xcode, vive no project.pbxproj, e o project.pbxproj é gerado e descartável.
+// Um clone novo ficava outra vez sem equipa — e sem equipa não há build para
+// dispositivo nem upload para a App Store Connect.
+//
+// O Team ID não é segredo (vai dentro de todos os perfis de aprovisionamento),
+// por isso mora em ios-signing.json, versionado.
+function equipaDeAssinatura() {
+  const fonte = join(ROOT, "ios-signing.json");
+  if (!existsSync(fonte)) return;
+  const equipa = (JSON.parse(readFileSync(fonte, "utf8")).developmentTeam || "").trim();
+  if (!equipa) return;
+
+  const pbx = join(ROOT, "ios/App/App.xcodeproj/project.pbxproj");
+  let t = readFileSync(pbx, "utf8");
+
+  // Já lá está e é a mesma? Nada a fazer. Já lá está e é outra? Corrige — o
+  // ficheiro versionado manda, senão duas máquinas assinam com equipas
+  // diferentes e ninguém percebe porquê.
+  const existentes = [...t.matchAll(/DEVELOPMENT_TEAM = ([^;]+);/g)].map((m) => m[1].trim());
+  if (existentes.length && existentes.every((e) => e === equipa)) {
+    console.log(`ios-info: equipa de assinatura já era ${equipa}`);
+    return;
+  }
+  if (existentes.length) {
+    t = t.replace(/DEVELOPMENT_TEAM = [^;]+;/g, `DEVELOPMENT_TEAM = ${equipa};`);
+    writeFileSync(pbx, t);
+    console.log(`ios-info: equipa de assinatura corrigida para ${equipa} (${existentes.length} configurações)`);
+    return;
+  }
+
+  // Contar em vez de confiar, pela mesma razão dos entitlements: se o template
+  // do Capacitor mudar a forma desta linha, o replace acerta em zero, o
+  // ficheiro é escrito à mesma e o sucesso saía impresso na mesma — e a falha
+  // só aparecia lá à frente, no upload, com uma mensagem sobre perfis.
+  const alvo = /(\n(\t+)PRODUCT_BUNDLE_IDENTIFIER = pt\.foodboxd\.app;)/g;
+  const encontradas = (t.match(alvo) || []).length;
+  if (!encontradas) {
+    console.error("ios-info: não encontrei nenhuma linha `PRODUCT_BUNDLE_IDENTIFIER = pt.foodboxd.app;`");
+    console.error("  o template do projeto mudou; sem DEVELOPMENT_TEAM não há build para dispositivo.");
+    process.exit(1);
+  }
+  t = t.replace(alvo, `$1\n$2DEVELOPMENT_TEAM = ${equipa};`);
+  writeFileSync(pbx, t);
+  console.log(`ios-info: equipa de assinatura ${equipa} escrita em ${encontradas} configurações`);
+}
 
 // Os entitlements vivem em ios-entitlements.plist, na raiz, pelo mesmo motivo
 // dos textos de permissão. Sem eles o login com a Google falha com "keychain

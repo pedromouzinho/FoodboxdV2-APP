@@ -171,8 +171,32 @@ Quando é preciso ler/apagar/patchar dados ou pôr CORS, faço scripts Node que:
 
 **Por utilizador:** `userData/{uid}` = `{ displayName, photoURL, visited[],
 priority[], ratings{ id:{stars,note,dishes[],updatedAt} }, history{ id:[ISO] },
-onboarded, activeGroup }`. Carregam-se todos os docs de `userData` (`allUsers`); a
-vista social (`group`) é `allUsers` filtrado pelos membros do `activeGroup`.
+onboarded, activeGroup }`.
+
+> ⚠️ **O `allUsers` NÃO são todos os utilizadores, e este parágrafo dizia que
+> eram.** Descrevia o modelo antigo e sobreviveu à migração para o *follow*.
+> Custou uma conclusão errada num handoff a 25/08: dei por garantido que uma
+> conta nova via a atividade de toda a gente, e vê o vazio.
+>
+> O que o código faz hoje (`js/userdata.js:185`):
+>
+> ```js
+> // Everyone I follow, plus me.
+> const users = await DB.fetchUsersByIds(followIds, token);
+> allUsers = users;
+> ```
+>
+> Ou seja: **`allUsers` = quem eu sigo, mais eu.** A vista social (`group`) é
+> esse conjunto filtrado pelos membros do `activeGroup`; **"Todos (global)"
+> significa "sem filtro de grupo por cima de quem sigo"**, e não "toda a gente
+> da app". O nome da variável mente — não lhe mudei o nome para não tocar em
+> código a esta distância de uma submissão, mas fica aqui escrito.
+>
+> **Consequência que se vê no ecrã:** uma conta acabada de criar não segue
+> ninguém, logo a Atividade mostra *"Sozinho sabe pior"* e o Leaderboard mostra
+> *"Ainda não há atividade suficiente"* — as duas medidas no simulador a 25/08.
+> O `buildFriendsFeed()` usa `others()` e o `computeAmigosLeaderboard()` usa
+> `everyone()`: ambos partem do mesmo conjunto vazio.
 
 **Grupos:** `groups/{autoId}` = `{ name, code, ownerUid, members:[uid], createdAt }`.
 Qualquer autenticado cria (dono+membro) e lê (para encontrar por código); o dono

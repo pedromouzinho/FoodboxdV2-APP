@@ -643,9 +643,29 @@ final. O plugin devolve-o noutro sítio.
 
 ## Bloco 4 — Build e submissão · **humano decide, agente prepara**
 
-### 4.1 Assinatura — humano
-Xcode → target **App** → *Signing & Capabilities* → escolher a equipa. Ligar a
-capacidade **Sign in with Apple** também aqui (é separada do portal).
+### 4.1 Assinatura — ✅ a equipa já está no projeto (25/08)
+
+**Não é preciso abrir o Xcode para isto.** O Team ID vive em
+[`ios-signing.json`](ios-signing.json), versionado, e o `scripts/ios-info.mjs`
+escreve-o no `project.pbxproj` a cada `npm run sync` — pelo mesmo motivo dos
+textos de permissão e dos entitlements: a pasta `ios/` é gerada e descartável, e
+o que se escolhe à mão no Xcode desaparece no clone seguinte.
+
+```
+ios-info: equipa de assinatura LGN8A4342T escrita em 2 configurações
+ios-info: equipa de assinatura já era LGN8A4342T      <- na segunda corrida
+```
+
+Confirmado no ficheiro (duas configurações, Debug e Release) e com
+`npm run ios:build` a passar depois de a pôr. O Team ID não é segredo: vai
+dentro de todos os perfis de aprovisionamento.
+
+**O que pode sobrar para o dono:** a capacidade **Sign in with Apple** é separada
+do portal. Com o `applesignin` já no `ios-entitlements.plist`, a assinatura
+automática costuma registá-la sozinha. Só se o build para **dispositivo** falhar
+com *"provisioning profile doesn't include the com.apple.developer.applesignin
+entitlement"* é que é preciso ir ao portal ligá-la — e isso ainda não foi
+tentado, porque até agora só se compilou para simulador.
 
 ### 4.2 Build — agente
 Simulador primeiro, device depois. Testar: entrar, registar uma visita com foto,
@@ -1144,17 +1164,36 @@ Portanto, no formulário *App Review Information*, o **"Sign-in required" é
 guardar o que é teu. Isto elimina a exigência de conta de teste.
 
 **E se o revisor quiser ver a parte social**, entra com a Apple usando o Apple ID
-dele — não há credenciais para entregar. A conta nova dele **não** fica vazia:
-sem grupo ativo, o `applyGroupFilter()` (`js/userdata.js:198`) põe
-`group = allUsers`, portanto a Atividade e o Leaderboard mostram já o que as
-outras pessoas fizeram. Era essa a preocupação original — "uma conta vazia
-parece uma app vazia" — e o desenho da app já a resolve.
+dele — não há credenciais para entregar.
 
-> ⚠️ **Isto está lido no código, não medido com uma conta acabada de criar.** A
-> única conta nova disponível é a próxima entrada com a Apple, e essa está
-> reservada para o item 1 (a captura do nome). Quem fizer o item 1 tem, de
-> graça, a oportunidade de confirmar isto ao mesmo tempo: **ao entrar, olhar
-> para o separador Amigos antes de fazer seja o que for.**
+> ⚠️ **Aqui estava escrita uma afirmação errada, e fica o rasto de propósito.**
+> Dizia que a conta nova do revisor **não** ficaria vazia, porque sem grupo
+> ativo o `applyGroupFilter()` põe `group = allUsers`. Está medido no simulador
+> a 25/08 com uma conta acabada de criar, e é o contrário:
+>
+> ```
+> Amigos → Atividade     "Sozinho sabe pior"
+> Amigos → Leaderboard   "Ainda não há atividade suficiente"
+> Perfil                 0 restaurantes · 0 pratos · 0 amigos
+> ```
+>
+> **O erro foi parar um nível cedo demais.** Li o `applyGroupFilter` e dei o
+> `allUsers` por adquirido. Mas o `allUsers` **não são todos os utilizadores** —
+> é `fetchUsersByIds(followIds)`, quem eu sigo mais eu (`js/userdata.js:185`).
+> Uma conta nova não segue ninguém, logo o conjunto é vazio e **"Todos
+> (global)" quer dizer "sem filtro de grupo por cima de quem sigo"**, não "toda
+> a gente da app". O `CONTEXT.md` §5 ainda descrevia o modelo antigo e ajudou a
+> confirmar a suposição errada — está corrigido no mesmo commit.
+>
+> Ter marcado a afirmação como *lida no código, não medida* foi o que a apanhou
+> um dia depois em vez de a mandar para dentro da nota ao revisor. **Vale a pena
+> continuar a marcá-las.**
+
+**O que isto muda na prática, e não é mau:** o argumento para o revisor deixa de
+ser "cria uma conta e vais ver gente" e passa a ser mais simples e mais forte —
+**não crie conta nenhuma.** A app tem o conteúdo todo à vista sem entrar, e é aí
+que ela se avalia. Os separadores sociais vazios numa conta acabada de criar são
+o comportamento correto de um diário social: enche-se seguindo pessoas.
 
 #### A nota, escrita (copiar para *App Review Information → Notes*)
 
@@ -1172,8 +1211,12 @@ rating it, logging dishes, uploading photos, and the friends activity feed.
 If you would like to try those, please use "Iniciar sessão com a Apple"
 (Sign in with Apple) with your own Apple ID — we cannot supply a demo
 account because the app offers only Google and Apple sign-in, and no
-email/password path exists. A newly created account is not empty: it shows
-the global activity feed and leaderboard of existing users straight away.
+email/password path exists.
+
+A brand-new account starts with an empty Amigos tab. That is intended: the
+social feed is built from the people you choose to follow, so it fills up
+once you follow someone (Amigos -> "Descobrir pessoas"). The restaurant
+content above is not affected and needs no account at all.
 
 Where to find things:
   Mapa    — the map and the restaurant list (tap any pin or card)
@@ -1322,7 +1365,8 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | Apple ID nas Definições do simulador | dono | ✅ feito |
 | — | A ponte da Apple: `rawNonce` e `signInWithCredential` | agente | ✅ medidos |
 | 1 | **Exercitar a captura do nome da Apple** numa primeira autorização: `appleid.apple.com` → *parar de usar*, entrar outra vez | dono destranca, agente mede | por fazer — **instrumentação já ligada** |
-| 2 | Xcode: equipa + capacidade *Sign in with Apple* (4.1) | dono | por fazer |
+| — | Equipa de assinatura no projeto (4.1) | agente | ✅ `LGN8A4342T`, versionada em `ios-signing.json` |
+| 2 | Capacidade *Sign in with Apple* — só se o build para dispositivo a pedir | dono, se preciso | por confirmar |
 | — | "Pergunta-me" + permissão de localização (4.2) | agente | ✅ medido |
 | — | Carregar foto para um sítio (4.2) | agente | ✅ sobe e aparece |
 | — | Dar 3 papéis IAM à conta de serviço | dono | ✅ dados 24/08 |
@@ -1334,7 +1378,7 @@ quem chegar a seguir lê o repositório, não o chat.
 | **0** | ⛔ **Política de privacidade — não existe** (4.3b). Bloqueia a submissão: o campo é obrigatório | agente escreve, dono assume, dono autoriza publicar | **por fazer** |
 | 4 | **Submeter** as etiquetas na App Store Connect (4.3) | dono | por fazer |
 | 5 | Nota ao revisor (4.4) — **já escrita**, falta colar e confirmar | dono | por fazer |
-| — | Conta de teste (4.4) | — | ✅ **não é precisa** — a app vê-se toda sem conta |
+| — | Conta de teste (4.4) | — | ✅ **não é precisa** — a app vê-se toda sem conta (medido) |
 | — | ⚠️ **Contas Apple e Google separadas — já em produção** | dono decide o quê, agente executa | ver abaixo |
 | 7 | A procura numa porta, o ecrã de entrada, o perfil público | decisão do dono | por decidir |
 | — | ⚠️ **Metadados da loja** — screenshots, descrição, subtítulo, palavras-chave, classificação etária, conformidade de exportação | nunca foram listados aqui; ver a nota | **por levantar** |
@@ -1392,17 +1436,49 @@ instrumentação ligada, não à sorte.
 passagem gastava-se sem se saber porquê: uma conta sem nome é **indistinguível**
 de uma autorização repetida, que também não traz nome e é o caso normal. O
 `registarRespostaDaApple` (no `index.html`, nos dois caminhos) usa o `isNewUser`
-para separar os dois casos, e quando foi mesmo a primeira e o nome não veio grita:
+para separar os dois casos.
 
-```
-apple: PRIMEIRA autorizacao e o nome NAO veio {"caminho":"nativo",…,"chavesDoUser":[…]}
-```
-
-Vê-se assim, com a app a correr:
+Lê-se com um comando:
 
 ```bash
-xcrun simctl spawn booted log stream --predicate 'process == "App"' | grep -i "apple:"
+npm run ios:apple-diag
 ```
+
+> ⚠️ **A primeira versão desta instrumentação era inútil, e este documento
+> mandava lê-la com um comando que não funciona.** Escrevia para o
+> `console.log`, e o handoff dizia:
+>
+> ```bash
+> xcrun simctl spawn booted log stream --predicate 'process == "App"' | grep -i "apple:"
+> ```
+>
+> **O `console.log` de dentro da WKWebView não chega ao log do sistema.**
+> Procurado em 17 mil linhas do log do processo `App`, à volta de uma entrada
+> com a Apple mesmo a sério: não há lá nada. É a mesma família do `codesign` —
+> uma ferramenta que não sabe responder à pergunta que se lhe faz — mas com uma
+> agravante: **dava a sensação de estar coberto.** Eu escrevi o comando, dei a
+> instrumentação por ligada, e ela não registava nada em lado nenhum.
+>
+> Agora o registo fica no **`localStorage`**, que sobrevive à sessão e se lê do
+> disco sem depender de ninguém ter uma consola aberta no momento certo. Guarda
+> as últimas cinco entradas, para uma tentativa não apagar a prova da anterior.
+
+**O que se sabe da tentativa de 24/08, e o que não se sabe:**
+
+| | |
+| --- | --- |
+| Sessão gravada | Apple (`apple.com`), uid `Ick0DnjF…`, email `@privaterelay.appleid.com` |
+| Nome | **não veio** — o Perfil mostra "Amigo" |
+| Foi primeira autorização ou repetida? | **não se sabe** — a instrumentação da altura não deixou rasto |
+
+Ou seja: **a tentativa não conta como medição.** Não se pode dizer que a captura
+falhou nem que funcionou; só que não houve nome, o que é o esperado numa
+autorização repetida e um defeito numa primeira.
+
+**A boa notícia é que a passagem se renova.** O *parar de usar* pode fazer-se
+outra vez, e outra: cada re-autorização depois de uma revogação conta como
+primeira e a Apple volta a mandar o nome. O que não se pode é gastá-la sem
+instrumento — e agora há um.
 
 > ⚠️ **E há uma armadilha nova, lida no Swift do plugin, que estreita isto mais
 > do que o documento dizia.** No `AppleAuthProviderHandler.swift` o nome só é

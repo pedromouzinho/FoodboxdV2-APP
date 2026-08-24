@@ -930,23 +930,51 @@
         // aviso em voz alta com a forma inteira da resposta — para quem vier a
         // seguir poder ver onde é que o nome estava, em vez de adivinhar.
         //
-        // Ver no simulador ou no telemóvel ligado:
-        //   xcrun simctl spawn booted log stream --predicate 'process == "App"' \
-        //     | grep -i "apple:"
+        // ONDE ISTO FICA, e porque não é no `console.log`.
+        //
+        // A primeira versão disto escrevia só para a consola e o handoff mandava
+        // lê-la com `simctl spawn booted log stream`. **Não funciona.** O
+        // `console.log` de dentro da WKWebView **não chega ao log do sistema** —
+        // procurei-o em 17 mil linhas do log do processo `App`, à volta de uma
+        // entrada real, e não há lá nada. Um instrumento que não sabe responder
+        // à pergunta que se lhe faz é pior do que não ter instrumento nenhum,
+        // porque dá a impressão de estar coberto.
+        //
+        // Por isso o registo fica no `localStorage`, que **sobrevive** à sessão
+        // e se lê de fora sem depender de ninguém ter uma consola aberta:
+        //
+        //   xcrun simctl get_app_container booted pt.foodboxd.app data
+        //   → Library/WebKit/pt.foodboxd.app/WebsiteData/…/LocalStorage/localstorage.sqlite3
+        //   (os valores estão em UTF-16: `select hex(value)` e descodificar)
+        //
+        // Guarda as últimas cinco entradas: uma tentativa que corre mal seguida
+        // de outra não pode apagar a prova da primeira.
+        const APPLE_DIAG = "foodboxd.appleDiag";
         function registarRespostaDaApple(caminho, r, nome) {
           try {
             const info = (r && r.additionalUserInfo) || {};
             const primeira = info.isNewUser === true;
             const forma = {
+              quando: new Date().toISOString(),
               caminho,
               primeiraAutorizacao: primeira,
               nomeApanhado: nome || null,
               temUser: !!(r && r.user),
+              // As chaves, não os valores: o que se quer saber é ONDE o nome
+              // estaria, e os valores trazem identificadores que não têm nada
+              // que ficar gravados à espera de alguém os ler.
               chavesDoUser: r && r.user ? Object.keys(r.user) : [],
-              chavesDoPerfil: info.profile ? Object.keys(info.profile) : []
+              chavesDoPerfil: info.profile ? Object.keys(info.profile) : [],
+              // O único valor que interessa mesmo, e é o que se está a tentar
+              // salvar: o que o plugin pôs no displayName.
+              displayNameDoPlugin: (r && r.user && r.user.displayName) || null
             };
+            try {
+              const antes = JSON.parse(localStorage.getItem(APPLE_DIAG) || "[]");
+              antes.push(forma);
+              localStorage.setItem(APPLE_DIAG, JSON.stringify(antes.slice(-5)));
+            } catch (e) { /* sem localStorage resta a consola */ }
             if (primeira && !nome) {
-              // O caso que não se pode repetir. Alto de propósito.
               console.warn("apple: PRIMEIRA autorizacao e o nome NAO veio", JSON.stringify(forma));
             } else {
               console.log("apple:", JSON.stringify(forma));
