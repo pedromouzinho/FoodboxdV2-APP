@@ -20,7 +20,7 @@ falhado que passa despercebido custa mais adiante do que custa aqui.
 
 | | |
 | --- | --- |
-| Produção | https://foodboxd.pt — service worker `foodboxd-v83` |
+| Produção | https://foodboxd.pt — service worker `foodboxd-v83` (por publicar: **v85**) |
 | Ramo de trabalho | `claude/beautiful-davinci-vsyokk` |
 | Projeto Firebase | `app-restaurantes-499400` (número `909243049168`) |
 | Bundle ID | `pt.foodboxd.app` (em `capacitor.config.json`) |
