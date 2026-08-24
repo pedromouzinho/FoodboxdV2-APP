@@ -919,6 +919,41 @@
         // sozinho no perfil. Quem não tratar disto fica com contas sem nome para
         // sempre — e com "Ocultar o meu email" ativo, o email é um endereço de
         // reencaminhamento que não serve como nome de pessoa.
+        // A Apple manda o nome UMA vez, na primeira autorização, e não o volta a
+        // dar sem um "parar de usar" em appleid.apple.com. É uma passagem só, e
+        // se o código estiver errado o nome queima-se em silêncio: uma conta sem
+        // nome é indistinguível de uma autorização repetida, que também não traz
+        // nome nenhum e é o caso normal.
+        //
+        // Isto separa os dois casos. O `isNewUser` diz se ESTA foi a primeira
+        // autorização; se foi, e mesmo assim não veio nome, houve perda e há um
+        // aviso em voz alta com a forma inteira da resposta — para quem vier a
+        // seguir poder ver onde é que o nome estava, em vez de adivinhar.
+        //
+        // Ver no simulador ou no telemóvel ligado:
+        //   xcrun simctl spawn booted log stream --predicate 'process == "App"' \
+        //     | grep -i "apple:"
+        function registarRespostaDaApple(caminho, r, nome) {
+          try {
+            const info = (r && r.additionalUserInfo) || {};
+            const primeira = info.isNewUser === true;
+            const forma = {
+              caminho,
+              primeiraAutorizacao: primeira,
+              nomeApanhado: nome || null,
+              temUser: !!(r && r.user),
+              chavesDoUser: r && r.user ? Object.keys(r.user) : [],
+              chavesDoPerfil: info.profile ? Object.keys(info.profile) : []
+            };
+            if (primeira && !nome) {
+              // O caso que não se pode repetir. Alto de propósito.
+              console.warn("apple: PRIMEIRA autorizacao e o nome NAO veio", JSON.stringify(forma));
+            } else {
+              console.log("apple:", JSON.stringify(forma));
+            }
+          } catch (e) { /* um registo que falha não pode impedir alguém de entrar */ }
+        }
+
         async function guardarNomeDaApple(cred) {
           const u = cred && cred.user;
           if (!u || u.displayName) return cred;
@@ -946,6 +981,12 @@
                 || (typeof p.name === "string" ? p.name : "");
             } catch (e) { /* sem nome: segue-se sem inventar um */ }
           }
+          // No SDK modular o `additionalUserInfo` não está pendurado na
+          // credencial — chega-se lá pelo acessor. Sem isto o `isNewUser` vinha
+          // sempre indefinido e o aviso nunca dispararia no caminho web.
+          let extraInfo = null;
+          try { extraInfo = getAdditionalUserInfo(cred); } catch (e) { /* segue sem */ }
+          registarRespostaDaApple("web", { user: u, additionalUserInfo: extraInfo }, nome);
           if (nome) { try { await nomeGuardado(u, nome); } catch (e) {} }
           return cred;
         }
@@ -1015,7 +1056,16 @@
             // caminho nativo vem no resultado do plugin, noutro sítio ainda:
             // `r.user.displayName`. Se não o guardarmos agora, perde-se — e a
             // Apple não o volta a dar.
+            //
+            // Lido no Swift do plugin (AppleAuthProviderHandler), e vale a pena
+            // saber porque estreita: o `displayName` só é composto se vierem os
+            // DOIS, `givenName` **e** `familyName`. Se a pessoa apagar o
+            // apelido na folha da Apple, o plugin deita o nome fora e — com
+            // `skipNativeAuth` — o `r.user` vem `null` inteiro. Daqui não há
+            // como o recuperar: a credencial que mandamos ao Firebase é
+            // construída em JS e não leva `fullName`.
             const nome = (r.user && r.user.displayName) || "";
+            registarRespostaDaApple("nativo", r, nome);
             if (nome && res.user && !res.user.displayName) {
               try { await nomeGuardado(res.user, nome); } catch (e) {}
             }

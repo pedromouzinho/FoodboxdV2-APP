@@ -998,7 +998,7 @@ cada linha tem o sítio onde acontece.
 | Notas, críticas, estrelas, pratos, histórico de visitas | `persistNow()` → `userData/{uid}` | Conteúdo do utilizador · **Outro** | sim | não |
 | Perfil de gosto escrito pela pessoa (`tasteNote`) | `persistNow()` | Conteúdo do utilizador · **Outro** | sim | não |
 | Lista de amigos / grupos / quem segue | `userData/{uid}`, `follows` | **Contactos** ou Identificadores · a app não lê a agenda | sim | não |
-| **Localização precisa** | `navigator.geolocation` (`js/app.js`, no `submitSmartSuggest`) | **Localização precisa** | sim | não |
+| **Localização precisa** | `ondeEstou()` (`js/app.js`) — `@capacitor/geolocation` no nativo, `navigator.geolocation` na web | **Localização precisa** | sim | não |
 | ID de utilizador | `uid` do Firebase | Identificadores · **ID de utilizador** | sim | não |
 
 **Não há tracking nenhum a declarar.** Não existe SDK de analytics, de anúncios
@@ -1014,6 +1014,8 @@ A app fala com **quatro** destinos externos. Estão todos no código:
 | --- | --- | --- |
 | **Anthropic** (função `ai`) | perfil de gosto, notas pessoais, nomes de pratos, o nome da pessoa, e **distâncias** aos sítios | `js/ai.js` + `aiProfile()`/`aiCatalog()` |
 | **Google** (Maps, Places, Geocoding) | a **localização precisa**, em bruto | `Geocode.reverse(lat,lng)`, `js/places.js:134` |
+
+> **Nota de 24/08:** a mudança para o `@capacitor/geolocation` **não altera** nenhuma etiqueta. A localização continua a ser precisa, continua a ser recolhida, e continua a ser partilhada com a Google e (por triangulação de distâncias) com a Anthropic. O que mudou foi só quem a vai buscar dentro do telemóvel.
 | **Google** (Firebase) | tudo o que é conta e conteúdo | Firestore + Storage |
 | **OpenStreetMap** (Nominatim) | só o texto pesquisado, **não** a localização | `js/geocode.js:166` |
 
@@ -1036,10 +1038,83 @@ A app fala com **quatro** destinos externos. Estão todos no código:
 Para **todos** os itens acima: *Funcionalidade da app* e *Personalização*. Nunca
 *Publicidade* nem *Analytics* — não há nada disso na app.
 
-### 4.4 Nota para o revisor — humano
-Conta de teste com dados dentro (uma conta vazia parece uma app vazia), e uma
-linha a dizer onde estão o mapa, o social, as fotos e os leaderboards
-(guideline 4.2 — ver `SETUP_IOS.md`, ponto 6).
+### 4.4 Nota para o revisor — humano decide, texto já escrito
+
+#### Primeiro, o problema que esta secção não via
+
+**A app só tem Google e Apple.** Não há email/palavra-passe em lado nenhum
+(`index.html`: `signin-apple-btn` e `signin-modal-btn`, mais nada). Ou seja: a
+"conta de teste com dados dentro" que estava aqui escrita **não existe como
+coisa que se possa entregar**. As saídas seriam todas más:
+
+- dar as credenciais de uma conta Google real à App Review — a Google costuma
+  travar uma entrada de um dispositivo novo com um desafio de segurança, e isso
+  aparece como *"we were unable to sign in"*, que é rejeição;
+- ou acrescentar email/palavra-passe só para o revisor, que é código novo num
+  caminho de autenticação, à conta de uma submissão.
+
+#### E a saída boa, que estava aqui à frente: **não é preciso conta nenhuma**
+
+Medido no `foodboxd.pt`, com sessão nenhuma, a 24/08:
+
+| Sem entrar | Estado |
+| --- | --- |
+| Os 68 restaurantes, com zona, região, categorias e especialidade | ✅ visíveis |
+| Mapa, Lista, Filtros, pesquisa | ✅ funcionam |
+| Ficha do restaurante | ✅ abre — avaliação `4.6 (759)`, preço `€€€`, telefone |
+| Convite de sessão | fecha-se com "Agora não" e não volta a estorvar |
+
+Portanto, no formulário *App Review Information*, o **"Sign-in required" é
+`NO`**. A app não esconde o conteúdo atrás de uma conta; a conta serve para
+guardar o que é teu. Isto elimina a exigência de conta de teste.
+
+**E se o revisor quiser ver a parte social**, entra com a Apple usando o Apple ID
+dele — não há credenciais para entregar. A conta nova dele **não** fica vazia:
+sem grupo ativo, o `applyGroupFilter()` (`js/userdata.js:198`) põe
+`group = allUsers`, portanto a Atividade e o Leaderboard mostram já o que as
+outras pessoas fizeram. Era essa a preocupação original — "uma conta vazia
+parece uma app vazia" — e o desenho da app já a resolve.
+
+> ⚠️ **Isto está lido no código, não medido com uma conta acabada de criar.** A
+> única conta nova disponível é a próxima entrada com a Apple, e essa está
+> reservada para o item 1 (a captura do nome). Quem fizer o item 1 tem, de
+> graça, a oportunidade de confirmar isto ao mesmo tempo: **ao entrar, olhar
+> para o separador Amigos antes de fazer seja o que for.**
+
+#### A nota, escrita (copiar para *App Review Information → Notes*)
+
+```
+Foodboxd is a restaurant diary for Portugal: a map of places, and a private
+log of what you ate and what you thought of it.
+
+NO ACCOUNT IS NEEDED TO REVIEW THE APP. All 68 restaurants, the map, the
+list, the filters and every restaurant page (rating, price range, phone,
+signature dishes) are fully available without signing in. Just dismiss the
+sign-in invitation with "Agora não" (= "Not now").
+
+Signing in only adds the personal features: marking a place as visited,
+rating it, logging dishes, uploading photos, and the friends activity feed.
+If you would like to try those, please use "Iniciar sessão com a Apple"
+(Sign in with Apple) with your own Apple ID — we cannot supply a demo
+account because the app offers only Google and Apple sign-in, and no
+email/password path exists. A newly created account is not empty: it shows
+the global activity feed and leaderboard of existing users straight away.
+
+Where to find things:
+  Mapa    — the map and the restaurant list (tap any pin or card)
+  Diário  — your own visits, reviews and dishes
+  Amigos  — activity feed and leaderboards
+  Perfil  — your account, and "Apagar a conta" (account deletion, 5.1.1(v))
+
+Location is requested only inside "Pergunta-me" (the sparkle button in the
+header), never at launch, and the app works without granting it.
+
+The app is in Portuguese.
+```
+
+> **Antes de colar, confirma duas coisas** que só o dono pode confirmar: que o
+> texto está de acordo com o que a app faz na build submetida, e que o "Agora
+> não" ainda é o rótulo do botão de dispensar o convite.
 
 ---
 
@@ -1097,7 +1172,7 @@ autorização volta a ser "a primeira" e a devolver o nome.
 
 ## O que esta sessão apurou
 
-Cinco coisas que só se souberam a correr a app, e que não estão em mais lado
+Seis coisas que só se souberam a correr a app, e que não estão em mais lado
 nenhum. As três primeiras poupam-te trabalho que já está feito.
 
 **1. O `/api/` já está resolvido no nativo — não lhe toques.**
@@ -1146,6 +1221,17 @@ o fecha — a app ficava ocupada para sempre e nunca aplicava uma atualização.
 Passou a ser a única exceção do `ocupado()`. Tudo o que a pessoa **abre**
 continua a suspender.
 
+**6. `xcrun simctl install` por cima da app APAGA a sessão.** Custou dois logins
+ao dono em 24/08 antes de ficar escrito. Não é o contentor de dados que se
+perde — é o *data store* da WKWebView, onde a persistência do Firebase Auth vive.
+A app volta ao onboarding como se fosse uma instalação limpa.
+
+Consequência prática, e vale planear em volta dela: **o agente não pode repor a
+sessão sozinho.** A app só tem Google e Apple, e as palavras-passe não são do
+agente para escrever. Portanto, antes de reinstalar para medir alguma coisa que
+exija sessão, conta com um login do dono a seguir — ou mede primeiro tudo o que
+não precisa de conta.
+
 ---
 
 ## O que falta, por ordem
@@ -1160,17 +1246,19 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | Guardas nos `replace` do `pbxproj`, destino genérico no build | agente | ✅ |
 | — | Apple ID nas Definições do simulador | dono | ✅ feito |
 | — | A ponte da Apple: `rawNonce` e `signInWithCredential` | agente | ✅ medidos |
-| 1 | **Exercitar a captura do nome da Apple** numa primeira autorização: `appleid.apple.com` → *parar de usar*, entrar outra vez | dono destranca, agente mede | por fazer |
+| 1 | **Exercitar a captura do nome da Apple** numa primeira autorização: `appleid.apple.com` → *parar de usar*, entrar outra vez | dono destranca, agente mede | por fazer — **instrumentação já ligada** |
 | 2 | Xcode: equipa + capacidade *Sign in with Apple* (4.1) | dono | por fazer |
 | — | "Pergunta-me" + permissão de localização (4.2) | agente | ✅ medido |
 | — | Carregar foto para um sítio (4.2) | agente | ✅ sobe e aparece |
 | — | Dar 3 papéis IAM à conta de serviço | dono | ✅ dados 24/08 |
 | — | Confirmar que os papéis pegaram | agente | ✅ confirmado 24/08 |
 | — | O apagar falhar alto quando o Storage falha (1b) | dono decidiu, agente fez | ✅ decidido e medido 24/08 |
+| 3 | **Publicar a função `conta`** — sem isto o 1b não vale em produção | dono autoriza, agente dispara | por fazer |
 | — | O 2.º pedido de localização diz "localhost" (3b) | dono decidiu, agente fez | ✅ resolvido e medido 24/08 |
 | — | Etiquetas de privacidade (4.3) | agente | ✅ levantadas do código |
 | 4 | **Submeter** as etiquetas na App Store Connect (4.3) | dono | por fazer |
-| 5 | Conta de teste com dados + nota ao revisor (4.4) | dono | por fazer |
+| 5 | Nota ao revisor (4.4) — **já escrita**, falta colar e confirmar | dono | por fazer |
+| — | Conta de teste (4.4) | — | ✅ **não é precisa** — a app vê-se toda sem conta |
 | — | ⚠️ **Contas Apple e Google separadas — já em produção** | dono decide o quê, agente executa | ver abaixo |
 | 7 | A procura numa porta, o ecrã de entrada, o perfil público | decisão do dono | por decidir |
 
@@ -1222,6 +1310,44 @@ aviso antes de entrar a dizer que a conta é por método de entrada.
 autorização, e o `parar de usar` é o que faz a próxima contar como primeira. Se o
 código estiver errado, o nome queima-se e não volta — por isso mede-se com a
 instrumentação ligada, não à sorte.
+
+**✅ A instrumentação está ligada (24/08).** Antes não estava, e sem ela a
+passagem gastava-se sem se saber porquê: uma conta sem nome é **indistinguível**
+de uma autorização repetida, que também não traz nome e é o caso normal. O
+`registarRespostaDaApple` (no `index.html`, nos dois caminhos) usa o `isNewUser`
+para separar os dois casos, e quando foi mesmo a primeira e o nome não veio grita:
+
+```
+apple: PRIMEIRA autorizacao e o nome NAO veio {"caminho":"nativo",…,"chavesDoUser":[…]}
+```
+
+Vê-se assim, com a app a correr:
+
+```bash
+xcrun simctl spawn booted log stream --predicate 'process == "App"' | grep -i "apple:"
+```
+
+> ⚠️ **E há uma armadilha nova, lida no Swift do plugin, que estreita isto mais
+> do que o documento dizia.** No `AppleAuthProviderHandler.swift` o nome só é
+> composto **se vierem os dois**:
+>
+> ```swift
+> if let givenName = fullName.givenName, let familyName = fullName.familyName {
+>     displayName = "\(givenName) \(familyName)"
+> }
+> ```
+>
+> Se a pessoa apagar o apelido na folha da Apple — que é editável — o plugin
+> deita o nome inteiro fora, e com `skipNativeAuth` o `r.user` vem **`null`**.
+> Daí não há recuperação nossa: a credencial que mandamos ao Firebase é
+> construída em JS e não leva `fullName`, ao contrário da que o plugin constrói
+> do lado nativo. **Quem gastar a passagem: deixa os dois campos como a Apple os
+> preenche.**
+
+**De caminho, e de graça:** ao entrar com a conta nova, **olha para o separador
+Amigos antes de fazer seja o que for.** É a única oportunidade de confirmar o que
+a 4.4 afirma a partir do código — que uma conta acabada de criar não aparece
+vazia.
 
 **No 2:** com o `applesignin` já no `ios-entitlements.plist`, a assinatura
 automática costuma registar a capacidade sozinha ao escolher a equipa — e o 4.1
