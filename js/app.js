@@ -2310,14 +2310,44 @@ const App = (() => {
   // 100 km away as nearby — when nothing in the list qualifies it discovers new ones.
   const NEAR_MAX_KM = 25;
 
+  // Onde estou — e porque é que na app nativa não é o `navigator`.
+  //
+  // Na web o `navigator.geolocation` é tudo o que há e não há mais nada a
+  // dizer. Na app nativa há: a WKWebView trata a página como um site qualquer e
+  // pede a **sua própria** permissão por cima da que o iOS já pediu. Apareciam
+  // duas caixas seguidas, e a segunda dizia
+  //
+  //     "localhost" would like to use your current location.
+  //
+  // que não quer dizer nada a ninguém e parece avaria — e é dos detalhes que a
+  // App Review comenta. O plugin resolve a localização do lado nativo e entrega
+  // as coordenadas já feitas ao JS, por isso a webview nunca chega a pedir
+  // nada: fica uma caixa só, com o texto do `ios-info.json`.
+  //
+  // O `navigator` continua a ser o caminho da web, e também é a rede de
+  // segurança de um build nativo onde o plugin não esteja — melhor duas caixas
+  // do que nenhuma localização.
+  async function ondeEstou() {
+    const opcoes = { timeout: 6000, maximumAge: 300000 };
+    const G = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Geolocation;
+    if (CONFIG.NATIVO && G) {
+      try {
+        const p = await G.getCurrentPosition(opcoes);
+        return { lat: p.coords.latitude, lng: p.coords.longitude };
+      } catch (e) {
+        // Recusar a permissão é uma resposta, não uma avaria. O "Pergunta-me"
+        // funciona à mesma sem localização — só não pode dizer "perto".
+        return null;
+      }
+    }
+    if (!navigator.geolocation) return null;
+    return new Promise((res) => navigator.geolocation.getCurrentPosition(
+      (p) => res({ lat: p.coords.latitude, lng: p.coords.longitude }), () => res(null), opcoes));
+  }
+
   async function submitSmartSuggest(query) {
     aiLoading("A pensar na melhor escolha\u2026");
-    let near = null;
-    if (navigator.geolocation) {
-      near = await new Promise((res) => navigator.geolocation.getCurrentPosition(
-        (p) => res({ lat: p.coords.latitude, lng: p.coords.longitude }), () => res(null),
-        { timeout: 6000, maximumAge: 300000 }));
-    }
+    const near = await ondeEstou();
     // Name the area we're in so discovery searches are anchored to the right place.
     let area = "";
     if (near && typeof Geocode !== "undefined" && Geocode.reverse) {

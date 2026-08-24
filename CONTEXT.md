@@ -295,8 +295,9 @@ npm run ios:build     # sync + build para simulador, com as flags certas
 
 **O que já funciona no simulador, medido:** entrar com Google e com Apple (sessão
 real, dados reais do Firestore), o "Pergunta-me" de ponta a ponta, carregar fotos,
-apagar a conta, e a permissão de localização com o texto certo e pedida **só**
-dentro do "Pergunta-me".
+apagar a conta, e a permissão de localização com o texto certo, pedida **só**
+dentro do "Pergunta-me" e agora **uma vez só** (o @capacitor/geolocation tirou a
+segunda caixa, a que dizia "localhost").
 
 **O que falta é do dono:** equipa no Xcode (4.1), submeter as etiquetas de
 privacidade (já levantadas, 4.3), e a conta de teste com nota ao revisor (4.4).
@@ -394,9 +395,16 @@ referrers.
   no código do plugin e a re-emissão está medida, mas nunca correu com a Apple a
   mandar um nome. **Só há uma passagem:** o *parar de usar* em `appleid.apple.com`.
   Quem a gastar, que a gaste com instrumentação ligada.
-- **O segundo pedido de localização, que diz "localhost".** A WKWebView pede a
-  sua própria permissão por cima da nativa. Não bloqueia a submissão, mas é feio
-  e é dos detalhes que a App Review comenta. A saída é o `@capacitor/geolocation`.
+- ~~**O segundo pedido de localização, que diz "localhost".**~~ — **resolvido**
+  (24/08). O `@capacitor/geolocation` faz a localização do lado nativo, por isso
+  a WKWebView nunca chega a pedir a sua. Medido: uma caixa só, com o texto do
+  `ios-info.json`, e as coordenadas chegam ao "Pergunta-me". Ver o Bloco 4.2 do
+  handoff.
+
+  **A armadilha que isto deixou escrita:** um simulador acabado de arrancar
+  **não tem posição nenhuma**. Sem `xcrun simctl location booted set`, o plugin
+  devolve erro e a IA responde *"Sem a tua localização…"* — que é exatamente o
+  que se veria se o plugin estivesse partido. A leitura óbvia é a errada.
 
 ### Decisões tomadas, para não se reabrirem por engano
 

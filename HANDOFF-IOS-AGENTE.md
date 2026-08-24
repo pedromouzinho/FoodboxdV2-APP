@@ -683,7 +683,72 @@ sugestões que citam o perfil de gosto da conta.
 > A saída habitual é usar o `@capacitor/geolocation`, que faz a localização pelo
 > lado nativo e entrega-a ao JS, e assim a webview nunca chega a pedir nada. É
 > mudar o `navigator.geolocation` do `submitSmartSuggest` para o plugin, só no
-> caminho nativo. **Por medir**, e a decisão de o adicionar é do dono.
+> caminho nativo.
+
+#### ✅ 3b — o segundo pedido de localização caiu (24/08)
+
+**O dono decidiu adicionar o plugin.** Está feito, compila, e está medido:
+
+- `@capacitor/geolocation@6.1.1` — a major certa; o Capacitor fica no 6 (§12 do
+  `CONTEXT.md` diz porquê).
+- `js/app.js` ganhou o `ondeEstou()`, que o `submitSmartSuggest` passa a usar. Na
+  app nativa vai ao plugin; na web continua o `navigator.geolocation`, que é
+  também a rede de segurança de um build nativo sem o plugin — melhor duas
+  caixas do que nenhuma localização.
+- Recusar a permissão devolve `null` e o "Pergunta-me" responde à mesma, só sem
+  o "perto de mim". É o mesmo comportamento de antes.
+
+**Que compila e vai lá dentro:**
+
+```
+$ npm run sync
+[info] Found 6 Capacitor plugins for ios:  …  @capacitor/geolocation@6.1.1  …
+$ xcodebuild … build
+** BUILD SUCCEEDED **
+```
+
+E no `.app` instalado: `Frameworks/CapacitorGeolocation.framework`,
+`public/js/app.js` com o `ondeEstou`, e o `NSLocationWhenInUseUsageDescription`
+do `Info.plist` igual ao do `ios-info.json` palavra por palavra.
+
+**✅ E está medido no simulador (24/08), com a permissão reposta.** Duas metades,
+porque uma sozinha não chegava:
+
+| O quê | Resultado |
+| --- | --- |
+| Quantas caixas de localização aparecem | **Uma.** A segunda, a dizer `"localhost"`, desapareceu |
+| O que a caixa diz | `Allow "Foodboxd" to use your location?` + o texto do `ios-info.json` |
+| As coordenadas chegam ao "Pergunta-me" | **Sim** — a resposta veio com distâncias reais |
+
+Depois de *Allow While Using App*, o painel foi direto a "A pensar na melhor
+escolha…" — **sem nada pelo meio**. E a resposta, com o simulador posto em
+Lisboa, cita as distâncias, que é o que prova que o `near` não veio vazio:
+
+```
+Peixe fresco em Lisboa não falta. Da tua lista, a Guelra em Belém é aposta segura…
+  Guelra        Belém, Lisboa · a 6 km
+  Gambrinus     a menos de 1 km
+  O alcochetano a 16 km
+```
+
+**Como se repete:**
+
+```bash
+xcrun simctl privacy booted reset location pt.foodboxd.app   # a caixa volta a aparecer
+xcrun simctl location booted set 38.7223,-9.1393             # senão não há posição nenhuma
+```
+
+Depois: entrar → topbar, o botão das estrelinhas → escrever e enviar → **contar
+as caixas**. Se voltar a aparecer a segunda a dizer `"localhost"`, o plugin não
+está a ser usado, e o sítio a olhar é o `CONFIG.NATIVO` e o
+`window.Capacitor.Plugins.Geolocation` dentro do `ondeEstou`.
+
+> ⚠️ **O segundo comando não é um extra — é o que evita uma conclusão errada.**
+> Um simulador acabado de arrancar **não tem posição nenhuma**. Sem ele, o
+> plugin devolve erro, o `ondeEstou` devolve `null`, e a IA responde *"Sem a tua
+> localização não consigo garantir o que está mesmo perto de ti"* — que é
+> exatamente o que se veria se o plugin estivesse partido. Aconteceu na primeira
+> passagem desta medição, e a leitura óbvia era a errada.
 
 > **Nota de método para o registo de visita com foto:** o botão "foto" do
 > formulário não é um seletor — a app diz "Podes acrescentar fotos depois". A
@@ -1102,7 +1167,7 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | Dar 3 papéis IAM à conta de serviço | dono | ✅ dados 24/08 |
 | — | Confirmar que os papéis pegaram | agente | ✅ confirmado 24/08 |
 | — | O apagar falhar alto quando o Storage falha (1b) | dono decidiu, agente fez | ✅ decidido e medido 24/08 |
-| 3b | O 2.º pedido de localização diz "localhost" — `@capacitor/geolocation` | dono decide, agente executa | por decidir |
+| — | O 2.º pedido de localização diz "localhost" (3b) | dono decidiu, agente fez | ✅ resolvido e medido 24/08 |
 | — | Etiquetas de privacidade (4.3) | agente | ✅ levantadas do código |
 | 4 | **Submeter** as etiquetas na App Store Connect (4.3) | dono | por fazer |
 | 5 | Conta de teste com dados + nota ao revisor (4.4) | dono | por fazer |
