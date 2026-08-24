@@ -663,7 +663,7 @@ que é pedida **só aí**, nunca no arranque), e **apagar conta**.
 | "Pergunta-me" de ponta a ponta | ✅ resposta real da IA, com o perfil de gosto lá dentro |
 | Leitura de fotos do Storage | ✅ o Diário mostra 15 sítios com fotos |
 | Carregar foto para um sítio | ✅ sobe e aparece na ficha |
-| Apagar conta | ❌ **FALHA** — ver abaixo, é bloqueador |
+| Apagar conta | ✅ apaga, incluindo ficheiros do Storage |
 
 O "Pergunta-me" a responder prova de caminho o `CONFIG.API_BASE`: o pedido saiu
 de `capacitor://localhost` para `https://foodboxd.pt/api/ai` e voltou com
@@ -698,9 +698,40 @@ sugestões que citam o perfil de gosto da conta.
 > que a permissão já tenha sido dada. O `NSCameraUsageDescription` só entra se
 > alguém usar o caminho da câmara.
 
-#### ❌ Apagar a conta falha — e é bloqueador de submissão
+#### ✅ Apagar a conta — RESOLVIDO em 24/08
 
-**A diretriz 5.1.1(v) exige que apagar a conta funcione.** Não funciona:
+**A diretriz 5.1.1(v) exige que apagar a conta funcione.** Funciona, desde que os
+papéis IAM foram dados. Medido no log da função:
+
+```
+16:05:17  conta: conta apagada iPxT5Ywxd7QMGbAvQajbadxWYcg2
+  {"comentarios":0,"fotos":0,"sigo":0,"seguemMe":0,"convitesEnviados":0,
+   "convitesRecebidos":0,"grupos":0,"ficheirosRestaurantes":0,
+   "ficheirosAvatar":1,"conta":"apagada"}
+```
+
+Repara no `ficheirosAvatar: 1`: **a cascata apagou também um ficheiro do
+Storage**, o que prova que o `roles/storage.objectAdmin` pegou — não só o
+Firestore. E o `conta: "apagada"` fecha o `admin.auth().deleteUser()`.
+
+A conta apagada foi a da **Apple** (`iPxT5Ywxd7…`), que estava a 0/0/0 e sem
+amigos — o candidato descartável certo. Nenhum dado real foi tocado.
+
+**O limite diário da IA também voltou:** houve chamadas ao `ai` às 17:53 e 18:53,
+e o log **não** tem mais nenhum `rate-limit skipped` depois das 14:24, que é
+anterior aos papéis.
+
+> **Consequência a ter em conta:** apagar a conta do Firebase **não** revoga a
+> autorização do lado da Apple. O próximo login com a Apple cria uma conta nova
+> mas continua a ser uma autorização **repetida** — a Apple não manda o nome, e o
+> Perfil mostra "Amigo". Para o nome vir é preciso o *parar de usar* em
+> appleid.apple.com. É também a única forma de exercitar a captura do nome, que
+> continua por correr (ver o Bloco 3).
+
+<details>
+<summary>Como era antes de os papéis serem dados (fica para referência)</summary>
+
+Não funcionava:
 
 ```
 Perfil → Apagar a conta → escrever APAGAR → Apagar a minha conta
@@ -812,6 +843,8 @@ amigos e sem grupos.
 > **Atenção ao tempo de propagação:** uma alteração de IAM pode demorar alguns
 > minutos a chegar às instâncias já a correr. Se falhar logo a seguir, esperar e
 > repetir vale mais do que voltar a mexer nos papéis.
+
+</details>
 
 > ⚠️ **Uma segunda coisa a decidir, e é de produto.** O `apagarFicheiros` apanha
 > os próprios erros e devolve `null` — se o Storage falhar, **a conta é apagada à
@@ -1017,7 +1050,7 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | "Pergunta-me" + permissão de localização (4.2) | agente | ✅ medido |
 | — | Carregar foto para um sítio (4.2) | agente | ✅ sobe e aparece |
 | — | Dar 3 papéis IAM à conta de serviço | dono | ✅ dados 24/08 |
-| **1** | **Confirmar** que os papéis pegaram: apagar uma conta descartável, e o log do `ai` sem `rate-limit skipped` | agente | por verificar |
+| — | Confirmar que os papéis pegaram | agente | ✅ confirmado 24/08 |
 | 1b | Decidir se o apagar deve falhar alto quando o Storage falha | dono decide, agente executa | por decidir |
 | 3b | O 2.º pedido de localização diz "localhost" — `@capacitor/geolocation` | dono decide, agente executa | por decidir |
 | — | Etiquetas de privacidade (4.3) | agente | ✅ levantadas do código |
