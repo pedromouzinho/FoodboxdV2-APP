@@ -700,23 +700,59 @@ sugestões que citam o perfil de gosto da conta.
 > Se instalaste o Firebase CLI (opcional no Bloco 0), testa antes no emulador:
 > `npm run emu:start` e `npm run emu:seed`.
 
-### 4.3 Etiquetas de privacidade — agente prepara, humano submete
+### 4.3 Etiquetas de privacidade — ✅ levantadas do código
 
-A App Store Connect obriga a declarar isto item a item. Levantado do código, não
-de memória:
+Levantamento feito ficheiro a ficheiro, não de memória. **Nada aqui é palpite:**
+cada linha tem o sítio onde acontece.
 
-| Dado | Onde acontece | Declarar como |
+#### O que se recolhe
+
+| Dado | Onde, no código | Declarar como | Associado? | Tracking? |
+| --- | --- | --- | --- | --- |
+| Nome | `setUser` (`js/userdata.js`), do provider | Contactos · **Nome** | sim | não |
+| Email | idem — com a Apple pode ser `@privaterelay` | Contactos · **Email** | sim | não |
+| Fotografia de perfil | `photoURL` do provider, ou upload próprio | Conteúdo do utilizador · **Fotos** | sim | não |
+| Fotos de sítios e pratos | `FirebaseStorage.upload` (`js/app.js:1301, 1770, 2130`) | Conteúdo do utilizador · **Fotos** | sim | não |
+| Notas, críticas, estrelas, pratos, histórico de visitas | `persistNow()` → `userData/{uid}` | Conteúdo do utilizador · **Outro** | sim | não |
+| Perfil de gosto escrito pela pessoa (`tasteNote`) | `persistNow()` | Conteúdo do utilizador · **Outro** | sim | não |
+| Lista de amigos / grupos / quem segue | `userData/{uid}`, `follows` | **Contactos** ou Identificadores · a app não lê a agenda | sim | não |
+| **Localização precisa** | `navigator.geolocation` (`js/app.js`, no `submitSmartSuggest`) | **Localização precisa** | sim | não |
+| ID de utilizador | `uid` do Firebase | Identificadores · **ID de utilizador** | sim | não |
+
+**Não há tracking nenhum a declarar.** Não existe SDK de analytics, de anúncios
+nem de atribuição: procurados `gtag`, `analytics`, `mixpanel`, `sentry`,
+`posthog` — zero ocorrências. O `GoogleService-Info.plist` vem com
+`IS_ANALYTICS_ENABLED = false` e `IS_ADS_ENABLED = false`.
+
+#### Partilha com terceiros — é aqui que se erra
+
+A app fala com **quatro** destinos externos. Estão todos no código:
+
+| Terceiro | O que lhe vai | Onde |
 | --- | --- | --- |
-| Nome e email | Google/Apple Sign-In (`js/userdata.js:56`) | Identificadores · associado ao utilizador |
-| Fotografia de perfil | `photoURL` do provider | Dados de contacto · associado |
-| Fotos de pratos | `FirebaseStorage.upload` (`js/app.js:1301,1770,2126`) | Conteúdo do utilizador · associado |
-| Críticas, notas, pratos | `userData/{uid}` no Firestore | Conteúdo do utilizador · associado |
-| **Localização precisa** | `navigator.geolocation` (`js/app.js:2312`) | Localização · associado · **usado só a pedido**, dentro do "Pergunta-me" |
+| **Anthropic** (função `ai`) | perfil de gosto, notas pessoais, nomes de pratos, o nome da pessoa, e **distâncias** aos sítios | `js/ai.js` + `aiProfile()`/`aiCatalog()` |
+| **Google** (Maps, Places, Geocoding) | a **localização precisa**, em bruto | `Geocode.reverse(lat,lng)`, `js/places.js:134` |
+| **Google** (Firebase) | tudo o que é conta e conteúdo | Firestore + Storage |
+| **OpenStreetMap** (Nominatim) | só o texto pesquisado, **não** a localização | `js/geocode.js:166` |
 
-**Não te esqueças da partilha com terceiros.** O "Pergunta-me" envia as notas
-pessoais e o texto do perfil de gosto para a **Anthropic**, através da função
-`ai`. Isso é partilha de conteúdo do utilizador com um terceiro e tem de ser
-declarado — é o item mais fácil de esquecer e dos que a Apple verifica.
+> ⚠️ **A localização precisa É partilhada com a Anthropic, ainda que
+> indiretamente — e isto não é óbvio a olhar para o código de uma vez.** O
+> `smartSuggest` manda `near` como um simples booleano e a `area` como rótulo de
+> zona, o que dá a impressão de que as coordenadas não saem. Mas o
+> `aiCatalog(near)` acrescenta um `distKm` a **cada** restaurante, e distâncias a
+> vários pontos de coordenadas conhecidas localizam a pessoa por triangulação.
+>
+> Declara-se **Localização precisa · partilhada com terceiros**. Dizer o
+> contrário seria uma declaração falsa, e é dos itens que a Apple verifica.
+
+> **O `tasteNote` é texto livre que a pessoa escreve sobre si**, e vai inteiro
+> para a Anthropic. É conteúdo do utilizador partilhado com um terceiro — o item
+> mais fácil de esquecer.
+
+#### Finalidades a marcar
+
+Para **todos** os itens acima: *Funcionalidade da app* e *Personalização*. Nunca
+*Publicidade* nem *Analytics* — não há nada disso na app.
 
 ### 4.4 Nota para o revisor — humano
 Conta de teste com dados dentro (uma conta vazia parece uma app vazia), e uma
@@ -847,7 +883,8 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | "Pergunta-me" + permissão de localização (4.2) | agente | ✅ medido |
 | 3 | Registar visita **com foto**, e apagar conta (4.2) | agente | por fazer |
 | 3b | O 2.º pedido de localização diz "localhost" — `@capacitor/geolocation` | dono decide, agente executa | por decidir |
-| 4 | Etiquetas de privacidade (4.3) | agente prepara, dono submete | por fazer |
+| — | Etiquetas de privacidade (4.3) | agente | ✅ levantadas do código |
+| 4 | **Submeter** as etiquetas na App Store Connect (4.3) | dono | por fazer |
 | 5 | Conta de teste com dados + nota ao revisor (4.4) | dono | por fazer |
 | — | ⚠️ **Contas Apple e Google separadas — já em produção** | dono decide o quê, agente executa | ver abaixo |
 | 7 | A procura numa porta, o ecrã de entrada, o perfil público | decisão do dono | por decidir |
