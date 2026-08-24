@@ -724,25 +724,79 @@ servidor respondeu **500**.
   `access-control-allow-origin: capacitor://localhost`, e o `/api/ai` do
   "Pergunta-me" funciona pelo mesmo caminho.
 
-**O que sobra, e é onde apostar:** algo em `apagarDocsDaQuery`, `sairDosGrupos`
-ou `admin.auth().deleteUser()` — e o candidato mais forte é o **último**, por
-permissões da conta de serviço (`RUNTIME_SA`, o
-`…@appspot.gserviceaccount.com`). O `ai` corre com a mesma conta e funciona, mas
-o `ai` só lê o Firestore e o Secret Manager; apagar exige **escrita no Firestore,
-Storage e Firebase Auth Admin**.
+**A causa, medida no log da função** (`firebase functions:log --only conta`):
 
-> **Isto é suspeita, não medição.** A resposta está no log da função:
-> `console.error("apagar conta", uid, e.message)`, na linha acima do 500.
-> Quem for lá primeiro fecha isto em dois minutos:
->
-> ```bash
-> firebase login          # uma vez, autentica no browser
-> firebase functions:log --only conta
-> ```
->
-> Ou na consola: **Firebase → Functions → `conta` → Registos**.
+```
+apagar conta iPxT5Ywxd7QMGbAvQajbadxWYcg2  7 PERMISSION_DENIED: Missing or insufficient permissions.
+```
 
-**O caminho seguro para o testar sem tocar em produção** é o emulador, e o ensaio
+O **7** é o código gRPC do **Firestore**, não do Firebase Auth. Não é o
+`deleteUser` — a minha aposta estava errada. É a **conta de serviço de execução
+sem acesso ao Firestore**:
+
+```
+serviceAccountEmail: app-restaurantes-499400@appspot.gserviceaccount.com
+```
+
+#### E não é só o apagar conta — o limite diário da IA também está desligado
+
+A mesma falta de permissões atinge o `ai`, e **em silêncio**, porque o
+`checkRateLimit` foi escrito para falhar aberto:
+
+```js
+// Fails OPEN: if Firestore is unreachable (e.g. the runtime SA lacks
+// datastore access), we skip the cap rather than block the request.
+```
+
+O log confirma que é isso que acontece, em **todas** as chamadas:
+
+```
+ai: rate-limit skipped: 7 PERMISSION_DENIED: Missing or insufficient permissions.
+```
+
+Ou seja: o `AI_DAILY_CAP` de 120 pedidos por pessoa por dia **nunca foi aplicado
+em produção**. Não é um defeito de submissão, é exposição de custo — cada pessoa
+pode chamar a Anthropic sem limite nenhum. O comentário no código previu o
+cenário; ninguém tinha ido ver que era o cenário real.
+
+#### A correção: dar permissões à conta de serviço
+
+Provavelmente é herança de uma mudança da Google: desde 2024 a conta
+`…@appspot.gserviceaccount.com` **deixou de receber o papel Editor por omissão**
+em projetos novos. Este projeto é novo — o bucket é `.firebasestorage.app`, que é
+a convenção nova. A `RUNTIME_SA` aponta para uma conta que existe e não pode
+nada.
+
+**Google Cloud → IAM e Administração → IAM**, e dar a
+`app-restaurantes-499400@appspot.gserviceaccount.com` três papéis:
+
+| Papel | Para quê | Sem ele |
+| --- | --- | --- |
+| `roles/datastore.user` | Firestore | é este que está a falhar agora |
+| `roles/firebaseauth.admin` | `admin.auth().deleteUser()` | falha o passo final do apagar |
+| `roles/storage.objectAdmin` | apagar as fotos do Storage | as fotos ficam órfãs, **em silêncio** |
+
+Por linha de comandos, se preferires:
+
+```bash
+for P in roles/datastore.user roles/firebaseauth.admin roles/storage.objectAdmin; do
+  gcloud projects add-iam-policy-binding app-restaurantes-499400 \
+    --member=serviceAccount:app-restaurantes-499400@appspot.gserviceaccount.com \
+    --role=$P
+done
+```
+
+**Prova de que resultou:** apagar uma conta descartável deixa de dar erro, e o
+`firebase functions:log --only ai` deixa de mostrar `rate-limit skipped`.
+
+> ⚠️ **Uma segunda coisa a decidir, e é de produto.** O `apagarFicheiros` apanha
+> os próprios erros e devolve `null` — se o Storage falhar, **a conta é apagada à
+> mesma e as fotos ficam lá**, sem ninguém saber. O ecrã de confirmação promete
+> que "as fotografias que enviaste" desaparecem. Enquanto o
+> `roles/storage.objectAdmin` não estiver dado, essa promessa não se cumpre e
+> nada o diz. Vale a pena decidir se isso deve passar a falhar alto.
+
+**O caminho seguro para testar sem tocar em produção** é o emulador, e o ensaio
 já existe: `npm run test:apagar` corre a cascata direta contra
 `exports.__test.apagarConta`. Precisa de `npm run emu:start`, que precisa do
 **Java** — não instalado nesta máquina (`brew install openjdk`).
@@ -938,7 +992,8 @@ quem chegar a seguir lê o repositório, não o chat.
 | 2 | Xcode: equipa + capacidade *Sign in with Apple* (4.1) | dono | por fazer |
 | — | "Pergunta-me" + permissão de localização (4.2) | agente | ✅ medido |
 | — | Carregar foto para um sítio (4.2) | agente | ✅ sobe e aparece |
-| **1** | ❌ **Apagar conta devolve 500** — bloqueia a 5.1.1(v) | dono abre o log, agente corrige | **bloqueador** |
+| **1** | ❌ **Dar 3 papéis IAM à conta de serviço** — destranca o apagar conta (5.1.1v) **e** o limite diário da IA | dono | **bloqueador** |
+| 1b | Decidir se o apagar deve falhar alto quando o Storage falha | dono decide, agente executa | por decidir |
 | 3b | O 2.º pedido de localização diz "localhost" — `@capacitor/geolocation` | dono decide, agente executa | por decidir |
 | — | Etiquetas de privacidade (4.3) | agente | ✅ levantadas do código |
 | 4 | **Submeter** as etiquetas na App Store Connect (4.3) | dono | por fazer |
