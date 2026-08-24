@@ -1038,6 +1038,44 @@ A app fala com **quatro** destinos externos. Estão todos no código:
 Para **todos** os itens acima: *Funcionalidade da app* e *Personalização*. Nunca
 *Publicidade* nem *Analytics* — não há nada disso na app.
 
+### 4.3b ⛔ Política de privacidade — NÃO EXISTE, e é bloqueador
+
+**Procurada a 24/08 e não existe em lado nenhum:** não há página no
+`foodboxd.pt`, não há ficheiro no repositório, não há link no `index.html`. O
+`SETUP_IOS.md` menciona-a de passagem no ponto 6 ("preenche nome, descrição,
+screenshots, política de privacidade, etc.") e mais nada — ficou por fazer sem
+ninguém reparar, porque nunca esteve nesta tabela.
+
+**Porque é que isto para tudo:** o campo *Privacy Policy URL* na App Store
+Connect é **obrigatório para todas as apps**. Não é um aviso, é um campo que não
+deixa submeter vazio. Não há como contornar, e não há versão curta que sirva:
+
+- tem de estar num **URL público e estável** — `foodboxd.pt/privacidade` serve;
+- tem de **bater certo com as etiquetas da 4.3**. As etiquetas dizem que se
+  recolhe localização precisa e que ela é partilhada com terceiros; se a
+  política não o disser, são duas declarações em contradição sobre a mesma app,
+  e é dos itens que a Apple confere;
+- tem de cobrir o que a 4.3 já apurou e é o mais fácil de esquecer: o
+  **`tasteNote`** (texto livre que a pessoa escreve sobre si) vai inteiro para a
+  **Anthropic**, e a localização precisa chega lá por triangulação dos `distKm`.
+
+**A boa notícia é que o trabalho difícil está feito.** A tabela da 4.3 é um
+levantamento ficheiro a ficheiro, com o sítio de cada dado e os quatro destinos
+externos — é exatamente o conteúdo de uma política, por escrever em prosa.
+
+**O que falta, e de quem é:**
+
+| Passo | De quem |
+| --- | --- |
+| Escrever o texto a partir da tabela da 4.3 | agente prepara |
+| **Ler e assumir o que lá está** — é um compromisso legal, não um ficheiro | **dono, e só o dono** |
+| Publicar em `foodboxd.pt/privacidade` (é hosting estático, sai no mesmo deploy) | agente dispara, dono autoriza |
+| Colar o URL na App Store Connect | dono |
+
+> Vale a pena um link no ecrã Perfil, ao lado do "Apagar a conta". Não é exigido
+> pela App Store, mas é onde as pessoas o procuram, e o RGPD aplica-se — há oito
+> pessoas em Portugal com dados lá dentro.
+
 ### 4.4 Nota para o revisor — humano decide, texto já escrito
 
 #### Primeiro, o problema que esta secção não via
@@ -1256,11 +1294,13 @@ quem chegar a seguir lê o repositório, não o chat.
 | 3 | **Publicar a função `conta`** — sem isto o 1b não vale em produção | dono autoriza, agente dispara | por fazer |
 | — | O 2.º pedido de localização diz "localhost" (3b) | dono decidiu, agente fez | ✅ resolvido e medido 24/08 |
 | — | Etiquetas de privacidade (4.3) | agente | ✅ levantadas do código |
+| **0** | ⛔ **Política de privacidade — não existe** (4.3b). Bloqueia a submissão: o campo é obrigatório | agente escreve, dono assume, dono autoriza publicar | **por fazer** |
 | 4 | **Submeter** as etiquetas na App Store Connect (4.3) | dono | por fazer |
 | 5 | Nota ao revisor (4.4) — **já escrita**, falta colar e confirmar | dono | por fazer |
 | — | Conta de teste (4.4) | — | ✅ **não é precisa** — a app vê-se toda sem conta |
 | — | ⚠️ **Contas Apple e Google separadas — já em produção** | dono decide o quê, agente executa | ver abaixo |
 | 7 | A procura numa porta, o ecrã de entrada, o perfil público | decisão do dono | por decidir |
+| — | ⚠️ **Metadados da loja** — screenshots, descrição, subtítulo, palavras-chave, classificação etária, conformidade de exportação | nunca foram listados aqui; ver a nota | **por levantar** |
 
 ### ⚠️ Duas contas para a mesma pessoa — e já está no ar
 
@@ -1348,6 +1388,20 @@ xcrun simctl spawn booted log stream --predicate 'process == "App"' | grep -i "a
 Amigos antes de fazer seja o que for.** É a única oportunidade de confirmar o que
 a 4.4 afirma a partir do código — que uma conta acabada de criar não aparece
 vazia.
+
+**Nos metadados da loja:** esta tabela sempre tratou do que faz a app funcionar,
+e nunca do que a App Store Connect pede ao lado. São coisas diferentes e ambas
+bloqueiam a submissão. O que falta levantar, e não está levantado:
+
+- **screenshots** nos tamanhos exigidos — isto é trabalho de agente, sai do
+  simulador com a app a correr;
+- **descrição, subtítulo, palavras-chave, URL de suporte** — o agente rascunha,
+  o dono decide;
+- **classificação etária** (questionário) e **conformidade de exportação** (a app
+  só usa HTTPS; normalmente cai na isenção) — respostas do dono;
+- **conta de programador Apple ativa** — o item 2 (equipa no Xcode) pressupõe uma
+  subscrição paga do Apple Developer Program. Se ainda não existir, é o primeiro
+  passo de todos e demora a ser aprovada.
 
 **No 2:** com o `applesignin` já no `ios-entitlements.plist`, a assinatura
 automática costuma registar a capacidade sozinha ao escolher a equipa — e o 4.1
