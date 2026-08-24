@@ -103,7 +103,11 @@ patch.set("sw.js", sw.replace(/foodboxd-v\d+/, "foodboxd-v999"));
 const recarregou = page.waitForEvent("load", { timeout: 60000 });
 await page.evaluate(() => navigator.serviceWorker.getRegistration().then((r) => r.update()));
 await recarregou.catch(() => {});
-await page.waitForTimeout(1200);
+// Esperar pela cor, não por 1200 ms — ver a nota longa no caso 3. Onde se
+// afirma que uma coisa MUDOU, espera-se pela mudança.
+await page.waitForFunction(
+  () => getComputedStyle(document.body).backgroundColor === "rgb(1, 2, 3)",
+  null, { timeout: 20000 }).catch(() => {});
 const corNova = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 chk("apanha a versão nova sem reinstalar", corNova === "rgb(1, 2, 3)", `cor=${corNova} (era ${corInicial})`);
 chk("a cache antiga foi limpa",
@@ -124,8 +128,26 @@ await page.evaluate(() => navigator.serviceWorker.getRegistration().then((r) => 
 // Esperar pelo sinal real — a app marca no <html> que tem uma versão à espera
 // — em vez de contar segundos. Sem isto o ensaio corre com o browser e falha
 // por corrida, não por defeito: já apanhei uma passagem e uma falha seguidas.
-await page.waitForFunction(() => document.documentElement.dataset.atualizacaoPendente === "1",
-  null, { timeout: 60000 });
+// Este `await` estava sem rede: quando esgotava, rebentava com um traço de
+// pilha em vez de uma linha de FALHA. Apanhei-o uma vez em dez, a parar com
+// exatamente 3 PASS — e não o voltei a reproduzir em seis corridas, por isso
+// não digo que está resolvido, digo que está **domado**.
+//
+// E o que ele escondia era pior do que o traço de pilha: se o sinal não
+// chegasse, a afirmação seguinte — "não recarrega com uma folha aberta" —
+// **passava por engano**, porque a cor continuava a ser a antiga por não ter
+// havido atualização nenhuma para travar. Um verde a dizer o contrário do que
+// mede. Por isso o sinal passa a ser uma afirmação com nome.
+const pendenteChegou = await page.waitForFunction(
+  () => document.documentElement.dataset.atualizacaoPendente === "1",
+  null, { timeout: 60000 }).then(() => true).catch(() => false);
+chk("a versão nova fica à espera enquanto a folha está aberta", pendenteChegou,
+  "o sinal atualizacaoPendente não chegou em 60s — sem ele, a afirmação seguinte não mede nada");
+// Aqui a espera por tempo É a certa, e fica de propósito: o que se afirma é que
+// a cor **não** mudou. Não há condição por que esperar — esperar por uma
+// não-mudança é dar-lhe tempo para acontecer e ver que não aconteceu. A gate
+// verdadeira é o `atualizacaoPendente` acima, que garante que a versão nova já
+// está à porta; se ela entrasse, entrava dentro deste tempo.
 await page.waitForTimeout(1500);
 const corComFolha = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 chk("não recarrega com uma folha aberta", corComFolha === "rgb(1, 2, 3)", `cor=${corComFolha}`);
@@ -138,7 +160,10 @@ const recarregou2 = page.waitForEvent("load", { timeout: 60000 });
 await page.evaluate(() => document.getElementById("filters-sheet").classList.add("hidden"));
 await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
 await recarregou2.catch(() => {});
-await page.waitForTimeout(1200);
+// Idem: afirma-se uma mudança, espera-se pela mudança.
+await page.waitForFunction(
+  () => getComputedStyle(document.body).backgroundColor === "rgb(4, 5, 6)",
+  null, { timeout: 20000 }).catch(() => {});
 const corDepois = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 chk("recarrega quando volta à frente já sem a folha", corDepois === "rgb(4, 5, 6)", `cor=${corDepois}`);
 
@@ -155,7 +180,19 @@ const recarregou3 = page.waitForEvent("load", { timeout: 60000 });
 await page.evaluate(() => document.getElementById("signin-modal").classList.remove("hidden"));
 await page.evaluate(() => navigator.serviceWorker.getRegistration().then((r) => r.update()));
 await recarregou3.catch(() => {});
-await page.waitForTimeout(1500);
+// Esperar pela COR nova, não por 1500 ms.
+//
+// É a mesma correção que o caso 1 já leva, e que aqui em baixo faltava: contar
+// milissegundos faz o ensaio correr com o browser. Apanhei-o a passar duas
+// vezes e a falhar uma, com o mesmo código, a dizer `cor=rgb(4, 5, 6)` — a cor
+// do caso anterior, ou seja, o recarregamento ainda não tinha chegado.
+//
+// O `.catch` é de propósito: se a atualização NÃO vier, isto esgota o tempo e
+// segue, e o `chk` lá em baixo falha a mostrar a cor errada. Um `await` que
+// rebentasse aqui daria um traço de pilha em vez de uma linha de FALHA.
+await page.waitForFunction(
+  () => getComputedStyle(document.body).backgroundColor === "rgb(7, 8, 9)",
+  null, { timeout: 20000 }).catch(() => {});
 const corConvite = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 chk("o convite de sessão não trava a atualização", corConvite === "rgb(7, 8, 9)", `cor=${corConvite}`);
 

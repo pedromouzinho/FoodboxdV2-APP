@@ -136,6 +136,43 @@ contador de falhas fica a zero na mesma. Quando escreveres um, faz com que ele
 **diga em voz alta** o que deixou de medir — e vai ver se não está a ser o
 caminho normal.
 
+**A oitava falhava ao calhar, e a correção já estava escrita seis linhas acima.**
+O `test:update` tinha um caso — o convite de sessão — a **contar 1500 ms** em vez
+de esperar pelo sinal. Falhou uma vez com `cor=rgb(4, 5, 6)`, que é a cor do caso
+anterior: o recarregamento ainda não tinha chegado. Passou nas três seguintes com
+o mesmo código.
+
+O que faz disto um caso a registar não é a corrida, é onde ela estava: **os casos
+1 e 2 já tinham sido corrigidos, com um comentário a explicar porquê** — *"esperar
+pelo sinal real em vez de contar segundos… já apanhei uma passagem e uma falha
+seguidas"* — e o caso 3, logo a seguir, ficou com o defeito que o comentário
+descreve. Uma correção que se aplica a um caso e não aos irmãos ao lado.
+
+Duas coisas para levar daqui:
+
+- **Um arnês que falha ao calhar é um defeito do arnês**, mesmo quando passa nas
+  vezes seguintes. Não se corre outra vez até dar verde: espera-se pela
+  **condição**, com prazo, e o prazo esgotado deixa o `chk` falhar com o valor à
+  vista em vez de rebentar com um traço de pilha.
+- **Ao corrigir uma corrida, procura os irmãos.** Se um caso contava tempo, os
+  outros do mesmo ficheiro provavelmente também contam. Havia mais dois. Mas
+  **nem todos**: onde se afirma que uma coisa **não** mudou, esperar tempo é o
+  certo — não há condição por que esperar, e trocá-la por uma espera de condição
+  seria trocar um defeito por outro.
+
+E, ao puxar por este fio, apareceu o de baixo, que é o mesmo defeito com pior
+consequência: **um `await` de 60 s sem `.catch` rebentava com um traço de pilha
+em vez de dar uma linha de FALHA** — e, se esgotasse, a afirmação seguinte
+**passava por engano**, porque a cor continuava a antiga por não ter havido
+atualização nenhuma para travar. Um verde a dizer o contrário do que mede.
+Passou a ser uma afirmação com nome (o `test:update` tem agora **7** casos, não
+6). Apanhado uma vez em dez e não reproduzido em dez corridas seguidas depois —
+está **domado**, não está provado resolvido.
+
+**A regra curta:** num arnês, uma espera que possa esgotar ou é uma afirmação com
+nome, ou é um traço de pilha à espera de acontecer — e às vezes é um falso verde,
+que é pior do que os dois.
+
 ## Onde está o resto
 
 | Ficheiro | O que é |
