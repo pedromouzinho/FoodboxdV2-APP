@@ -585,18 +585,77 @@ async function apagarDocsDaQuery(query, limite = 400) {
 // apagar é a diretriz 5.1.1v por cumprir e uma pessoa presa. Por isso isto é
 // melhor-esforço e nunca interrompe: devolve o que conseguiu, ou null se falhou,
 // para o registo mostrar a diferença em vez de a esconder num zero.
+//
+// Só que o `null` sozinho não chegava. Durante dias a conta de serviço não teve
+// `storage.objectAdmin`, este passo rebentou em todas as chamadas, e o `null`
+// foi parar ao mesmo `console.log("conta apagada", …)` de uma corrida limpa,
+// misturado com os zeros legítimos de quem nunca tinha enviado uma foto. Quem
+// lia o log via sucesso. A decisão continua a ser a mesma — a conta vai-se de
+// qualquer maneira — mas a falha deixa de se poder confundir com o sucesso.
+//
+// Devolve `{ contagem, erro }`: a contagem mantém o contrato de antes (número,
+// ou null para "não sei", que não é zero), e o erro é o que se guarda para os
+// órfãos poderem ser varridos depois.
 async function apagarFicheiros(prefixo, uid) {
+  let apagados = 0;
+  let erro = null;
+  // Duas passagens. A segunda apanha a falha passageira — um 503, a rede a cair
+  // a meio — sem transformar a permanente numa espera: volta a listar, por isso
+  // só repete o que ficou mesmo por apagar.
+  for (let tentativa = 1; tentativa <= 2; tentativa++) {
+    const r = await umaPassagemDeFicheiros(prefixo, uid);
+    apagados += r.apagados;
+    erro = r.erro;
+    if (!erro) return { contagem: apagados, erro: null };
+  }
+  console.error("apagar: ficheiros orfaos", prefixo, uid, erro);
+  // Quando foi a listagem a falhar não se sabe sequer quantos eram. O null diz
+  // "não sei"; um zero diria "não havia nenhum", que é outra coisa.
+  return { contagem: apagados || null, erro };
+}
+
+async function umaPassagemDeFicheiros(prefixo, uid) {
   try {
     const bucket = admin.storage().bucket();
     const [ficheiros] = await bucket.getFiles({ prefix: prefixo });
     // O nome de cada ficheiro começa pelo uid de quem o enviou — é a mesma
     // convenção que as regras do Storage impõem na escrita.
     const meus = ficheiros.filter((f) => f.name.split("/").pop().startsWith(uid + "-"));
-    await Promise.all(meus.map((f) => f.delete().catch(() => {})));
-    return meus.length;
+    // O `.catch(() => {})` de antes engolia isto ficheiro a ficheiro, que é o
+    // caminho mais provável dos dois: a listagem correr e um `delete` não.
+    const falhados = [];
+    await Promise.all(meus.map((f) => f.delete().catch(() => falhados.push(f.name))));
+    return {
+      apagados: meus.length - falhados.length,
+      erro: falhados.length
+        ? `${falhados.length} ficheiro(s) por apagar: ${falhados.slice(0, 5).join(", ")}`
+        : null
+    };
   } catch (e) {
-    console.error("apagarFicheiros", prefixo, e && e.message);
-    return null;
+    return { apagados: 0, erro: (e && e.message) || String(e) };
+  }
+}
+
+// Onde fica escrito o que não se conseguiu apagar.
+//
+// Prender quem quer sair porque uma foto não saiu seria trocar a diretriz
+// 5.1.1v por arrumação. Mas um ficheiro que fica é de uma pessoa que pediu para
+// desaparecer, e isso não pode ficar só num log que expira. Guarda-se o mínimo
+// para o varrer depois — o uid, os prefixos, a data — e nada mais.
+//
+// Nenhuma regra do `firestore.rules` menciona esta coleção, e não há regra
+// catch-all: nenhum cliente lhe chega, só o Admin SDK.
+async function registarOrfaos(uid, orfaos) {
+  try {
+    await db.collection("apagarPendente").doc(uid).set({
+      uid,
+      quando: admin.firestore.FieldValue.serverTimestamp(),
+      prefixos: orfaos
+    });
+  } catch (e) {
+    // Se o Firestore também não responde não há onde registar — e a conta tem
+    // de sair na mesma. O log é o que resta.
+    console.error("apagar: nao consegui registar os orfaos", uid, e && e.message);
   }
 }
 
@@ -626,8 +685,19 @@ async function apagarConta(uid) {
   contagem.convitesEnviados = await apagarDocsDaQuery(db.collection("visitInvites").where("fromUid", "==", uid));
   contagem.convitesRecebidos = await apagarDocsDaQuery(db.collection("visitInvites").where("toUid", "==", uid));
   contagem.grupos = await sairDosGrupos(uid);
-  contagem.ficheirosRestaurantes = await apagarFicheiros("restaurants/", uid);
-  contagem.ficheirosAvatar = await apagarFicheiros("avatars/", uid);
+  const restaurantes = await apagarFicheiros("restaurants/", uid);
+  const avatar = await apagarFicheiros("avatars/", uid);
+  contagem.ficheirosRestaurantes = restaurantes.contagem;
+  contagem.ficheirosAvatar = avatar.contagem;
+  const orfaos = [];
+  if (restaurantes.erro) orfaos.push({ prefixo: "restaurants/", erro: restaurantes.erro });
+  if (avatar.erro) orfaos.push({ prefixo: "avatars/", erro: avatar.erro });
+  if (orfaos.length) {
+    // Vai dentro da contagem de propósito: assim a linha do log denuncia a
+    // falha sozinha, sem ninguém ter de ir ler o Firestore para desconfiar.
+    contagem.ficheirosPorApagar = orfaos.map((o) => o.prefixo);
+    await registarOrfaos(uid, orfaos);
+  }
   await db.collection("userData").doc(uid).delete().catch(() => {});
   await db.collection("profiles").doc(uid).delete().catch(() => {});
   // Por fim a conta. Se alguma coisa acima falhar, a conta continua de pé e o
@@ -671,7 +741,14 @@ exports.conta = onRequest(
 
     try {
       const contagem = await apagarConta(user.uid);
-      console.log("conta apagada", user.uid, JSON.stringify(contagem));
+      // A conta saiu nos dois casos — o que muda é o nível. Um `console.log`
+      // some-se no meio dos outros; é preciso que uma pesquisa por erros
+      // encontre isto, porque ficaram ficheiros de alguém que pediu para sair.
+      if (contagem.ficheirosPorApagar) {
+        console.error("conta apagada COM ficheiros orfaos", user.uid, JSON.stringify(contagem));
+      } else {
+        console.log("conta apagada", user.uid, JSON.stringify(contagem));
+      }
       return res.json({ result: { apagado: true, contagem } });
     } catch (e) {
       console.error("apagar conta", user.uid, e && e.message);

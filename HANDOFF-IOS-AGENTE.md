@@ -721,6 +721,56 @@ amigos — o candidato descartável certo. Nenhum dado real foi tocado.
 e o log **não** tem mais nenhum `rate-limit skipped` depois das 14:24, que é
 anterior aos papéis.
 
+#### ✅ 1b — o que acontece quando o Storage falha (decidido 24/08)
+
+**A pergunta era:** o apagar conta devia falhar alto quando as fotos não saem?
+
+**A decisão do dono: alto, mas não bloqueante.** A conta é apagada de qualquer
+maneira. Prender quem quer sair porque uma foto ficou presa seria trocar a
+diretriz 5.1.1(v) — que se acabou de derrubar — por arrumação.
+
+O que mudou é que a falha deixou de se poder confundir com sucesso:
+
+| Antes | Agora |
+| --- | --- |
+| `apagarFicheiros` devolvia `null` e seguia | devolve `{contagem, erro}` e tenta **duas vezes** |
+| o `.catch(() => {})` engolia cada `delete` | os ficheiros que não saem são **contados e nomeados** |
+| o `null` ia parar ao `console.log("conta apagada")` | `console.error("conta apagada COM ficheiros orfaos")` |
+| não ficava registo nenhum | fica `apagarPendente/{uid}` com os prefixos e a data |
+
+O `apagarPendente` é onde se vai buscar o que varrer. Nenhuma regra do
+`firestore.rules` o menciona e não há regra catch-all, por isso nenhum cliente
+lhe chega — só o Admin SDK. Guarda o mínimo: uid, prefixos, erro, data.
+
+**Porque é que o `null` sozinho não chegava** — e isto é a parte que interessa a
+quem vier: o `null` de uma falha e o `0` de quem nunca enviou uma foto iam parar
+à **mesma linha de log de sucesso**. Foi assim que a falta do
+`storage.objectAdmin` passou dias sem ninguém reparar. Não foi falta de registo,
+foi registo indistinguível.
+
+**Medido**, com o `getFiles` a recusar como recusava sem o papel IAM:
+
+```
+$ npm run test:apagar
+apagar: ficheiros orfaos restaurants/ conta-a-apagar Missing or insufficient permissions.
+apagar: ficheiros orfaos avatars/ conta-a-apagar Missing or insufficient permissions.
+  contagem (storage em baixo): {…,"ficheirosRestaurantes":null,"ficheirosAvatar":null,
+   "ficheirosPorApagar":["restaurants/","avatars/"],"conta":"apagada"}
+PASS o Storage em baixo não impede a conta de ser apagada
+PASS e os dados do Firestore saem à mesma
+PASS fica registo de que ficaram ficheiros por apagar
+PASS o registo diz quais foram os prefixos afetados
+PASS a contagem denuncia a falha a quem lê o log
+```
+
+As três últimas **falharam primeiro** contra o código com o defeito, que é a
+única forma de saber que afirmam alguma coisa. As duas primeiras passavam já
+antes — de propósito: se falhassem, o teste seria um espantalho.
+
+> ⚠️ **Isto ainda não está em produção.** Só mexe em `functions/`, e a função
+> `conta` tem de ser republicada (`--only functions`) para a mudança valer. Em
+> produção, hoje, uma falha do Storage continua a ser um `null` calado.
+
 > **Consequência a ter em conta:** apagar a conta do Firebase **não** revoga a
 > autorização do lado da Apple. O próximo login com a Apple cria uma conta nova
 > mas continua a ser uma autorização **repetida** — a Apple não manda o nome, e o
@@ -1051,7 +1101,7 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | Carregar foto para um sítio (4.2) | agente | ✅ sobe e aparece |
 | — | Dar 3 papéis IAM à conta de serviço | dono | ✅ dados 24/08 |
 | — | Confirmar que os papéis pegaram | agente | ✅ confirmado 24/08 |
-| 1b | Decidir se o apagar deve falhar alto quando o Storage falha | dono decide, agente executa | por decidir |
+| — | O apagar falhar alto quando o Storage falha (1b) | dono decidiu, agente fez | ✅ decidido e medido 24/08 |
 | 3b | O 2.º pedido de localização diz "localhost" — `@capacitor/geolocation` | dono decide, agente executa | por decidir |
 | — | Etiquetas de privacidade (4.3) | agente | ✅ levantadas do código |
 | 4 | **Submeter** as etiquetas na App Store Connect (4.3) | dono | por fazer |

@@ -16,6 +16,13 @@
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
 process.env.FIREBASE_AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9099";
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || "app-restaurantes-499400";
+// O Storage faltava aqui, e faltava em silêncio. Sem esta variável o Admin SDK
+// fala com o Google a sério: ou rebenta a semear ("Could not load the default
+// credentials"), ou — pior — a máquina tem credenciais e o ensaio apaga
+// ficheiros do bucket verdadeiro. As três afirmações sobre ficheiros caíam
+// sempre no ramo "sem Storage", que não afirma nada e não conta como falha.
+// Ao contrário das outras duas, esta precisa do protocolo à frente.
+process.env.STORAGE_EMULATOR_HOST = process.env.STORAGE_EMULATOR_HOST || "http://127.0.0.1:9199";
 
 const { createRequire } = await import("node:module");
 const require = createRequire(import.meta.url);
@@ -103,7 +110,7 @@ async function ficheiroExiste(caminho) {
 }
 
 async function limpar() {
-  for (const col of ["userData", "profiles", "comments", "photos", "follows", "visitInvites", "groups", "restaurants"]) {
+  for (const col of ["userData", "profiles", "comments", "photos", "follows", "visitInvites", "groups", "restaurants", "apagarPendente"]) {
     const snap = await db.collection(col).get();
     await Promise.all(snap.docs.map((d) => d.ref.delete()));
   }
@@ -178,6 +185,63 @@ ok("o grupo que era só meu desaparece", !(await existe("groups/g-so-meu")));
 let segunda = "correu";
 try { await mod.__test.apagarConta(EU); } catch (e) { segunda = e && e.message; }
 ok("apagar outra vez não rebenta", segunda === "correu", segunda);
+
+await limpar();
+
+// ---- quando o Storage falha -------------------------------------------------
+//
+// Este é o caminho que já aconteceu a sério: durante dias a conta de serviço não
+// tinha `storage.objectAdmin` e o passo dos ficheiros rebentava em silêncio. O
+// `apagarFicheiros` devolvia `null`, e esse `null` ia parar ao mesmo
+// `console.log("conta apagada", …)` de uma corrida perfeita, misturado com os
+// zeros legítimos. Quem lesse o log via sucesso.
+//
+// Há duas afirmações a fazer, e são opostas de propósito:
+//
+//   1. a conta tem de ser apagada **na mesma** — prender quem quer sair porque
+//      uma foto não saiu troca a diretriz 5.1.1(v) por arrumação;
+//   2. e a falha tem de ficar escrita onde se possa varrer, porque um ficheiro
+//      que fica é de uma pessoa que pediu para desaparecer.
+//
+// A falha simula-se no `getFiles` do protótipo do Bucket, que é onde a falta de
+// permissões batia de verdade — e não a rebentar o `admin.storage()`, que
+// testaria um cenário que nunca ninguém viu.
+
+await semear();
+
+const Bucket = Object.getPrototypeOf(admin.storage().bucket());
+const getFilesReal = Bucket.getFiles;
+Bucket.getFiles = function () {
+  return Promise.reject(Object.assign(new Error("Missing or insufficient permissions."), { code: 7 }));
+};
+
+let comStorageEmBaixo;
+try {
+  comStorageEmBaixo = await mod.__test.apagarConta(EU);
+} finally {
+  Bucket.getFiles = getFilesReal;
+}
+console.log("  contagem (storage em baixo):", JSON.stringify(comStorageEmBaixo));
+
+let authApos = null;
+try { authApos = await admin.auth().getUser(EU); } catch (e) { authApos = null; }
+ok("o Storage em baixo não impede a conta de ser apagada", authApos === null,
+  "a 5.1.1(v) exige que apagar a conta funcione — uma foto presa não pode prender a pessoa");
+ok("e os dados do Firestore saem à mesma", !(await existe(`userData/${EU}`)));
+
+// A afirmação que falta hoje: sem isto, os órfãos existem e ninguém sabe quais.
+const registo = await db.collection("apagarPendente").doc(EU).get();
+ok("fica registo de que ficaram ficheiros por apagar", registo.exists,
+  "sem registo, os ficheiros de quem pediu para desaparecer ficam no Storage sem ninguém saber quais");
+ok("o registo diz quais foram os prefixos afetados",
+  registo.exists && (registo.data().prefixos || []).length === 2,
+  registo.exists ? JSON.stringify(registo.data().prefixos) : "não existe");
+
+// E o log tem de conseguir distinguir isto de uma corrida limpa sem ir ler o
+// Firestore — é o que faz a diferença entre notar e não notar.
+ok("a contagem denuncia a falha a quem lê o log",
+  Array.isArray(comStorageEmBaixo.ficheirosPorApagar) && comStorageEmBaixo.ficheirosPorApagar.length === 2,
+  JSON.stringify(comStorageEmBaixo.ficheirosPorApagar));
 
 await limpar();
 
