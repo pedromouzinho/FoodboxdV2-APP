@@ -1206,6 +1206,56 @@ GET /ios-signing.json       -> HTTP 404                        (deixou de ser pu
 > única prova é uma escrita **autenticada**, ou seja tocar em *Denunciar*
 > dentro da app com sessão. Fica por fazer, e é o passo seguinte.
 
+#### O denunciar falhava por minha causa, não das regras
+
+**Duas medições foram gastas a culpar o sítio errado.** Depois de publicar as
+regras, o *Denunciar* continuou a dar *«Não consegui enviar»*. A causa não
+estava no Firestore:
+
+```js
+const token = await window.FirebaseAuth.getIdToken();   // <- não existe
+```
+
+O `window.FirebaseAuth` exporta **`getToken`**. Todas as outras onze chamadas
+do ficheiro usam `fb ? await fb.getToken() : null` — foi só aqui que inventei
+outro nome. A chamada rebentava com um `TypeError` **antes de haver pedido**, e
+o `catch` disfarçava-o de falha de envio.
+
+> **A lição não é o erro de nome, é a mensagem.** *«Não consegui enviar. Tenta
+> outra vez»* mandava a pessoa repetir um gesto que ia falhar sempre, e mandava
+> quem diagnosticava olhar para as regras do Firestore — que estavam bem. A
+> mensagem passou a levar a causa (`Não consegui enviar — ${e.message}`) e a
+> escrever no `console.error`. **Num `catch` que engole tudo, a mensagem é o
+> único instrumento que resta: se ela não disser o que aconteceu, o defeito
+> seguinte custa duas medições outra vez.**
+
+**E faltava metade do sítio.** As fotos do feed dos Amigos não levavam
+`data-photo-uid` nem `data-photo-badge`, portanto o visualizador não sabia de
+quem era a foto e escondia o *Denunciar* — só as fotos abertas a partir da
+ficha do restaurante o mostravam. O feed é o sítio mais provável para alguém
+ver conteúdo alheio, e era exatamente onde não havia botão.
+
+#### ✅ Medido a 25/08, com sessão real
+
+| O quê | Resultado |
+| --- | --- |
+| *Denunciar* aparece numa foto do feed de outra pessoa | ✅ |
+| A folha diz de quem é (`De Leonor Marques.`) | ✅ |
+| Botões com a cor da app, não o azul de sistema | ✅ |
+| Enviar a denúncia | ✅ **segue o caminho do sucesso** |
+
+> **Sobre a última linha, com precisão:** o que se observou foi a folha a
+> **fechar-se sozinha ~1,4 s depois**, que é o que só acontece quando o
+> `addReport` resolve. Na falha a folha **fica aberta** com a mensagem — foi
+> assim que se viu falhar, duas vezes. A distinção é real e observável, mas o
+> texto «Denúncia recebida» não chegou a ser fotografado: some antes de o
+> screenshot voltar.
+>
+> **O que fecharia isto de vez** é olhar para a coleção `reports` na consola do
+> Firestore e ver lá os documentos. As regras são `read: false` para clientes —
+> de propósito — portanto nem a app nem o agente lhe chegam. É um olhar do
+> dono, e ficam lá **duas denúncias de teste** sobre a mesma foto, para apagar.
+
 > ⚠️ **O que continua por medir:** o *Denunciar* a resultar depois das regras
 > irem para produção, denunciar **um comentário** (a foto já foi
 > exercitada), e o percurso de ponta a
@@ -1558,7 +1608,7 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | Publicar a função `conta` (1b) | dono autorizou, agente disparou | ✅ publicada 24/08 |
 | — | O 2.º pedido de localização diz "localhost" (3b) | dono decidiu, agente fez | ✅ resolvido e medido 24/08 |
 | — | Etiquetas de privacidade (4.3) | agente | ✅ levantadas do código |
-| **0** | ⛔ **Diretriz 1.2 — denunciar e bloquear** (4.0) | agente construiu, dono mediu | ⚠️ bloquear/desbloquear ✅; **denunciar espera pelas regras** |
+| — | **Diretriz 1.2 — denunciar e bloquear** (4.0) | agente construiu, dono e agente mediram | ✅ os três funcionam; falta confirmar os documentos na consola |
 | **0** | ⛔ **Política de privacidade** (4.3b) — escrita, com dois campos por preencher e por publicar | agente escreveu; **dono dá nome+email, lê e autoriza publicar** | **por decidir** |
 | 4 | **Submeter** as etiquetas na App Store Connect (4.3) | dono | por fazer |
 | 5 | Nota ao revisor (4.4) — **já escrita**, falta colar e confirmar | dono | por fazer |

@@ -1329,7 +1329,15 @@ const App = (() => {
     const alvo = modAlvo;
     if (status) status.textContent = "A enviar…";
     try {
-      const token = await window.FirebaseAuth.getIdToken();
+      // `getToken`, e não `getIdToken`.
+      //
+      // Escrevi `getIdToken` e passei duas medições a culpar as regras do
+      // Firestore: o `window.FirebaseAuth` exporta `getToken`, portanto a
+      // chamada rebentava com um TypeError antes de haver pedido nenhum, e o
+      // `catch` lá em baixo disfarçava-o de "não consegui enviar". Todo o resto
+      // do ficheiro usa esta forma — foi só aqui que inventei outra.
+      const fb = window.FirebaseAuth;
+      const token = fb ? await fb.getToken() : null;
       await DB.addReport({
         tipo: alvo.tipo,
         alvoId: alvo.alvoId,
@@ -1341,7 +1349,12 @@ const App = (() => {
       haptico("sucesso");
       setTimeout(fecharModeracao, 1400);
     } catch (e) {
-      if (status) status.textContent = "Não consegui enviar. Tenta outra vez.";
+      // A mensagem leva a causa. Um "tenta outra vez" sozinho manda a pessoa
+      // repetir um gesto que vai falhar na mesma, e manda quem diagnostica
+      // procurar no sítio errado — foi exatamente o que me aconteceu.
+      const porque = (e && e.message) || "erro desconhecido";
+      if (status) status.textContent = `Não consegui enviar — ${porque}`;
+      console.error("moderacao: denuncia falhou", porque);
     }
   }
 
@@ -3897,7 +3910,9 @@ const App = (() => {
           const n = Math.min(ps.length, 3);
           const extra = ps.length - 3;
           return `<div class="feed-photos" data-n="${n}">${ps.slice(0, 3).map((p, i) =>
-            `<button type="button" class="feed-photo" data-photo-url="${esc(p.url)}">
+            `<button type="button" class="feed-photo" data-photo-url="${esc(p.url)}"
+                     data-photo-uid="${esc(it.uid || (it.g && it.g.uid) || "")}"
+                     data-photo-badge="${esc(it.who || (it.g && it.g.displayName) || "")}">
                <img src="${esc(p.url)}" alt="" loading="lazy">
                ${i === 2 && extra > 0 ? `<span class="feed-photo-more">+${extra}</span>` : ""}
              </button>`).join("")}</div>`;
