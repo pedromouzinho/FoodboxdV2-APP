@@ -130,6 +130,24 @@ for (const scheme of ["light", "dark"]) {
 
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
   await page.waitForTimeout(2500);
+
+  // O ecrã de entrada é o primeiro que alguém vê, e passa a ter retrato próprio
+  // — nos quatro cruzamentos de telemóvel/ecrã grande e claro/escuro, que é
+  // precisamente onde um formulário se estraga sem ninguém dar conta.
+  await page.evaluate(() => {
+    const e = document.getElementById("entrada");
+    if (e) e.hidden = false;
+  });
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: join(OUT, `${vista.nome}-${scheme}-entrada.png`) });
+
+  // E a seguir esconde-se, senão as restantes fotografias eram todas dele.
+  await page.evaluate(() => {
+    const e = document.getElementById("entrada");
+    if (e) e.hidden = true;
+    document.body.classList.remove("sem-sessao");
+  });
+  await page.waitForTimeout(200);
   await page.screenshot({ path: join(OUT, `${vista.nome}-${scheme}-app.png`) });
 
   // Os modais não abrem sem sessão iniciada, por isso força-se o estado.

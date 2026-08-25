@@ -63,6 +63,20 @@ await p.route("https://maps.googleapis.com/**", (route) =>
   route.fulfill({ status: 200, contentType: "application/javascript", body: "window.initApp && window.initApp();" }));
 await p.goto("http://127.0.0.1:8803/index.html",{waitUntil:"domcontentloaded",timeout:30000});
 await p.waitForTimeout(3000);
+
+// O ecrã de entrada tapa tudo enquanto não houver sessão, e este ensaio não tem
+// como iniciar uma. Sem isto, todos os cliques daqui para baixo batem no
+// formulário de login — foi assim que ele partiu quando o bloqueio entrou.
+//
+// O que se mede aqui é o ENQUADRAMENTO DO MAPA, que não depende de haver sessão:
+// os mesmos 68 restaurantes, os mesmos filtros, o mesmo fitBounds. Esconder o
+// ecrã é reabrir o acesso ao que o ensaio sempre mediu, não fingir um estado
+// que não existe.
+await p.evaluate(()=>{
+  const e=document.getElementById("entrada");
+  if(e) e.hidden=true;
+  document.body.classList.remove("sem-sessao");
+});
 const r = await p.evaluate(()=>({ fits: window.__fit, zoom: window.__zoom }));
 console.log("chamadas a fitBounds:", r.fits.length);
 console.log("enquadramento:", r.fits[0]);
