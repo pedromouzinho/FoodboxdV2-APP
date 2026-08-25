@@ -423,10 +423,17 @@ referrers.
 
 ### O que ainda está por medir
 
-- **A captura do nome da Apple numa primeira autorização.** O caminho está lido
-  no código do plugin e a re-emissão está medida, mas nunca correu com a Apple a
-  mandar um nome. **Só há uma passagem:** o *parar de usar* em `appleid.apple.com`.
-  Quem a gastar, que a gaste com instrumentação ligada.
+- ~~**A captura do nome da Apple numa primeira autorização.**~~ — **medida a
+  25/08, e funciona.** O dono fez o *parar de usar* em `appleid.apple.com`,
+  entrou, e veio: `nome="Pedro Mouzinho"`, do `r.user.displayName` do plugin,
+  que é o único sítio de onde se pode salvar no caminho nativo. Lê-se com
+  `npm run ios:apple-diag`, que guarda o registo no `localStorage` — o
+  `console.log` da WKWebView **não** chega ao log do sistema, e foi preciso
+  descobri-lo à custa de uma medição perdida.
+
+  **E a passagem não era única:** o *parar de usar* faz-se as vezes que for
+  preciso, e cada re-autorização depois de uma revogação conta como primeira. O
+  que não se pode é gastá-la sem instrumento.
 - ~~**O segundo pedido de localização, que diz "localhost".**~~ — **resolvido**
   (24/08). O `@capacitor/geolocation` faz a localização do lado nativo, por isso
   a WKWebView nunca chega a pedir a sua. Medido: uma caixa só, com o texto do
