@@ -69,6 +69,20 @@ jobs:
           projectId: app-restaurantes-499400
           channelId: live
 
+      # As regras vão SEMPRE com o deploy, sem botão próprio. Descoberto a
+      # 25/08: este workflow publicava hosting e funções mas nunca as regras —
+      # a Fase 0 endureceu overrides e Storage e nada disso chegava a produção
+      # por aqui. Regras dessincronizadas do código são exatamente o tipo de
+      # divergência silenciosa que ninguém vê até doer; publicar sempre é
+      # barato (segundos) e idempotente.
+      - name: Regras do Firestore e do Storage
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx --yes firebase-tools@latest deploy --only firestore:rules,storage \
+            --project app-restaurantes-499400 --non-interactive
+          rm -f "$RUNNER_TEMP/sa.json"
+
       # As funções são opcionais porque a maioria dos deploys é só de hosting e
       # publicar funções é lento. Escolhe-se no botão "Run workflow".
       #
