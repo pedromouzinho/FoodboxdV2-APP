@@ -269,6 +269,71 @@ chk("limpar a avaliação mantém a visita e o visitado",
 chk("… e o rating do restaurante desaparece",
   !!(limpar && !limpar.erro && limpar.stars === null && limpar.rating === null), JSON.stringify(limpar));
 
+// ---------------------------------------------------------------------------
+// 6. Editar uma visita não cria outra
+// ---------------------------------------------------------------------------
+const editar = await p.evaluate(async () => {
+  try {
+    if (typeof UserData.updateVisit !== "function") return { erro: "updateVisit não existe" };
+    const v = UserData.addVisit("rest-editar", { date: "2026-06-01", stars: 2, note: "primeira impressão" });
+    const atAntes = UserData.visitAt(UserData.getHistory("rest-editar")[0]);
+    // 5ms entre registar e editar: os dois `at` saem do relógio, e no mesmo
+    // milissegundo empatavam — a afirmação "o at refresca" falhava ao calhar.
+    // Não é espera por evento nenhum; é garantir dois instantes distintos.
+    await new Promise((r) => setTimeout(r, 5));
+    UserData.updateVisit("rest-editar", v.id, { stars: 5, note: "afinal era ótimo", date: "2026-06-02" });
+    const h = UserData.getHistory("rest-editar");
+    const e = h[0];
+    return {
+      visitas: h.length,
+      stars: UserData.visitStars(e),
+      note: UserData.visitNote(e),
+      date: UserData.visitDate(e),
+      mesmaId: UserData.visitId(e) === v.id,
+      atMudou: UserData.visitAt(e) !== atAntes,
+      rating: JSON.parse(JSON.stringify(UserData.getRating("rest-editar")))
+    };
+  } catch (e) { return { erro: String(e).slice(0, 120) }; }
+});
+chk("editar não cresce a lista (a visita é a mesma)",
+  !!(editar && !editar.erro && editar.visitas === 1 && editar.mesmaId), JSON.stringify(editar));
+chk("a edição chega à visita e à sombra (rating)",
+  !!(editar && !editar.erro && editar.stars === 5 && editar.date === "2026-06-02" &&
+     editar.rating && editar.rating.stars === 5 && editar.atMudou),
+  JSON.stringify(editar));
+
+// Editar uma entrada LEGADA converte-a para a forma nova (ganha id e at).
+const editarLegada = await p.evaluate(() => {
+  try {
+    if (typeof UserData.updateVisit !== "function") return { erro: "updateVisit não existe" };
+    // Fabrica-se o legado por dentro: é a forma que os docs antigos ainda têm.
+    UserData.addVisit("rest-legada-edit", { date: "2024-05-05" });
+    const h0 = UserData.getHistory("rest-legada-edit");
+    h0[0] = "2024-05-05"; // string ISO crua, como um doc de 2024
+    UserData.updateVisit("rest-legada-edit", "2024-05-05", { stars: 4 });
+    const e = UserData.getHistory("rest-legada-edit")[0];
+    return { id: UserData.visitId(e), stars: UserData.visitStars(e), date: UserData.visitDate(e) };
+  } catch (e) { return { erro: String(e).slice(0, 120) }; }
+});
+chk("editar uma entrada legada converte-a (ganha id) sem perder a data",
+  !!(editarLegada && !editarLegada.erro && editarLegada.id && editarLegada.stars === 4 && editarLegada.date === "2024-05-05"),
+  JSON.stringify(editarLegada));
+
+// ---------------------------------------------------------------------------
+// 7. "Registar outra visita" começa em branco (não herda a avaliação antiga)
+// ---------------------------------------------------------------------------
+// O sítio aberto na ficha já tem rating? Regista-se um primeiro para garantir.
+await p.evaluate((id) => { UserData.addVisit(id, { date: "2026-08-24", stars: 3, note: "para herdar?" }); }, idAlvo);
+await p.click("[data-open-visit-sheet]");
+await p.waitForSelector('#visit-sheet:not(.hidden)');
+const emBranco = await p.evaluate(() => ({
+  estrelasAcesas: document.querySelectorAll("#visit-sheet .visit-star.on").length,
+  nota: (document.querySelector("#visit-sheet [data-visit-note]") || {}).value || ""
+}));
+chk("a folha nova começa sem estrelas herdadas", emBranco.estrelasAcesas === 0,
+  `acesas: ${emBranco.estrelasAcesas}`);
+chk("… e sem nota herdada", emBranco.nota === "", `nota: "${emBranco.nota}"`);
+
 await browser.close();
 srv.close();
 console.log(falhas ? `\nvisita: ${falhas} FALHA(S)` : "\nvisita: a unidade atómica está de pé");

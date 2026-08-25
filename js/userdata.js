@@ -672,6 +672,51 @@ const UserData = (() => {
     }
   }
 
+  // Editar uma visita NO LUGAR — a resposta ao defeito medido a 25/08: o único
+  // caminho para corrigir umas estrelas era registar outra visita, e o
+  // historial enchia-se de idas que nunca aconteceram. A chave é o visitId
+  // (fallback: a data, para entradas legadas — que ao serem editadas se
+  // CONVERTEM para a forma nova, porque a forma nova é a única que se escreve).
+  // O `at` refresca: editar é um acontecimento, e o feed ordena por ele.
+  function updateVisit(id, chave, patch) {
+    if (!cloud) return null;
+    const list = mine.history[id] || [];
+    let idx = chave ? list.findIndex((e) => visitId(e) === chave) : -1;
+    if (idx < 0) idx = list.findIndex((e) => visitDate(e) === chave);
+    if (idx < 0) return null;
+    const antiga = list[idx];
+    const nova = {
+      id: visitId(antiga) || novoIdDeVisita(),
+      date: visitDate(antiga),
+      with: visitWith(antiga).slice(),
+      at: new Date().toISOString()
+    };
+    const s0 = visitStars(antiga); if (s0) nova.stars = s0;
+    const n0 = visitNote(antiga); if (n0) nova.note = n0;
+    const d0 = visitDishes(antiga); if (d0.length) nova.dishes = d0.slice();
+    const p = patch || {};
+    if (p.date) nova.date = p.date;
+    if (Array.isArray(p.with)) nova.with = p.with.filter(Boolean);
+    if ("stars" in p) {
+      if (typeof p.stars === "number" && p.stars > 0) nova.stars = p.stars;
+      else delete nova.stars;
+    }
+    if ("note" in p) {
+      if (typeof p.note === "string" && p.note.trim()) nova.note = p.note.trim();
+      else delete nova.note;
+    }
+    if ("dishes" in p) {
+      if (Array.isArray(p.dishes) && p.dishes.length) nova.dishes = p.dishes.slice();
+      else delete nova.dishes;
+    }
+    list[idx] = nova;
+    list.sort((a, b) => (visitDate(a) < visitDate(b) ? -1 : 1));
+    mine.history[id] = list;
+    recalcularDerivados(id);
+    scheduleSave();
+    return nova;
+  }
+
   // Remover a avaliação sem apagar a ida. Com `vid`, limpa a avaliação dessa
   // visita; sem `vid`, apaga um rating legado/manual (sem visita associada).
   // Era o beco sem saída medido a 25/08: o único caminho que escrevia stars
@@ -811,6 +856,7 @@ const UserData = (() => {
     visitDishes,
     visitAt,
     addVisit,
+    updateVisit,
     removeVisit,
     others,
     everyone,

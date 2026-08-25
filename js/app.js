@@ -785,7 +785,9 @@ const App = (() => {
         return `<div class="visit-entry"><span>${icon("check-circle")} ${fmtDate(iso)}` +
           `${stars ? `<span class="visit-stars">${"★".repeat(stars)}</span>` : ""}` +
           `${who ? `<span class="visit-with">com ${esc(who)}</span>` : ""}</span>` +
-          `<button type="button" class="icon-btn visit-del" data-del-visit="${esc(chave)}" aria-label="Remover visita">${icon("x")}</button></div>`;
+          `<span class="visit-entry-acoes">` +
+          `<button type="button" class="icon-btn visit-edit" data-edit-visit="${esc(chave)}" aria-label="Editar visita">${icon("sliders")}</button>` +
+          `<button type="button" class="icon-btn visit-del" data-del-visit="${esc(chave)}" aria-label="Remover visita">${icon("x")}</button></span></div>`;
       })
       .join("");
   }
@@ -848,25 +850,43 @@ const App = (() => {
   // partido em dois blocos separados por uma grelha de fotos; passa a ter porta
   // própria na ficha e cinco passos seguidos. As fotos saem do fluxo de
   // propósito: registar é rápido, fotografar é depois.
-  const visitDraft = { id: null, stars: 0, dishes: [], note: "", date: "", withUids: [] };
+  const visitDraft = { id: null, stars: 0, dishes: [], note: "", date: "", withUids: [], editId: null, withAntes: [] };
 
-  function openVisitSheet(r) {
+  // Sem `visita`: registo novo, e o rascunho começa EM BRANCO — herdava o
+  // rating do restaurante (25/08), e com o rating derivado da última visita
+  // isso duplicava a avaliação anterior em cada "Registar outra visita".
+  // Com `visita`: modo edição — o rascunho vem DA ENTRADA, e guardar edita no
+  // lugar em vez de acrescentar.
+  function openVisitSheet(r, visita) {
     if (!UserData.isCloud()) { showSigninModal(); return; }
     const sheet = document.getElementById("visit-sheet");
     if (!sheet) return;
-    const cur = UserData.getRating(r.id) || { stars: 0, note: "", dishes: [] };
     visitDraft.id = r.id;
-    visitDraft.stars = cur.stars || 0;
-    visitDraft.dishes = (cur.dishes || []).slice();
-    visitDraft.note = cur.note || "";
-    visitDraft.date = todayLocalISODate();
-    visitDraft.withUids = [];
+    if (visita) {
+      visitDraft.editId = UserData.visitId(visita) || UserData.visitDate(visita);
+      visitDraft.stars = UserData.visitStars(visita) || 0;
+      visitDraft.dishes = UserData.visitDishes(visita).slice();
+      visitDraft.note = UserData.visitNote(visita);
+      visitDraft.date = UserData.visitDate(visita) || todayLocalISODate();
+      visitDraft.withUids = UserData.visitWith(visita).slice();
+    } else {
+      visitDraft.editId = null;
+      visitDraft.stars = 0;
+      visitDraft.dishes = [];
+      visitDraft.note = "";
+      visitDraft.date = todayLocalISODate();
+      visitDraft.withUids = [];
+    }
+    // Para os convites: quem JÁ estava na visita não volta a ser convidado.
+    visitDraft.withAntes = visitDraft.withUids.slice();
 
     const cuisine = CUISINES[cuisineOf(r)];
     sheet.querySelector("[data-visit-cuisine]").textContent = cuisine ? cuisine.label : "";
     sheet.querySelector("[data-visit-name]").textContent = r.name;
     sheet.querySelector("[data-visit-thumb]").innerHTML =
       r.photoURL ? `<img src="${esc(r.photoURL)}" alt="" />` : `<div class="ph" data-label="foto"></div>`;
+    const cta = sheet.querySelector("[data-visit-submit]");
+    if (cta) cta.textContent = visita ? "Guardar alterações" : "Registar visita";
 
     sheet.classList.remove("hidden");
     sheet.setAttribute("aria-hidden", "false");
@@ -962,7 +982,8 @@ const App = (() => {
       friends.length ? step(5, "Com quem", `
         <div class="companion-chips" data-companions>
           ${friends.map((f) => `
-            <button type="button" class="companion-chip" data-companion="${esc(f.uid)}" aria-pressed="false">
+            <button type="button" class="companion-chip" data-companion="${esc(f.uid)}"
+                    aria-pressed="${visitDraft.withUids.includes(f.uid) ? "true" : "false"}">
               ${avatar(f.displayName, f.photoURL, "avatar-xs")}<span>${esc(f.displayName || "Amigo")}</span>
             </button>`).join("")}
         </div>`,
@@ -1069,16 +1090,26 @@ const App = (() => {
     if (!r || !visitDraft.stars) return;
     // O rating do restaurante já não se escreve daqui: nasce no recálculo,
     // como sombra da visita — um sítio a escrever em vez de dois a divergir.
-    UserData.addVisit(r.id, {
+    const dados = {
       date: visitDraft.date,
       with: visitDraft.withUids,
       stars: visitDraft.stars,
       note: visitDraft.note.trim(),
       dishes: visitDraft.dishes.slice()
-    });
-    setVisited(r.id, true);
-    // Cada acompanhante recebe um convite; só ele pode escrever o próprio diário.
-    if (visitDraft.withUids.length) sendVisitInvites(r, visitDraft.date, visitDraft.withUids);
+    };
+    if (visitDraft.editId) {
+      // Editar não é registar outra vez: a mesma visita, corrigida no lugar.
+      UserData.updateVisit(r.id, visitDraft.editId, dados);
+      // Cada acompanhante recebe um convite — mas só os NOVOS: quem já estava
+      // na visita já o recebeu quando ela foi registada.
+      const novos = visitDraft.withUids.filter((u) => !visitDraft.withAntes.includes(u));
+      if (novos.length) sendVisitInvites(r, visitDraft.date, novos);
+    } else {
+      UserData.addVisit(r.id, dados);
+      setVisited(r.id, true);
+      // Cada acompanhante recebe um convite; só ele pode escrever o próprio diário.
+      if (visitDraft.withUids.length) sendVisitInvites(r, visitDraft.date, visitDraft.withUids);
+    }
     closeVisitSheet();
     renderMyMarks(r);
     renderAmigos(r);
@@ -1120,6 +1151,9 @@ const App = (() => {
         <button type="button" class="btn btn-primary btn-block" data-open-visit>
           ${icon("check-circle")} ${rating.stars ? "Registar outra visita" : "Registar visita"}
         </button>
+        ${rating.stars || rating.note
+          ? `<button type="button" class="btn btn-ghost btn-sm btn-block" data-clear-rating>Remover avaliação</button>`
+          : ""}
       </div>`;
 
     if (tail) tail.innerHTML = `
@@ -1131,6 +1165,25 @@ const App = (() => {
     const openBtn = el.querySelector("[data-open-visit]");
     if (openBtn) openBtn.addEventListener("click", () => openVisitSheet(r));
 
+    // Remover a avaliação sem apagar a ida: limpa a da visita que manda no
+    // rating (visitId) ou, num rating legado sem visita, o próprio rating.
+    const clearBtn = el.querySelector("[data-clear-rating]");
+    if (clearBtn) clearBtn.addEventListener("click", () => {
+      const atual = UserData.getRating(r.id) || {};
+      UserData.clearVisitRating(r.id, atual.visitId || null);
+      renderMyMarks(r);
+      renderAmigos(r);
+    });
+
+    if (tail) tail.querySelectorAll("[data-edit-visit]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const chave = btn.dataset.editVisit;
+        const entry = UserData.getHistory(r.id).find(
+          (e) => (UserData.visitId(e) || UserData.visitDate(e)) === chave
+        );
+        if (entry) openVisitSheet(r, entry);
+      });
+    });
     if (tail) tail.querySelectorAll("[data-del-visit]").forEach((btn) => {
       btn.addEventListener("click", () => {
         UserData.removeVisit(r.id, btn.dataset.delVisit);
