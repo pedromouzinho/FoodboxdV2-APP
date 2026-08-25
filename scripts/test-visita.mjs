@@ -341,10 +341,31 @@ chk("… e sem nota herdada", emBranco.nota === "", `nota: "${emBranco.nota}"`);
 // ---------------------------------------------------------------------------
 // 8. Remover tem volta: o snackbar com Anular
 // ---------------------------------------------------------------------------
-// Janela por caso: 3s para dar tempo ao CLIQUE do Anular (o roundtrip do
+// Janela por caso: 8s para dar tempo ao CLIQUE do Anular (o roundtrip do
 // arnês come centenas de ms — com 300ms a janela fechava antes do dedo);
-// 300ms só no caso da expiração, onde o que se espera é o fecho.
-await p.evaluate(() => { window.__snackbarMs = 8000; });
+// mais curta só no caso da expiração, onde o que se espera é o fecho.
+// E a sonda desde JÁ: cada mudança do snackbar com o relógio, o texto e o
+// estado do botão — a intermitência desta secção só se caça com registo.
+await p.evaluate(() => {
+  window.__snackbarMs = 8000;
+  window.__snackLog = [];
+  const s = document.getElementById("snackbar");
+  // O "Registado:" da secção 1 tem 5s de janela e, numa corrida rápida,
+  // ainda está aberto quando cá chegamos — o waitForSelector apanhava-o em
+  // vez do "Visita removida" e quatro afirmações caíam em cascata (1 em cada
+  // 3 corridas). Fecha-se o residual, e as esperas abaixo passam a ser pelo
+  // TEXTO, que não confunde snackbars.
+  if (s) s.classList.add("hidden");
+  if (s) new MutationObserver(() => {
+    const b = s.querySelector("[data-snackbar-acao]");
+    window.__snackLog.push({
+      t: Date.now() % 100000,
+      hidden: s.classList.contains("hidden"),
+      texto: (s.textContent || "").trim().slice(0, 60),
+      botao: b ? !b.hidden : null
+    });
+  }).observe(s, { attributes: true, attributeFilter: ["class"] });
+});
 // Fecha a folha aberta da secção 7 e reabre a ficha, para o histórico fresco.
 await p.evaluate(() => {
   const s = document.getElementById("visit-sheet");
@@ -365,7 +386,10 @@ await p.evaluate((id) => {
 const antesDoX = await p.evaluate((id) => UserData.getHistory(id).length, idAlvo);
 await p.click("#detail-body [data-del-visit], #detail-panel [data-del-visit]");
 const snackbarAbriu = await p
-  .waitForSelector("#snackbar:not(.hidden)", { timeout: 4000 })
+  .waitForFunction(() => {
+    const s = document.getElementById("snackbar");
+    return s && !s.classList.contains("hidden") && /Visita removida/.test(s.textContent);
+  }, null, { timeout: 4000 })
   .then(() => true).catch(() => false);
 chk("remover mostra o snackbar", snackbarAbriu,
   await p.evaluate(() => (document.getElementById("snackbar") ? "existe mas não abriu" : "#snackbar não existe")));
@@ -373,7 +397,8 @@ const temAnular = snackbarAbriu && await p.evaluate(() => {
   const b = document.querySelector("#snackbar [data-snackbar-acao]");
   return !!(b && !b.hidden && /anular/i.test(b.textContent));
 });
-chk("… com o botão Anular à vista", !!temAnular);
+chk("… com o botão Anular à vista", !!temAnular,
+  await p.evaluate(() => JSON.stringify(window.__snackLog)));
 // Os convites pendentes daquela visita foram apagados JÁ (recriáveis no Anular).
 await p.waitForFunction(() => window.__convitesApagados.length > 0, null, { timeout: 3000 }).catch(() => {});
 chk("os convites pendentes da visita foram apagados",
@@ -408,21 +433,15 @@ if (temAnular) {
 const expirar = await p.evaluate(() => {
   window.__snackbarMs = 1200;
   window.__convitesApagados = [];
-  // A sonda da nona lição: em vez de adivinhar o que o snackbar fez, regista-se
-  // cada mudança de classe com o relógio ao lado.
-  window.__snackLog = [];
-  const s = document.getElementById("snackbar");
-  if (s) new MutationObserver(() => {
-    window.__snackLog.push({ t: Date.now() % 100000, hidden: s.classList.contains("hidden") });
-  }).observe(s, { attributes: true, attributeFilter: ["class"] });
   return true;
 });
 await p.click("#detail-body [data-del-visit], #detail-panel [data-del-visit]").catch(() => {});
-let erroAbriu = "";
-const abriuDeNovo = await p.waitForSelector("#snackbar:not(.hidden)", { timeout: 3000 })
-  .then(() => true)
-  .catch((e) => { erroAbriu = String(e).slice(0, 200); return false; });
-if (!abriuDeNovo) console.log("  (waitForSelector do 2º snackbar: " + erroAbriu + ")");
+const abriuDeNovo = await p
+  .waitForFunction(() => {
+    const s = document.getElementById("snackbar");
+    return s && !s.classList.contains("hidden") && /Visita removida/.test(s.textContent);
+  }, null, { timeout: 3000 })
+  .then(() => true).catch(() => false);
 // state:"attached", não o default "visible": um elemento display:none nunca
 // fica "visible", e a espera pelo FECHO falhava eternamente — o arnês acusava
 // a app do seu próprio defeito. (Descoberto com a sonda: o log mostrava o
@@ -684,6 +703,52 @@ if (temPassoFoto) {
   ["a foto sobe depois do registo", "… ligada à visita pelo visitId", "… e comprimida no caminho"]
     .forEach((n) => chk(n, false, "sem passo de foto"));
 }
+
+// ---------------------------------------------------------------------------
+// 14. A cascata da visita leva as fotos — DEPOIS da janela de Anular
+// ---------------------------------------------------------------------------
+// A última visita do sítio (da secção 13) tem uma foto ligada. Remover a
+// visita não pode apagar a foto DENTRO da janela (o ficheiro morre a sério e
+// o Anular tem de conseguir voltar atrás); expirada a janela, vai com ela.
+const vidComFoto = await p.evaluate((id) => {
+  const h = UserData.getHistory(id);
+  return h.length ? UserData.visitId(h[h.length - 1]) : null;
+}, idAlvo);
+await p.evaluate((dados) => {
+  window.__fotosApagadas = [];
+  window.__ficheirosApagados = [];
+  window.__snackbarMs = 8000;
+  DB.fetchPhotos = async () => [{
+    id: "phv1", uid: "eu-arnes", author: "Eu do Arnês", visitId: dados.vid,
+    url: "http://x/na-visita.jpg", path: "restaurants/x/eu-arnes-9.jpg", restaurantId: dados.rid
+  }];
+}, { vid: vidComFoto, rid: idAlvo });
+
+await p.click('.detail-tab:has-text("experiência")');
+await p.waitForSelector("#detail-panel [data-del-visit]", { timeout: 4000 });
+await p.click("#detail-panel [data-del-visit]");
+await p.waitForSelector("#snackbar:not(.hidden)", { timeout: 4000 });
+await p.waitForTimeout(400); // tempo para qualquer cascata indevida disparar
+chk("dentro da janela, a foto da visita ainda está viva",
+  await p.evaluate(() => window.__fotosApagadas.length === 0 && window.__ficheirosApagados.length === 0),
+  await p.evaluate(() => JSON.stringify({ docs: window.__fotosApagadas, ficheiros: window.__ficheirosApagados })));
+await p.click("#snackbar [data-snackbar-acao]");
+await p.waitForTimeout(400);
+chk("o Anular preserva a foto",
+  await p.evaluate(() => window.__fotosApagadas.length === 0),
+  await p.evaluate(() => JSON.stringify(window.__fotosApagadas)));
+
+// Remove outra vez e deixa expirar: agora sim, a foto vai com a visita.
+await p.evaluate(() => { window.__snackbarMs = 1200; });
+await p.waitForSelector("#detail-panel [data-del-visit]", { timeout: 4000 });
+await p.click("#detail-panel [data-del-visit]");
+await p.waitForFunction(() => window.__fotosApagadas.length > 0, null, { timeout: 6000 }).catch(() => {});
+chk("expirada a janela, a cascata leva o documento da foto",
+  await p.evaluate(() => window.__fotosApagadas.includes("phv1")),
+  await p.evaluate(() => JSON.stringify(window.__fotosApagadas)));
+chk("… e o ficheiro",
+  await p.evaluate(() => window.__ficheirosApagados.includes("restaurants/x/eu-arnes-9.jpg")),
+  await p.evaluate(() => JSON.stringify(window.__ficheirosApagados)));
 
 await browser.close();
 srv.close();
