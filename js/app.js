@@ -909,8 +909,13 @@ const App = (() => {
     const cuisine = CUISINES[cuisineOf(r)];
     sheet.querySelector("[data-visit-cuisine]").textContent = cuisine ? cuisine.label : "";
     sheet.querySelector("[data-visit-name]").textContent = r.name;
+    // O thumb herda a foto que a FICHA já está a mostrar (capa própria ou a
+    // do Google no hero) — mostrava "foto" em placeholder ao lado de uma
+    // ficha cheia de fotografias, medido no simulador a 25/08.
+    const heroImg = document.querySelector("#detail-hero img");
+    const thumbUrl = r.photoURL || (heroImg && heroImg.src) || "";
     sheet.querySelector("[data-visit-thumb]").innerHTML =
-      r.photoURL ? `<img src="${esc(r.photoURL)}" alt="" />` : `<div class="ph" data-label="foto"></div>`;
+      thumbUrl ? `<img src="${esc(thumbUrl)}" alt="" />` : `<div class="ph" data-label="foto"></div>`;
     const cta = sheet.querySelector("[data-visit-submit]");
     if (cta) cta.textContent = visita ? "Guardar alterações" : "Registar visita";
 
