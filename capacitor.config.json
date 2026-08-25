@@ -5,7 +5,8 @@
   "backgroundColor": "#f6f1e7",
   "ios": {
     "contentInset": "never",
-    "backgroundColor": "#f6f1e7"
+    "backgroundColor": "#f6f1e7",
+    "scrollEnabled": false
   },
   "plugins": {
     "SplashScreen": {
@@ -19,6 +20,9 @@
         "apple.com",
         "google.com"
       ]
+    },
+    "Keyboard": {
+      "resize": "none"
     }
   }
 }

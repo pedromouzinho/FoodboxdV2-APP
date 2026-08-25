@@ -798,6 +798,17 @@
           P.StatusBar.setBackgroundColor({ color: "#f6f1e7" }).catch(function () {});
         }
       }
+      // A barra de acessórios do teclado — as setas e o visto — é a barra
+      // nativa do iOS e NÃO há CSS que a esconda. Numa app que só tem campos de
+      // uma linha, ela não serve para nada e é um dos sinais de que aquilo é
+      // uma webview.
+      //
+      // O `resize: "none"` fica no capacitor.config.json de propósito: a app já
+      // compensa o teclado sozinha, pelo `visualViewport`, e deixar o plugin
+      // redimensionar a webview mudaria o `100dvh` de todos os ecrãs de uma vez.
+      if (P.Keyboard) {
+        P.Keyboard.setAccessoryBarVisible({ isVisible: false }).catch(function () {});
+      }
       // Esconder quando a app está pronta, e não ao fim de 600ms às cegas: num
       // arranque lento via-se a app por baixo do splash a meio de se montar.
       if (P.SplashScreen) {
