@@ -115,7 +115,126 @@ exatamente o que ainda não está feito.
 
 ## O mapa da codebase
 
-<!-- MAPA -->
+Isto é estrutura medida — contagens, ordem de carregamento, quem expõe o quê.
+Não é análise: a análise é tua. Serve para não gastares turnos a descobrir a
+forma do sítio.
+
+### O tamanho, em linhas
+
+| | |
+| --- | --- |
+| `js/app.js` | **4 936** — o núcleo, e o problema de organização mais visível |
+| `js/db.js` | 956 — tudo o que fala com o Firestore, por REST |
+| `js/userdata.js` | 734 — o estado da pessoa e as regras de quem vê o quê |
+| `js/addRestaurant.js` | 444 |
+| os outros nove módulos | 49 a 298 cada |
+| `index.html` | 1 430 — markup, sprite de ícones, modais, e o *bootstrap* do Firebase |
+| `css/style.css` | 2 815 |
+| `functions/index.js` | 758 — as Cloud Functions |
+| as regras | 145 (Firestore) + 28 (Storage) |
+
+### O padrão, e é uniforme
+
+Treze módulos IIFE, carregados por `<script>` no `index.html` **por esta ordem**,
+que é a ordem de dependência:
+
+```
+config → storage → db → userdata → auth → map → geocode
+       → places → planner → ai → onboarding → app
+```
+
+Cada um devolve um objeto e atribui-o a um `const` global de maiúscula:
+`CONFIG`, `DB`, `UserData`, `AuthModule`, `App`, `AIModule`, `GeoValidate`,
+`AddRestaurantModule`. Não há `import`/`export` em lado nenhum do lado do
+cliente — é a consequência de não haver *bundler*, e é consistente.
+
+**A exceção está no `index.html`**, e é a que interessa: o SDK do Firebase entra
+por *import* de módulo ES a partir do `gstatic.com`, e expõe `window.FirebaseAuth`
+e `window.FirebaseStorage`. É o único código do cliente que vem de fora, e o único
+sítio com sintaxe de módulo.
+
+### Onde vive o quê, no `app.js`
+
+Não há separadores formais; a ordem é aproximadamente esta, e cada bloco é
+contíguo:
+
+| Linhas | O que lá está |
+| --- | --- |
+| ~1–400 | utilitários, filtros, estado dos ecrãs |
+| ~400–1000 | o mapa, a ficha de um restaurante, os gestos |
+| ~1000–1600 | comentários, a folha de moderação, os perfis de outras pessoas |
+| ~1600–2200 | o tutorial, os separadores, o teclado |
+| ~2200–3000 | o Perfil, as fotografias, a IA do «Pergunta-me» |
+| ~3000–4000 | grupos, convites, encaminhamento por *hash* |
+| ~4000–4936 | o Diário, o feed dos amigos, o *leaderboard* |
+
+Devolve três coisas: `{ init, onRestaurantAdded, onAuthChange }`.
+
+### O modelo de dados
+
+Onze coleções, e as regras estão organizadas na mesma ordem
+(`firebase/firestore.rules`):
+
+| Coleção | Linha da regra | O que é |
+| --- | --- | --- |
+| `restaurants` | 7 | o catálogo partilhado |
+| `overrides` | 17 | correções ao catálogo |
+| `userData/{uid}` | 27 | **o diário privado** — visitas, avaliações, pratos, seguidos, bloqueados |
+| `profiles/{uid}` | 44 | o perfil público |
+| `follows/{edge}` | 50 | quem segue quem |
+| `comments` | 60 | críticas nas fichas |
+| `groups` | 71 | grupos de amigos |
+| `visitInvites` | 101 | convites de visita |
+| `reports` | 124 | denúncias (diretriz 1.2) |
+| `photos` | 136 | metadados; os ficheiros ficam no Storage |
+| `apagarPendente` | — | órfãos deixados pelo apagar conta |
+
+**O `userData` é um documento único por pessoa**, escrito inteiro a cada
+gravação. É a decisão com mais consequências desta codebase e vale a pena
+seguir-lhe o fio: o que faz, o que custa, e onde é que o limite de 1 MiB do
+Firestore cai.
+
+**A conversa com o Firestore é por REST**, à mão, com `updateMask.fieldPaths`.
+Um PATCH sem máscara **apaga os campos ausentes** — já custou um defeito nesta
+saga, e a máscara aparece em quatro sítios do `db.js` (255, 284, 329, 390).
+Vale a pena verificar se os quatro dizem a mesma coisa.
+
+### O que corre, e o que não corre
+
+Cinco arneses de ponta a ponta, todos em `scripts/`, nenhum unitário:
+`audit` (17 cenas, contraste, alvos, transbordo, e o tutorial),
+`test:map`, `test:update`, `test:gesto` (o único que despacha eventos de
+toque), `test:apagar` (o único destrutivo, precisa do emulador).
+
+Dois *workflows* em `.github/workflows/`: `deploy.yml` e `qa.yml`. **Repara no
+que nenhum deles faz** — vale a pena confirmares o que corre a cada *push*.
+
+### Onde procurar primeiro
+
+Sugestões, não obrigações. São os sítios onde a distância entre o que o código
+faz e o que uma equipa profissional esperaria é maior, e onde já sei que há
+matéria:
+
+- **`js/db.js` `saveUserDoc`** — o que é codificado ao gravar, e o que não é.
+- **`firebase/firestore.rules`, a regra dos `overrides`** (linha 17) — quem pode
+  escrever, e se isso é o que se queria.
+- **`firebase/storage.rules`** — quem pode apagar ficheiros de quem.
+- **`functions/index.js`, `checkRateLimit`** — o que acontece quando falha.
+- **As três funções puras que decidem quem vê o quê:** `podeVerPerfil` e
+  `canSeeUser` (`js/userdata.js`) e o filtro de `applyGroupFilter`. Nenhuma tem
+  teste. Uma delas já esteve com a semântica invertida.
+- **`js/db.js` `fetchAll`, `fetchOverrides`, `searchProfiles`** — o que acontece
+  ao registo número 301.
+
+### O que eu não medi
+
+Não corri o simulador nem a app nativa nesta análise. Tudo acima é do código em
+disco e de medições contra `foodboxd.pt` num Chromium. A casca do Capacitor tem
+diferenças reais — a origem é `capacitor://localhost`, e há caminhos que só lá
+se veem.
+
+Também não medi desempenho em dispositivo lento, nem o tamanho do que se
+carrega no primeiro arranque. São duas perguntas abertas e boas.
 
 ---
 

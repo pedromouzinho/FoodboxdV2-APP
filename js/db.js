@@ -269,6 +269,18 @@ const DB = (() => {
       audienceGlobal: data.audienceGlobal !== false, // default: shared globally
       visibleTo: Array.isArray(data.visibleTo) ? data.visibleTo : [],
       shareGroups: Array.isArray(data.shareGroups) ? data.shareGroups : [],
+      // ⚠️ Este PATCH vai SEM updateMask: substitui o documento inteiro.
+      // Um campo que o persistNow mande e esta lista não codifique não "fica
+      // como estava" — é APAGADO da nuvem. Foi assim que a lista de
+      // bloqueados (diretriz 1.2) se perdia a cada gravação: cinco campos
+      // entravam pelo persistNow e morriam aqui. O test:persistencia guarda
+      // este contrato; quem acrescentar um campo lá, acrescenta-o aqui e à
+      // lista do arnês.
+      blocked: Array.isArray(data.blocked) ? data.blocked : [],
+      blockedNames: data.blockedNames && typeof data.blockedNames === "object" ? data.blockedNames : {},
+      destaques: Array.isArray(data.destaques) ? data.destaques : [],
+      favoritos: Array.isArray(data.favoritos) ? data.favoritos : [],
+      visibilidade: data.visibilidade || "seguidores",
       updatedAt: new Date().toISOString()
     });
     const res = await fetch(`${docsBase}/userData/${encodeURIComponent(uid)}?${keyQ()}`, {

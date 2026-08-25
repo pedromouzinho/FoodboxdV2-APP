@@ -38,6 +38,7 @@
       "ios-info.json",
       "SETUP_IOS.md",
       "HANDOFF-IOS-AGENTE.md",
+    "HANDOFF-SWOT-CODEBASE.md",
       "ios-build.json",
       "ios-entitlements.plist",
       "loja/**"
