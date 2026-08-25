@@ -76,10 +76,12 @@ npm run test:map
 npm run test:update
 npm run test:gesto     # os gestos; mede toque, e não cliques
 npm run test:persistencia  # o contrato da gravação do userData + privacidade; node puro
+npm run test:portao    # o portão de entrada com a rede à Google cortada por rota
+npm run test:visita    # o ciclo da visita: registar/editar/remover/anular, feed, leaderboard
 npm run test:apagar    # apagar conta — precisa do emulador (npm run emu:start)
 ```
 
-**São seis, e cada um vê uma coisa que os outros não veem.** O `audit` percorre
+**São oito, e cada um vê uma coisa que os outros não veem.** O `audit` percorre
 os ecrãs e mede desenho — e desde 25/08 também **percorre o tutorial** e afirma
 que cada passo destaca alguma coisa. O `test:gesto` é o único que despacha
 eventos de toque: os outros conduzem a app com cliques, e um clique não tem
@@ -90,8 +92,14 @@ um campo esquecido não "fica como estava", é apagado da nuvem — foi assim qu
 a lista de bloqueados se perdeu durante semanas), e as três funções de
 privacidade (`podeVerPerfil`, `canSeeUser`, filtro de bloqueados). O
 `test:apagar` é o único que corre a cascata destrutiva, e é o único que
-precisa do emulador. Desde 25/08 os de browser + o de persistência correm
-também no CI a cada push (`.github/workflows/testes.yml`).
+precisa do emulador. O `test:portao` é o único que corta a rede à Google DE
+PROPÓSITO (por rota, igual em todas as máquinas) — é o inverso da doença das
+nove lições: aqui a dependência da rede é o próprio objeto de medição. O
+`test:visita` conduz a interface real com a camada DB intercetada e o
+UserData verdadeiro por baixo — é onde vive o contrato do modelo
+visita-atómica (25/08): as três formas de entrada, o rating como sombra, o
+undo. Desde 25/08 os de browser + o de persistência correm também no CI a
+cada push (`.github/workflows/testes.yml`).
 
 Se mexeres em ficheiros que a app corre, corre-os. Se só mexeres em documentação,
 diz que não os correste e porquê — não os dês por corridos.

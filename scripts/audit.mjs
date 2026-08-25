@@ -40,9 +40,22 @@ const srv=createServer(async(rq,rs)=>{const p=rq.url.split("?")[0];const f=join(
 await new Promise(ok=>srv.listen(8799,"127.0.0.1",ok));
 
 const SEED = () => {
-  const amigos=[{uid:"a1",displayName:"Leonor Carvalho",photoURL:"",town:"Évora"},
-                {uid:"a2",displayName:"Miguel",photoURL:"",town:"Porto"},
-                {uid:"a3",displayName:"Rita Nunes Pereira da Silva",photoURL:"",town:"Faro"}];
+  // Os amigos levam os campos CRUS (visited/ratings/history nas três formas):
+  // sem eles o feed e o leaderboard corriam a VAZIO nas cenas — media-se um
+  // ecrã em branco convencidos de que se media o desenho dos cartões.
+  const idsCrus=(window.__ids||[]).slice(0,4);
+  const histNova=(i)=>({id:"vaud"+i,date:"2026-08-1"+i,with:[],stars:(i%5)+1,note:i%2?"Nota do audit para o cartão ter corpo.":"",at:"2026-08-1"+i+"T20:00:00.000Z"});
+  const amigos=[{uid:"a1",displayName:"Leonor Carvalho",photoURL:"",town:"Évora",
+                 visited:idsCrus.slice(0,2),priority:[idsCrus[2]].filter(Boolean),
+                 priorityAt:{[idsCrus[2]]:"2026-08-10T10:00:00.000Z"},
+                 ratings:idsCrus[0]?{[idsCrus[0]]:{stars:5,note:"Cartão unificado do audit.",dishes:[],updatedAt:"2026-08-11T20:00:00.000Z",visitId:"vaud1"}}:{},
+                 history:idsCrus[0]?{[idsCrus[0]]:[histNova(1)],[idsCrus[1]]:["2024-03-02"]}:{}},
+                {uid:"a2",displayName:"Miguel",photoURL:"",town:"Porto",
+                 visited:idsCrus.slice(1,3),priority:[],priorityAt:{},
+                 ratings:idsCrus[1]?{[idsCrus[1]]:{stars:3,note:"Par legado do audit.",dishes:[],updatedAt:"2026-05-10T20:00:00.000Z"}}:{},
+                 history:idsCrus[1]?{[idsCrus[1]]:["2026-05-10"]}:{}},
+                {uid:"a3",displayName:"Rita Nunes Pereira da Silva",photoURL:"",town:"Faro",
+                 visited:[],priority:[],priorityAt:{},ratings:{},history:{}}];
   // Desarma o vigia do portão: as cenas escondem/mostram a entrada à mão, e
   // num ambiente sem rede à Google o vigia levantava-a aos 6s por cima delas.
   window.__semPortao = true;

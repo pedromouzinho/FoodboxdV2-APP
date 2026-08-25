@@ -61,9 +61,24 @@ async function put(path, data) {
     await put(`restaurants/seed-${i + 1}`, { ...r, addedBy: PEOPLE[i % 2].uid, createdAt: now });
     console.log("  restaurante:", r.name);
   }
-  for (const p of PEOPLE) {
+  for (const [pi, p] of PEOPLE.entries()) {
     await put(`profiles/${p.uid}`, { displayName: p.displayName, photoURL: "", updatedAt: now });
-    await put(`userData/${p.uid}`, { displayName: p.displayName, photoURL: "", visited: {}, priority: {}, ratings: {} });
+    // A forma REAL do modelo (25/08): visited/priority são ARRAYS (estavam
+    // aqui como objetos, desalinhados desde sempre), e a history leva as três
+    // formas que os docs de produção têm — string ISO, {date,with}, e a nova
+    // com id/stars/at — para o QA manual ver o legado a ser tolerado.
+    await put(`userData/${p.uid}`, {
+      displayName: p.displayName, photoURL: "",
+      visited: ["seed-1", "seed-2"], priority: ["seed-3"],
+      priorityAt: { "seed-3": now },
+      ratings: {
+        "seed-1": { stars: 4 + (pi % 2), note: "Do seed: nota derivada da visita.", dishes: ["Prato do seed"], updatedAt: now, visitId: `vseed${pi}1` }
+      },
+      history: {
+        "seed-1": [{ id: `vseed${pi}1`, date: now.slice(0, 10), with: [], stars: 4 + (pi % 2), note: "Do seed: nota derivada da visita.", dishes: ["Prato do seed"], at: now }],
+        "seed-2": ["2024-03-02", { date: "2025-01-05", with: [PEOPLE[(pi + 1) % 2].uid] }]
+      }
+    });
     console.log("  pessoa:", p.displayName);
   }
   // Uma aresta em cada sentido, para o feed ter o que mostrar dos dois lados.

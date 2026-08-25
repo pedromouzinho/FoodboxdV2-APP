@@ -400,6 +400,9 @@ npm run test:persistencia  # node puro, sem browser: o corpo do saveUserDoc leva
                        # campo esquecido = campo APAGADO da nuvem), e as três
                        # funções de privacidade (podeVerPerfil, canSeeUser,
                        # filtro de bloqueados)
+npm run test:portao    # o portão fail-closed: corta a rede à Google por rota
+npm run test:visita    # o ciclo da visita (modelo 25/08): registar, editar,
+                       # remover com Anular, feed unificado, leaderboard duplo
 npm run preview        # telemóvel e ecrã grande, claro e escuro
 ```
 
