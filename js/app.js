@@ -1063,7 +1063,13 @@ const App = (() => {
     const r = (state.restaurants || []).find((x) => x.id === visitDraft.id);
     if (!r || !visitDraft.stars) return;
     UserData.setRating(r.id, visitDraft.stars, visitDraft.note.trim(), visitDraft.dishes.slice());
-    UserData.addVisit(r.id, visitDraft.date, visitDraft.withUids);
+    UserData.addVisit(r.id, {
+      date: visitDraft.date,
+      with: visitDraft.withUids,
+      stars: visitDraft.stars,
+      note: visitDraft.note.trim(),
+      dishes: visitDraft.dishes.slice()
+    });
     setVisited(r.id, true);
     // Cada acompanhante recebe um convite; só ele pode escrever o próprio diário.
     if (visitDraft.withUids.length) sendVisitInvites(r, visitDraft.date, visitDraft.withUids);
@@ -4286,7 +4292,7 @@ const App = (() => {
     try {
       // Accepting writes the visit into MY doc — the sender never could.
       if (accept) {
-        UserData.addVisit(inv.restaurantId, inv.date, [inv.fromUid]);
+        UserData.addVisit(inv.restaurantId, { date: inv.date, with: [inv.fromUid] });
         setVisited(inv.restaurantId, true);
         haptico("sucesso");
       }

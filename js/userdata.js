@@ -570,27 +570,74 @@ const UserData = (() => {
     }
     scheduleSave();
   }
-  // A visit entry is either a plain ISO string (legacy) or { date, with:[uid] }.
-  // These two helpers are the only place that difference is allowed to matter —
-  // they also normalize friends' docs, which can hold either shape.
+  // A visit entry has THREE shapes, and the three live forever — friends' docs
+  // can't be migrated (rules: only the owner writes), so reading tolerates all:
+  //
+  //   "2024-03-02"                                   legado 1: string ISO
+  //   { date, with:[uid] }                           legado 2
+  //   { id:"v…", date, with:[uid],                   nova (25/08/2026):
+  //     stars?, note?, dishes?[], at:"<ISO>" }       a visita com corpo próprio
+  //
+  // These helpers are the ONLY place that difference is allowed to matter.
+  // stars/note/dishes são opcionais de propósito: a visita de um convite aceite
+  // não tem avaliação, e não pode contaminar médias.
   function visitDate(entry) {
     return typeof entry === "string" ? entry : ((entry && entry.date) || "");
   }
   function visitWith(entry) {
     return (entry && typeof entry === "object" && Array.isArray(entry.with)) ? entry.with : [];
   }
+  function visitId(entry) {
+    return (entry && typeof entry === "object" && typeof entry.id === "string") ? entry.id : null;
+  }
+  function visitStars(entry) {
+    return (entry && typeof entry === "object" && typeof entry.stars === "number" && entry.stars > 0) ? entry.stars : null;
+  }
+  function visitNote(entry) {
+    return (entry && typeof entry === "object" && typeof entry.note === "string") ? entry.note : "";
+  }
+  function visitDishes(entry) {
+    return (entry && typeof entry === "object" && Array.isArray(entry.dishes)) ? entry.dishes : [];
+  }
+  function visitAt(entry) {
+    return (entry && typeof entry === "object" && typeof entry.at === "string" && entry.at) ? entry.at : null;
+  }
   function getHistory(id) {
     return (cloud && mine.history[id]) || [];
   }
-  function addVisit(id, isoDate, withUids) {
-    if (!cloud) return;
-    const companions = Array.isArray(withUids) ? withUids.filter(Boolean) : [];
+
+  // O id de uma visita: curto, aleatório, sem significado. Existe porque duas
+  // visitas no mesmo dia eram indistinguíveis — o × apagava "a primeira com
+  // aquela data", que podia não ser a que a pessoa tinha à frente.
+  function novoIdDeVisita() {
+    let s = "v";
+    for (let i = 0; i < 8; i++) s += "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(Math.random() * 36)];
+    return s;
+  }
+
+  // addVisit(id, dados) — dados: { date, with?, stars?, note?, dishes? }.
+  // Escreve SEMPRE a forma nova; os campos de avaliação só entram se vierem
+  // com substância, para a entrada do convite ficar limpa.
+  function addVisit(id, dados) {
+    if (!cloud) return null;
+    const d = dados && typeof dados === "object" ? dados : { date: dados };
+    const companions = Array.isArray(d.with) ? d.with.filter(Boolean) : [];
+    const entry = {
+      id: novoIdDeVisita(),
+      date: d.date || new Date().toISOString().slice(0, 10),
+      with: companions,
+      at: new Date().toISOString()
+    };
+    if (typeof d.stars === "number" && d.stars > 0) entry.stars = d.stars;
+    if (typeof d.note === "string" && d.note.trim()) entry.note = d.note.trim();
+    if (Array.isArray(d.dishes) && d.dishes.length) entry.dishes = d.dishes.slice();
     const list = mine.history[id] || [];
-    list.push(companions.length ? { date: isoDate, with: companions } : isoDate);
+    list.push(entry);
     list.sort((a, b) => (visitDate(a) < visitDate(b) ? -1 : 1));
     mine.history[id] = list;
     mine.visited.add(id); // a recorded visit implies visited
     scheduleSave();
+    return entry;
   }
   function removeVisit(id, isoDate) {
     if (!cloud) return;
@@ -689,6 +736,11 @@ const UserData = (() => {
     getHistory,
     visitDate,
     visitWith,
+    visitId,
+    visitStars,
+    visitNote,
+    visitDishes,
+    visitAt,
     addVisit,
     removeVisit,
     others,

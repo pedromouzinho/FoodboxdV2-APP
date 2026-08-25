@@ -1,0 +1,187 @@
+// O ciclo da visita (npm run test:visita).
+//
+// Mede o redesenho "a visita é a unidade atómica": registar cria uma entrada
+// com corpo próprio (id, stars, nota, pratos, relógio), o rating do
+// restaurante é uma sombra das visitas, editar não duplica, remover desfaz em
+// cascata e o Anular repõe tudo. Nasceu com o defeito à vista: a 25/08 mediu-se
+// na app real que remover a única visita deixava as estrelas, o visitado e o
+// leaderboard intactos — e não havia caminho nenhum para limpar uma avaliação.
+//
+// COMO CONDUZ: ao contrário do audit (que substitui o UserData por um boneco),
+// este arnês exercita o UserData VERDADEIRO. O SDK do Firebase é cortado por
+// rota (como no test:portao) e entra um FirebaseAuth de fantoche; a camada DB
+// é intercetada método a método — as gravações ficam em window.__saves em vez
+// de irem à rede. Tudo entre o dedo e o payload é o código real.
+import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { extname, join, resolve } from "node:path";
+import { chromium, devices } from "playwright";
+
+const ROOT = resolve(import.meta.dirname, "..");
+const PORT = 8807;
+const TYPES = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript",
+  ".json": "application/json", ".webmanifest": "application/manifest+json",
+  ".svg": "image/svg+xml", ".png": "image/png" };
+
+const srv = createServer(async (req, res) => {
+  const p = decodeURIComponent(req.url.split("?")[0]);
+  const rel = p === "/" ? "index.html" : p.replace(/^\//, "");
+  try {
+    let body = await readFile(join(ROOT, rel));
+    if (rel.endsWith("config.js")) {
+      body = body.toString().replace(/GOOGLE_MAPS_API_KEY:\s*"[^"]*"/, 'GOOGLE_MAPS_API_KEY: ""');
+    }
+    res.writeHead(200, { "Content-Type": TYPES[extname(rel)] || "application/octet-stream", "Cache-Control": "no-cache" });
+    res.end(body);
+  } catch { res.writeHead(404).end("404"); }
+});
+await new Promise((ok) => srv.listen(PORT, "127.0.0.1", ok));
+
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
+const c = await browser.newContext({ ...devices["iPhone 13 Pro"] });
+// O SDK real nunca chega: o fantoche de baixo é quem manda na sessão.
+await c.route(/gstatic\.com|googleapis\.com/, (r) => r.abort("connectionfailed"));
+const p = await c.newPage();
+p.setDefaultTimeout(5000);
+
+await p.addInitScript(() => {
+  window.__semPortao = true; // este arnês encena a sessão; o vigia não é o objeto
+  window.__saves = [];       // cada payload que o saveUserDoc gravaria
+  window.__convites = [];    // cada convite que o createVisitInvite enviaria
+  // Fantoche do FirebaseAuth: o suficiente para o auth.js fazer wire() e para
+  // o arnês disparar a "sessão" quando quiser (window.FirebaseAuth._entrar()).
+  window.FirebaseAuth = {
+    configured: true,
+    _cb: null,
+    onChange(cb) { this._cb = cb; },
+    onProfileChange() {},
+    getToken: async () => "token-falso",
+    signIn() {}, signInApple() {}, signOut: async () => {}
+  };
+});
+
+p.on("pageerror", (e) => console.log("ERRO DA PÁGINA:", String(e).slice(0, 160)));
+await p.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "domcontentloaded" });
+await p.waitForTimeout(1500);
+
+// A camada DB, intercetada DEPOIS de carregar e ANTES de haver sessão.
+await p.evaluate(() => {
+  DB.fetchUserDoc = async () => null; // primeira sessão, doc por criar
+  DB.saveUserDoc = async (uid, data) => { window.__saves.push(JSON.parse(JSON.stringify(data))); return true; };
+  DB.upsertProfile = async () => true;
+  DB.fetchFollowing = async () => [];
+  DB.fetchFollowers = async () => [];
+  DB.fetchMyGroups = async () => [];
+  DB.fetchUsersByIds = async () => [];
+  DB.fetchVisitInvites = async () => [];
+  DB.createVisitInvite = async (inv) => { window.__convites.push(inv); return { ...inv, id: "conv" + window.__convites.length }; };
+  DB.fetchAll = DB.fetchAll; // a lista partilhada vem do data/restaurants.json na mesma
+});
+// A sessão entra pelo caminho real: o onChange do auth.js → onAuthChange → setUser.
+await p.evaluate(() => {
+  window.FirebaseAuth._cb({
+    uid: "eu-arnes", email: "eu@arnes.pt", displayName: "Eu do Arnês",
+    photoURL: "", metadata: { creationTime: "2026-01-01" }
+  });
+});
+await p.waitForFunction(() => UserData.isCloud(), null, { timeout: 8000 });
+// O tutorial de primeira conta abre-se sozinho; sai da frente, e a marca fica.
+await p.evaluate(() => {
+  if (typeof UserData.markOnboarded === "function") UserData.markOnboarded();
+  ["onboarding", "tour"].forEach((id) => { const e = document.getElementById(id); if (e) e.classList.add("hidden"); });
+  document.querySelectorAll(".modal:not(.hidden)").forEach((m) => m.classList.add("hidden"));
+});
+
+let falhas = 0;
+const chk = (nome, ok, extra = "") => {
+  console.log((ok ? "PASS " : "FALHA ") + nome + (ok ? "" : "  " + extra));
+  if (!ok) falhas++;
+};
+
+// ---------------------------------------------------------------------------
+// 1. Registar uma visita cria uma entrada com corpo próprio
+// ---------------------------------------------------------------------------
+// Conduzido pela interface real: lista → ficha → folha → 4 estrelas → registar.
+await p.click('[data-map-mode="lista"]');
+await p.click(".rcard");
+await p.waitForSelector('#detail-panel[aria-hidden="false"]');
+// O id do sítio aberto sai do DOM (o `state` do app é léxico, fechado no IIFE).
+const idAlvo = await p.evaluate(() => {
+  const b = document.querySelector("#detail-body [data-visit-toggle]");
+  return b ? b.dataset.visitToggle : null;
+});
+await p.click("[data-open-visit-sheet]");
+await p.waitForSelector('#visit-sheet:not(.hidden)');
+await p.click('#visit-sheet .visit-star[data-star="4"]');
+await p.click("[data-visit-submit]");
+await p.waitForTimeout(700); // o persist é debounced a 500ms
+
+const entrada = await p.evaluate((id) => {
+  const h = UserData.getHistory(id);
+  return h.length ? JSON.parse(JSON.stringify(h[h.length - 1])) : null;
+}, idAlvo);
+chk("registar cria uma entrada de visita", !!entrada);
+chk("a entrada tem id próprio (visitas no mesmo dia deixam de ser gémeas)",
+  !!(entrada && typeof entrada === "object" && entrada.id && /^v/.test(entrada.id)),
+  `entrada: ${JSON.stringify(entrada)}`);
+chk("a entrada leva as estrelas com ela", !!(entrada && entrada.stars === 4),
+  `entrada: ${JSON.stringify(entrada)}`);
+// `typeof === "object"` não é pedantismo: uma entrada legada é uma STRING, e
+// "2026-08-25".at existe (método de String) — dava um verde falso. Apanhado
+// na primeira corrida deste arnês; fica a guarda e a história.
+chk("a entrada tem relógio de registo (at)",
+  !!(entrada && typeof entrada === "object" && typeof entrada.at === "string"),
+  `entrada: ${JSON.stringify(entrada)}`);
+
+const guardado = await p.evaluate((id) => {
+  const s = window.__saves[window.__saves.length - 1];
+  if (!s || !s.history || !s.history[id]) return null;
+  const lista = s.history[id];
+  return JSON.parse(JSON.stringify(lista[lista.length - 1]));
+}, idAlvo);
+chk("a forma nova chega ao payload gravado", !!(guardado && guardado.id && guardado.at),
+  `gravado: ${JSON.stringify(guardado)}`);
+
+// Os helpers de normalização respondem pelas TRÊS formas — é o contrato que
+// deixa os docs antigos dos amigos viverem para sempre.
+// Dentro de try: antes do redesenho os helpers nem existem, e a ausência tem
+// de ser uma FALHA com nome, não um traço de pilha (a oitava lição da casa).
+const normal = await p.evaluate(() => {
+  try {
+    const casos = ["2024-03-02", { date: "2025-01-05", with: ["a"] }, { id: "vabc", date: "2026-08-25", with: [], stars: 3, at: "2026-08-25T10:00:00Z" }];
+    return casos.map((e) => ({
+      date: UserData.visitDate(e), id: UserData.visitId(e),
+      stars: UserData.visitStars(e), at: UserData.visitAt(e)
+    }));
+  } catch (e) { return { erro: String(e).slice(0, 120) }; }
+});
+if (normal && normal.erro) {
+  chk("visitDate responde às três formas", false, normal.erro);
+  chk("visitId/visitStars/visitAt: nulos no legado, presentes na nova", false, normal.erro);
+}
+if (!normal || normal.erro) { /* as duas FALHAs já ficaram registadas acima */ } else {
+chk("visitDate responde às três formas",
+  normal[0].date === "2024-03-02" && normal[1].date === "2025-01-05" && normal[2].date === "2026-08-25");
+chk("visitId/visitStars/visitAt: nulos no legado, presentes na nova",
+  normal[0].id === null && normal[1].id === null &&
+  normal[2].id === "vabc" && normal[2].stars === 3 && !!normal[2].at,
+  JSON.stringify(normal));
+}
+
+// ---------------------------------------------------------------------------
+// 2. Aceitar um convite cria uma visita SEM estrelas (não contamina médias)
+// ---------------------------------------------------------------------------
+const conviteEntrada = await p.evaluate(() => {
+  UserData.addVisit("rest-convite", { date: "2026-08-20", with: ["amigo-1"] });
+  const h = UserData.getHistory("rest-convite");
+  return JSON.parse(JSON.stringify(h[h.length - 1]));
+});
+chk("a visita de convite não tem estrelas",
+  !!(conviteEntrada && typeof conviteEntrada === "object" && conviteEntrada.stars === undefined),
+  JSON.stringify(conviteEntrada));
+chk("mas tem id e companhia", !!(conviteEntrada && conviteEntrada.id && conviteEntrada.with && conviteEntrada.with[0] === "amigo-1"));
+
+await browser.close();
+srv.close();
+console.log(falhas ? `\nvisita: ${falhas} FALHA(S)` : "\nvisita: a unidade atómica está de pé");
+process.exitCode = falhas ? 1 : 0;

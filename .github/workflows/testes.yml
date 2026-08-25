@@ -56,3 +56,6 @@ jobs:
 
       - name: test:portao
         run: npm run test:portao
+
+      - name: test:visita
+        run: npm run test:visita
