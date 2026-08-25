@@ -200,6 +200,68 @@ ok("o pull-to-refresh não recarrega quando o dedo já tinha ido a subir",
   !(await p.evaluate(() => window.__girou)),
   "o dist final era positivo mas o gesto era de scroll");
 
+// ---- 5. a folha de visita fecha-se pela pega -----------------------------
+// O wireSheetDrag da folha existe desde a Fase 4 do handoff e NUNCA tinha
+// sido medido — que é exatamente como nasceu a nona lição do CLAUDE.md. A
+// sonda regista o que a PEGA recebe antes de se afirmar seja o que for.
+await p.evaluate(() => { window.__semPortao = true; const e = document.getElementById("entrada"); if (e) e.hidden = true; });
+await p.click('[data-tab-nav="mapa"]');
+await p.waitForTimeout(300);
+await abrirFicha();
+await p.evaluate(() => {
+  // A folha precisa de sessão para abrir pelo botão; abre-se pelo caminho da
+  // app com um isCloud fingido só neste passo.
+  const original = UserData.isCloud;
+  UserData.isCloud = () => true;
+  const btn = document.querySelector("[data-open-visit-sheet]");
+  if (btn) btn.click();
+  UserData.isCloud = original;
+});
+// Espera-se pela ESTABILIDADE da pega (duas medições iguais com 120ms), não
+// pelo relógio nem por "está no ecrã": a primeira corrida mediu-a a y=884
+// (fora do ecrã, em animação) e a segunda apanhou-a EM TRÂNSITO — o rect
+// dizia 664, mas quando o toque chegou a folha já tinha subido e o dedo caiu
+// no vazio. Só uma pega parada recebe o gesto onde se mediu.
+await p.waitForFunction(() => {
+  const h = document.querySelector("#visit-sheet .sheet-handle");
+  if (!h) return false;
+  const top = Math.round(h.getBoundingClientRect().top);
+  if (top <= 0 || top >= window.innerHeight - 40) { window.__pegaTopAnterior = null; return false; }
+  const estavel = window.__pegaTopAnterior === top;
+  window.__pegaTopAnterior = top;
+  if (!estavel) setTimeout(() => {}, 0);
+  return estavel;
+}, null, { timeout: 5000, polling: 120 }).catch(() => {});
+const folhaAberta = await p.evaluate(() => {
+  const s = document.getElementById("visit-sheet");
+  return !!(s && !s.classList.contains("hidden"));
+});
+ok("a folha de visita abriu para o gesto", folhaAberta);
+if (folhaAberta) {
+  // A sonda: o que chega mesmo à pega, com relógio.
+  await p.evaluate(() => {
+    window.__pega = [];
+    const h = document.querySelector("#visit-sheet .sheet-handle");
+    if (h) ["touchstart", "touchmove", "touchend"].forEach((t) =>
+      h.addEventListener(t, (e) => window.__pega.push({ t, y: e.touches[0] ? Math.round(e.touches[0].clientY) : null, ms: Date.now() % 100000 }), { passive: true }));
+  });
+  const pega = await p.evaluate(() => {
+    const h = document.querySelector("#visit-sheet .sheet-handle");
+    const r = h.getBoundingClientRect();
+    const y = Math.round(r.top + r.height / 2);
+    const em = document.elementFromPoint(200, y);
+    return { y, rect: { top: Math.round(r.top), h: Math.round(r.height), w: Math.round(r.width), left: Math.round(r.left) }, porCima: em ? em.className || em.tagName : null };
+  });
+  const pegaY = pega.y;
+  // Arrasto franco para baixo a partir da pega: mais de 90px fecha.
+  await caminho([pegaY, pegaY + 40, pegaY + 90, pegaY + 140, pegaY + 180], 25);
+  const fechou = await p.evaluate(() => document.getElementById("visit-sheet").classList.contains("hidden"));
+  ok("arrastar a pega para baixo fecha a folha", fechou,
+    JSON.stringify({ pega, sonda: await p.evaluate(() => window.__pega) }));
+} else {
+  ok("arrastar a pega para baixo fecha a folha", false, "a folha não abriu");
+}
+
 await b.close();
 srv.close();
 console.log(falhas ? `\n${falhas} falha(s)` : "\ngestos: a ficha fecha quando se quer, e só quando se quer");
