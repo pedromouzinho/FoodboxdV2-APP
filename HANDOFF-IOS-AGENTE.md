@@ -1628,16 +1628,25 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | O 2.º pedido de localização diz "localhost" (3b) | dono decidiu, agente fez | ✅ resolvido e medido 24/08 |
 | — | Etiquetas de privacidade (4.3) | agente | ✅ levantadas do código |
 | — | **Diretriz 1.2 — denunciar e bloquear** (4.0) | agente construiu, dono e agente mediram | ✅ **fechado** — denunciar, bloquear e desbloquear, e em produção |
-| **0** | 🔴 **As páginas no ar contradizem a app** — a `/privacidade` e a `/ajuda` dizem que funciona sem conta | agente reescreve, dono autoriza publicar | **por fazer** |
-| **0** | ⛔ **Política de privacidade** (4.3b) — escrita, com dois campos por preencher e por publicar | agente escreveu; **dono dá nome+email, lê e autoriza publicar** | **por decidir** |
-| 4 | **Submeter** as etiquetas na App Store Connect (4.3) | dono | por fazer |
-| 5 | 🔴 Nota ao revisor (4.4) — **a que está escrita ficou FALSA** com o bloqueio; refazer antes de colar | agente refaz, dono cola | por fazer |
+| — | As páginas no ar contradiziam a app | agente reescreveu, dono autorizou | ✅ **publicado 25/08** — `sw v88`, confirmado por `curl` |
+| — | Política de privacidade (4.3b) | agente escreveu, dono autorizou | ✅ no ar em `/privacidade` |
+| 5 | Nota ao revisor (4.4) — refeita para «AN ACCOUNT IS REQUIRED», com duas portas | agente refez; **dono cola** | ✅ escrita, por colar |
 | — | Conta de teste (4.4) | dono | ✅ criada 25/08 — **e agora É precisa**, ver 4.4 |
 | — | ⚠️ **Contas Apple e Google separadas — já em produção** | dono decide o quê, agente executa | ver abaixo |
 | — | A procura numa porta (item 7) | dono decidiu, agente fez | ✅ `+` na barra, escolha no fim |
 | — | O ecrã de entrada (item 7) | dono decidiu, agente fez | ✅ com email/palavra-passe |
-| 7 | O perfil público (item 7) — visibilidade escolhida por pessoa | dono decidiu, agente a fazer | em curso |
-| 6 | **Submeter** — passo a passo em [`loja/submissao.html`](loja/submissao.html), com cada campo pronto a copiar; valores em [`loja/README.md`](loja/README.md) | agente preparou; **dono executa** | por fazer |
+| — | O perfil público (item 7) — visibilidade escolhida por pessoa | dono decidiu, agente fez | ✅ `abrirPerfilDe`, três níveis de visibilidade |
+| **A** | 🔴 **O ícone e o splash são os do Capacitor** — o «X» azul, de Mar/2025. O da marca está em `resources/icon.png` e nunca foi gerado | agente | **por fazer** |
+| **A** | 🔴 **A geração de ícones não está na cadeia do `sync`** — sem isso volta ao placeholder no clone seguinte, como já aconteceu três vezes com outras coisas | agente | **por fazer** |
+| **A** | 🔴 **O número de build ainda é 1**, e a `1.0 (1)` já foi carregada — o próximo envio é recusado. E versão/build não têm fonte versionada | agente | **por fazer** |
+| **A** | 🔴 **O `www/` em disco está atrasado** e ainda diz «a app continua a funcionar sem sessão» — é a cópia que entra no `.ipa` | agente | **por fazer** (`npm run sync` antes do archive) |
+| **A** | 🔴 **O portão de entrada falha aberto.** Com o `gstatic` bloqueado o `#entrada` não aparece, a app abre inteira e não há por onde entrar — medido contra a produção | agente | **por fazer** |
+| **B** | 🔴 **A app declara suporte a iPad** (`TARGETED_DEVICE_FAMILY = "1,2"`) — obriga a screenshots de iPad 13" e a revisão testa lá | **dono decide**, agente executa | **por decidir** |
+| **B** | 🔴 **Diretriz 1.2: faltam duas das quatro.** Há denunciar e bloquear; falta filtro antes de publicar, o compromisso de 24h e os termos de utilização | **dono decide**, agente executa | **por decidir** |
+| **C** | 🔴 **Os seis screenshots** — cinco mostram a app anterior a 25/08 (2.3.3), os seis têm canal alfa, e três foram tirados no browser | agente refaz; dono decide de que conta | **por fazer** |
+| **C** | Campos da consola sem valor decidido: **copyright**, **contacto para a revisão**, **credenciais da conta de teste** | dono | por fazer |
+| 4 | **Submeter** as etiquetas de privacidade, categorias, preço e países na App Store Connect | dono | por fazer |
+| 6 | **Submeter** — passo a passo em [`loja/submissao.html`](loja/submissao.html) e no artifact *Submeter o Foodboxd*; valores em [`loja/README.md`](loja/README.md) | agente preparou; **dono executa** | por fazer |
 
 ### ⚠️ Duas contas para a mesma pessoa — e já está no ar
 
