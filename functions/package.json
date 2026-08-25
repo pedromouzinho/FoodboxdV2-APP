@@ -2,7 +2,7 @@
   "name": "foodboxd-functions",
   "description": "Foodboxd AI backend (Claude via Vertex AI)",
   "private": true,
-  "engines": { "node": "20" },
+  "engines": { "node": "22" },
   "main": "index.js",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
