@@ -443,6 +443,72 @@ chk("expirada a janela, a remoção fica feita",
   aposExpirar.visitas === antesDoX - 1 && aposExpirar.visitado === false,
   JSON.stringify(aposExpirar));
 
+// ---------------------------------------------------------------------------
+// 9. O feed: quem visitou e avaliou aparece UMA vez
+// ---------------------------------------------------------------------------
+// Um amigo encenado com os dois mundos: uma visita NOVA com avaliação (rid1)
+// e o par legado — rating sem visitId + visita string do mesmo dia (rid2).
+// Hoje cada um deles produz DOIS cartões para o mesmo acontecimento.
+const restaurantes = JSON.parse(await readFile(join(ROOT, "data/restaurants.json"), "utf8"));
+const rid1 = restaurantes[0].id;
+const rid2 = restaurantes[1].id;
+await p.evaluate((ids) => {
+  DB.fetchFollowing = async () => ["amigo-feed"];
+  DB.fetchRecentPhotos = async () => [];
+  DB.fetchUsersByIds = async () => [{
+    uid: "amigo-feed", displayName: "Amiga Feed", photoURL: "",
+    visited: [ids.rid1, ids.rid2], priority: [], priorityAt: {},
+    ratings: {
+      [ids.rid1]: { stars: 5, note: "brutal", dishes: [], updatedAt: "2026-08-20T21:00:00.000Z", visitId: "vAAA11" },
+      [ids.rid2]: { stars: 4, note: "boa tasca", dishes: [], updatedAt: "2026-05-10T20:00:00.000Z" }
+    },
+    history: {
+      [ids.rid1]: [{ id: "vAAA11", date: "2026-08-20", with: [], stars: 5, note: "brutal", at: "2026-08-20T21:00:00.000Z" }],
+      [ids.rid2]: ["2026-05-10"]
+    }
+  }];
+  return UserData.reloadGroup();
+}, { rid1, rid2 });
+// A ficha da secção 8 ainda está aberta e intercetava o toque no separador.
+await p.evaluate(() => { const x = document.querySelector(".detail-close"); if (x) x.click(); });
+await p.click('[data-tab-nav="amigos"]');
+await p.waitForSelector("#amigos-feed .feed-item", { timeout: 6000 }).catch(() => {});
+
+const feed = await p.evaluate((ids) => {
+  const cartoes = [...document.querySelectorAll("#amigos-feed .feed-item")];
+  const de = (rid) => cartoes.filter((c) => {
+    const b = c.querySelector("[data-feed-rest]");
+    return b && b.dataset.feedRest === rid;
+  });
+  const texto = (c) => (c.querySelector(".feed-who") || {}).textContent || "";
+  return {
+    total: cartoes.length,
+    rid1: de(ids.rid1).map(texto),
+    rid2: de(ids.rid2).map(texto),
+    rid1Stars: de(ids.rid1).map((c) => !!c.querySelector(".feed-stars"))
+  };
+}, { rid1, rid2 });
+chk("uma visita com avaliação é UM cartão no feed", feed.rid1.length === 1,
+  JSON.stringify(feed.rid1));
+chk("… e o cartão diz que visitou E avaliou",
+  feed.rid1.length === 1 && /visitou e avaliou/i.test(feed.rid1[0]),
+  JSON.stringify(feed.rid1));
+chk("… com as estrelas à vista", feed.rid1Stars[0] === true, JSON.stringify(feed.rid1Stars));
+chk("o par legado (rating + visita do mesmo dia) funde-se num cartão",
+  feed.rid2.length === 1, JSON.stringify(feed.rid2));
+
+// Os filtros: o cartão unificado aparece em "Avaliações" E em "Visitas".
+await p.click('#amigos-filter [data-afilter="rating"], [data-afilter="rating"]').catch(() => {});
+await p.waitForTimeout(300);
+const soAvaliacoes = await p.evaluate((rid) =>
+  [...document.querySelectorAll("#amigos-feed .feed-item [data-feed-rest]")].filter((b) => b.dataset.feedRest === rid).length, rid1);
+await p.click('[data-afilter="visit"]').catch(() => {});
+await p.waitForTimeout(300);
+const soVisitas = await p.evaluate((rid) =>
+  [...document.querySelectorAll("#amigos-feed .feed-item [data-feed-rest]")].filter((b) => b.dataset.feedRest === rid).length, rid1);
+chk("o cartão unificado responde ao filtro Avaliações", soAvaliacoes === 1, `viu ${soAvaliacoes}`);
+chk("… e ao filtro Visitas", soVisitas === 1, `viu ${soVisitas}`);
+
 await browser.close();
 srv.close();
 console.log(falhas ? `\nvisita: ${falhas} FALHA(S)` : "\nvisita: a unidade atómica está de pé");

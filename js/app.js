@@ -4457,21 +4457,47 @@ const App = (() => {
   }
 
   // ----- Amigos: activity feed across all restaurants (from group data) -----
+  //
+  // Uma submissão = UM cartão (decisão do dono, 25/08). Antes, registar uma
+  // visita com estrelas produzia DOIS: um "avaliou" (do ratings, com hora) e
+  // um "visitou" (do history, sem hora) — o mesmo acontecimento em dois
+  // baldes. Agora cada VISITA é o item; se leva avaliação, o cartão é o
+  // unificado ("visitou e avaliou"). Um rating só ganha cartão próprio quando
+  // nenhuma visita com stars o cobre (legado, ou cliente antigo em cache) —
+  // e mesmo esse funde-se com uma visita seca do MESMO dia, que era o par
+  // que o modelo antigo escrevia sempre. Duas visitas nunca se fundem.
   function buildFriendsFeed() {
     const items = [];
     const byId = new Map(state.restaurants.map((r) => [r.id, r]));
     UserData.others().forEach((g) => {
+      const hist = g.history || {};
+      Object.entries(hist).forEach(([id, dates]) => {
+        const r = byId.get(id);
+        if (!r) return;
+        (dates || []).forEach((d) => {
+          const stars = UserData.visitStars(d);
+          items.push({
+            type: stars ? "rating" : "visit",
+            visitou: true,
+            when: UserData.visitAt(d) || UserData.visitDate(d),
+            dia: UserData.visitDate(d),
+            g, r,
+            stars: stars || 0,
+            note: UserData.visitNote(d),
+            with: UserData.visitWith(d)
+          });
+        });
+      });
       Object.entries(g.ratings || {}).forEach(([id, rt]) => {
         const r = byId.get(id);
         if (!r || (!rt.stars && !rt.note)) return;
-        items.push({ type: "rating", when: rt.updatedAt || "", g, r, stars: rt.stars || 0, note: rt.note || "" });
-      });
-      Object.entries(g.history || {}).forEach(([id, dates]) => {
-        const r = byId.get(id);
-        if (!r) return;
-        (dates || []).forEach((d) => items.push({
-          type: "visit", when: UserData.visitDate(d), g, r, with: UserData.visitWith(d)
-        }));
+        const coberto = (hist[id] || []).some((d) => UserData.visitStars(d));
+        if (coberto) return; // a visita nova já conta a avaliação
+        items.push({
+          type: "rating", visitou: false,
+          when: rt.updatedAt || "", dia: (rt.updatedAt || "").slice(0, 10),
+          g, r, stars: rt.stars || 0, note: rt.note || "", with: []
+        });
       });
       (g.priority || []).forEach((id) => {
         const r = byId.get(id);
@@ -4479,7 +4505,29 @@ const App = (() => {
         items.push({ type: "priority", when: (g.priorityAt && g.priorityAt[id]) || "", g, r });
       });
     });
-    return items.sort((a, b) => (a.when < b.when ? 1 : -1));
+    // O par legado funde-se: rating órfão + visita seca do mesmo dia/sítio.
+    const visitasSecas = new Map();
+    items.forEach((it) => {
+      if (it.visitou && !it.stars && !it.note) {
+        const k = `${it.g.uid}|${it.r.id}|${it.dia}`;
+        if (!visitasSecas.has(k)) visitasSecas.set(k, it);
+      }
+    });
+    const out = [];
+    items.forEach((it) => {
+      if (!it.visitou && it.type === "rating") {
+        const par = visitasSecas.get(`${it.g.uid}|${it.r.id}|${it.dia}`);
+        if (par) {
+          par.stars = it.stars;
+          par.note = it.note;
+          par.type = "rating";
+          if (it.when > par.when) par.when = it.when;
+          return; // o rating vive dentro do cartão da visita
+        }
+      }
+      out.push(it);
+    });
+    return out.sort((a, b) => (a.when < b.when ? 1 : -1));
   }
 
   // Group friends' recent photo uploads into feed items (one per friend +
@@ -4511,7 +4559,10 @@ const App = (() => {
     const cat = catFor(it.r);
     const who = esc(it.g.displayName || "Amigo");
     let verb;
-    if (it.type === "rating") verb = "avaliou";
+    if (it.type === "rating") {
+      const comp = it.with && it.with.length ? companionNames(it.with) : "";
+      verb = it.visitou ? (comp ? `visitou com ${comp} e avaliou` : "visitou e avaliou") : "avaliou";
+    }
     else if (it.type === "visit") {
       const who = companionNames(it.with);
       verb = who ? `visitou com ${who}` : "visitou";
@@ -4591,7 +4642,14 @@ const App = (() => {
       return;
     }
     const reqId = ++amigosReqId;
-    const ftr = (arr) => (state.amigosFilter === "all" ? arr : arr.filter((it) => it.type === state.amigosFilter));
+    // O cartão unificado pertence aos DOIS filtros: é uma avaliação E uma visita.
+    const ftr = (arr) => {
+      const f = state.amigosFilter;
+      if (f === "all") return arr;
+      if (f === "rating") return arr.filter((it) => it.type === "rating");
+      if (f === "visit") return arr.filter((it) => it.visitou || it.type === "visit");
+      return arr.filter((it) => it.type === f);
+    };
     const base = buildFriendsFeed();
     // Paint group activity instantly, then fold in friends' photos.
     if (base.length) paintFeed(el, ftr(base));
