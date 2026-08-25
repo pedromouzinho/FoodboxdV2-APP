@@ -59,6 +59,11 @@ const UserData = (() => {
   // O nome já está à mão no sítio de onde se bloqueia — é o que está escrito
   // por cima do comentário ou da foto. Guarda-se esse.
   let blockedNames = {};
+  // Preferências de push (F3, 25/08). Vivem em QUEM RECEBE: a função de envio
+  // lê o doc do destinatário com o Admin SDK. Privadas — nunca entram na
+  // máscara social. followPrefs[uid] ∈ "all" | "ratings" | "none"; omisso = all.
+  let followPrefs = {};
+  let pushEnabled = true;
 
   // O perfil público: o que a pessoa escolhe mostrar a quem a visita.
   //
@@ -156,6 +161,8 @@ const UserData = (() => {
       favoritos = Array.isArray(doc.favoritos) ? doc.favoritos : [];
       visibilidade = doc.visibilidade || "seguidores";
       blockedNames = (doc.blockedNames && typeof doc.blockedNames === "object") ? doc.blockedNames : {};
+      followPrefs = (doc.followPrefs && typeof doc.followPrefs === "object") ? doc.followPrefs : {};
+      pushEnabled = doc.pushEnabled !== false;
       const legacyAudience = doc.audienceGlobal === undefined; // stamp it so others can query me
       // First sign-in: fold in whatever was marked locally before logging in.
       if (firstTime) {
@@ -199,6 +206,8 @@ const UserData = (() => {
     shareGroupIds = [];
     blocked = [];
     blockedNames = {};
+    followPrefs = {};
+    pushEnabled = true;
     destaques = [];
     favoritos = [];
     visibilidade = "seguidores";
@@ -317,6 +326,8 @@ const UserData = (() => {
         shareGroups: shareGroupIds,
         blocked,
         blockedNames,
+        followPrefs,
+        pushEnabled,
         destaques,
         favoritos,
         visibilidade
@@ -365,6 +376,21 @@ const UserData = (() => {
     persistNow().catch(() => {});
     if (onChange) onChange();
     return true;
+  }
+
+  // ---- preferências de push (F3) ----
+  function getFollowPref(u) { return followPrefs[u] || "all"; }
+  function setFollowPref(u, valor) {
+    if (!u || !["all", "ratings", "none"].includes(valor)) return false;
+    if (valor === "all") delete followPrefs[u]; // "all" é o omisso; não se grava lixo
+    else followPrefs[u] = valor;
+    if (cloud) persistNow().catch(() => {});
+    return true;
+  }
+  function isPushEnabled() { return pushEnabled; }
+  function setPushEnabled(on) {
+    pushEnabled = on !== false;
+    if (cloud) persistNow().catch(() => {});
   }
 
   // ---- perfil público ----
@@ -907,6 +933,10 @@ const UserData = (() => {
     getFollowing,
     isFollowing,
     follow,
-    unfollow
+    unfollow,
+    getFollowPref,
+    setFollowPref,
+    isPushEnabled,
+    setPushEnabled
   };
 })();

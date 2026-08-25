@@ -121,7 +121,8 @@ function descodificar(v) {
     "displayName", "photoURL", "visited", "priority", "priorityAt", "ratings",
     "history", "onboarded", "homeTown", "activeGroup", "tasteProfile",
     "tasteGenDay", "tasteNote", "audienceGlobal", "visibleTo", "shareGroups",
-    "blocked", "blockedNames", "destaques", "favoritos", "visibilidade"
+    "blocked", "blockedNames", "destaques", "favoritos", "visibilidade",
+    "followPrefs", "pushEnabled"
   ];
   const chaves = ultima ? Object.keys(ultima.fields) : [];
   const emFalta = contrato.filter((c) => !chaves.includes(c));
@@ -213,6 +214,19 @@ function descodificar(v) {
   }
   chk("podeVerPerfil: o próprio vê-se sempre",
     vm.runInContext(`UserData.podeVerPerfil({ uid: "eu-teste", visibilidade: "ninguem" }, false)`, ctx) === true);
+
+  // As preferências de push são PRIVADAS: a máscara da vista social (o que o
+  // servidor manda dos amigos) não as pode pedir. Mede-se o URL do pedido,
+  // não a intenção do código.
+  const urls = [];
+  const fetchAntes = ctx.fetch;
+  ctx.fetch = async (url, opts) => { urls.push(url); return fetchAntes(url, opts); };
+  await vm.runInContext(`DB.fetchUsersByIds(["alguem"], "tok")`, ctx);
+  const urlSocial = urls.find((u) => u.includes("mask.fieldPaths")) || "";
+  chk("a máscara social não pede followPrefs nem pushEnabled",
+    urlSocial.length > 0 && !urlSocial.includes("followPrefs") && !urlSocial.includes("pushEnabled"),
+    urlSocial.slice(0, 200));
+  ctx.fetch = fetchAntes;
 }
 
 // ---------------------------------------------------------------------------

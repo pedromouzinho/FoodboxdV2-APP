@@ -284,6 +284,8 @@ const DB = (() => {
       // lista do arnês.
       blocked: Array.isArray(data.blocked) ? data.blocked : [],
       blockedNames: data.blockedNames && typeof data.blockedNames === "object" ? data.blockedNames : {},
+      followPrefs: data.followPrefs && typeof data.followPrefs === "object" ? data.followPrefs : {},
+      pushEnabled: data.pushEnabled !== false,
       destaques: Array.isArray(data.destaques) ? data.destaques : [],
       favoritos: Array.isArray(data.favoritos) ? data.favoritos : [],
       visibilidade: data.visibilidade || "seguidores",
