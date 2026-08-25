@@ -67,7 +67,10 @@ async function semear() {
   b.set(db.collection("comments").doc("c2"), { uid: EU, restaurantId: "r2", text: "minha também" });
   b.set(db.collection("comments").doc("c3"), { uid: OUTRO, restaurantId: "r1", text: "de outra pessoa" });
 
-  b.set(db.collection("photos").doc("p1"), { uid: EU, restaurantId: "r1", url: "x" });
+  // p1 na forma NOVA (25/08): com visitId e path, como as fotos que o registo
+  // de visita cria. A cascata da conta apaga por uid e não pode tropeçar nos
+  // campos novos; p2 fica na forma antiga, que continua a existir em produção.
+  b.set(db.collection("photos").doc("p1"), { uid: EU, restaurantId: "r1", url: "x", path: `restaurants/r1/${EU}-1.jpg`, visitId: "v1abc" });
   b.set(db.collection("photos").doc("p2"), { uid: OUTRO, restaurantId: "r1", url: "y" });
 
   // As duas direções. A segunda é a razão de isto ser uma função e não código
