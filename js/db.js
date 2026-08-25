@@ -589,6 +589,35 @@ const DB = (() => {
       return (rows || []).filter((r) => r.document).map((r) => decodeInvite(r.document));
     } catch (e) { return []; }
   }
+  // Os convites que EU enviei (para o × da visita os poder levar — as regras
+  // só deixam o remetente apagar os seus). Filtra-se no cliente por
+  // restaurante/data/estado, para a query ficar num campo só, sem índice novo.
+  async function fetchSentVisitInvites(myUid, token) {
+    if (!ready || !myUid) return [];
+    try {
+      const body = { structuredQuery: {
+        from: [{ collectionId: "visitInvites" }],
+        where: { fieldFilter: { field: { fieldPath: "fromUid" }, op: "EQUAL", value: { stringValue: myUid } } },
+        limit: 50
+      } };
+      const res = await fetch(`${docsBase}:runQuery?${keyQ()}`, {
+        method: "POST", headers: authHeaders(token), body: JSON.stringify(body)
+      });
+      if (!res.ok) return [];
+      const rows = await res.json();
+      return (rows || []).filter((r) => r.document).map((r) => decodeInvite(r.document));
+    } catch (e) { return []; }
+  }
+
+  async function deleteVisitInvite(id, token) {
+    if (!ready) throw new Error("Cloud database not configured.");
+    const res = await fetch(`${docsBase}/visitInvites/${encodeURIComponent(id)}?${keyQ()}`, {
+      method: "DELETE", headers: authHeaders(token)
+    });
+    if (!res.ok && res.status !== 404) throw new Error(`Could not delete invite (${res.status}).`);
+    return true;
+  }
+
   async function respondVisitInvite(id, status, token) {
     if (!ready) throw new Error("Cloud database not configured.");
     const fields = encodeFields({ status, respondedAt: new Date().toISOString() });
@@ -975,6 +1004,8 @@ const DB = (() => {
     searchProfiles,
     createVisitInvite,
     fetchVisitInvites,
+    fetchSentVisitInvites,
+    deleteVisitInvite,
     respondVisitInvite,
     createGroup,
     fetchMyGroups,

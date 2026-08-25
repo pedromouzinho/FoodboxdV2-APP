@@ -645,17 +645,13 @@
   </div>
 
   <!-- Success modal (experience registered) -->
-  <div id="success-modal" class="modal hidden">
-    <div class="modal-scrim" data-close-success></div>
-    <div class="modal-card success-card" role="dialog" aria-modal="true" aria-label="Refeição registada">
-      <button class="icon-btn modal-close" data-close-success aria-label="Fechar">
-        <svg class="icon"><use href="#i-x"/></svg>
-      </button>
-      <div class="success-icon"><svg class="icon"><use href="#i-check-circle"/></svg></div>
-      <h2 class="modal-title">Refeição registada</h2>
-      <p class="modal-intro" data-success-text></p>
-      <button class="btn btn-primary btn-block" data-close-success>Fechar</button>
-    </div>
+  <!-- O snackbar substituiu o modal de sucesso a 25/08: um modal bloqueante
+       para dizer "registado" obrigava a fechar; isto informa sem interromper,
+       e é também onde vive o "Anular" das remoções — a app inteira passa a
+       ter UM padrão para ações reversíveis: age já, desfaz-se em segundos. -->
+  <div id="snackbar" class="snackbar hidden" role="status" aria-live="polite">
+    <span data-snackbar-texto></span>
+    <button type="button" class="snackbar-acao" data-snackbar-acao hidden></button>
   </div>
 
   <!-- Profile modal (edit avatar) -->

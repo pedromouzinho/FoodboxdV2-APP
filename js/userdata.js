@@ -717,6 +717,22 @@ const UserData = (() => {
     return nova;
   }
 
+  // O inverso exato do removeVisit, para o Anular do snackbar: a MESMA entrada
+  // volta (mesmo id, mesmo at), o visitado religa-se, e o recálculo repõe o
+  // rating que a remoção tinha levado. Nada disto gera identidade nova — um
+  // Anular não é um registo, é um arrependimento.
+  function undoRemoveVisit(id, entry) {
+    if (!cloud || !entry) return false;
+    const list = mine.history[id] || [];
+    list.push(entry);
+    list.sort((a, b) => (visitDate(a) < visitDate(b) ? -1 : 1));
+    mine.history[id] = list;
+    mine.visited.add(id);
+    recalcularDerivados(id);
+    scheduleSave();
+    return true;
+  }
+
   // Remover a avaliação sem apagar a ida. Com `vid`, limpa a avaliação dessa
   // visita; sem `vid`, apaga um rating legado/manual (sem visita associada).
   // Era o beco sem saída medido a 25/08: o único caminho que escrevia stars
@@ -858,6 +874,7 @@ const UserData = (() => {
     addVisit,
     updateVisit,
     removeVisit,
+    undoRemoveVisit,
     others,
     everyone,
     visitedBy,

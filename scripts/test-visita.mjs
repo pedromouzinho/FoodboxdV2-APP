@@ -75,6 +75,10 @@ await p.evaluate(() => {
   DB.fetchUsersByIds = async () => [];
   DB.fetchVisitInvites = async () => [];
   DB.createVisitInvite = async (inv) => { window.__convites.push(inv); return { ...inv, id: "conv" + window.__convites.length }; };
+  window.__convitesApagados = [];
+  window.__convitesPendentes = [];
+  DB.fetchSentVisitInvites = async () => window.__convitesPendentes;
+  DB.deleteVisitInvite = async (id) => { window.__convitesApagados.push(id); return true; };
   DB.fetchAll = DB.fetchAll; // a lista partilhada vem do data/restaurants.json na mesma
 });
 // A sessão entra pelo caminho real: o onChange do auth.js → onAuthChange → setUser.
@@ -333,6 +337,111 @@ const emBranco = await p.evaluate(() => ({
 chk("a folha nova começa sem estrelas herdadas", emBranco.estrelasAcesas === 0,
   `acesas: ${emBranco.estrelasAcesas}`);
 chk("… e sem nota herdada", emBranco.nota === "", `nota: "${emBranco.nota}"`);
+
+// ---------------------------------------------------------------------------
+// 8. Remover tem volta: o snackbar com Anular
+// ---------------------------------------------------------------------------
+// Janela por caso: 3s para dar tempo ao CLIQUE do Anular (o roundtrip do
+// arnês come centenas de ms — com 300ms a janela fechava antes do dedo);
+// 300ms só no caso da expiração, onde o que se espera é o fecho.
+await p.evaluate(() => { window.__snackbarMs = 8000; });
+// Fecha a folha aberta da secção 7 e reabre a ficha, para o histórico fresco.
+await p.evaluate(() => {
+  const s = document.getElementById("visit-sheet");
+  if (s) { s.classList.add("hidden"); s.setAttribute("aria-hidden", "true"); }
+});
+await p.click(".detail-close");
+await p.click(".rcard");
+await p.waitForSelector('#detail-panel[aria-hidden="false"]');
+// O histórico (e o ×) vive no separador "A minha experiência".
+await p.click('.detail-tab:has-text("experiência")');
+// Um convite pendente "desta visita" à espera de ser levado pelo ×.
+await p.evaluate((id) => {
+  const h = UserData.getHistory(id);
+  const data = UserData.visitDate(h[h.length - 1]);
+  window.__convitesPendentes = [{ id: "cv-arnes", restaurantId: id, date: data, toUid: "amigo-x", restaurantName: "X", status: "pending" }];
+}, idAlvo);
+
+const antesDoX = await p.evaluate((id) => UserData.getHistory(id).length, idAlvo);
+await p.click("#detail-body [data-del-visit], #detail-panel [data-del-visit]");
+const snackbarAbriu = await p
+  .waitForSelector("#snackbar:not(.hidden)", { timeout: 4000 })
+  .then(() => true).catch(() => false);
+chk("remover mostra o snackbar", snackbarAbriu,
+  await p.evaluate(() => (document.getElementById("snackbar") ? "existe mas não abriu" : "#snackbar não existe")));
+const temAnular = snackbarAbriu && await p.evaluate(() => {
+  const b = document.querySelector("#snackbar [data-snackbar-acao]");
+  return !!(b && !b.hidden && /anular/i.test(b.textContent));
+});
+chk("… com o botão Anular à vista", !!temAnular);
+// Os convites pendentes daquela visita foram apagados JÁ (recriáveis no Anular).
+await p.waitForFunction(() => window.__convitesApagados.length > 0, null, { timeout: 3000 }).catch(() => {});
+chk("os convites pendentes da visita foram apagados",
+  await p.evaluate(() => window.__convitesApagados.includes("cv-arnes")),
+  await p.evaluate(() => JSON.stringify(window.__convitesApagados)));
+
+// Anular repõe tudo: a visita (o MESMO id), o visitado, o rating — e os convites.
+if (temAnular) {
+  const convitesAntes = await p.evaluate(() => window.__convites.length);
+  await p.click("#snackbar [data-snackbar-acao]");
+  await p.waitForTimeout(200);
+  const reposto = await p.evaluate((dados) => {
+    const h = UserData.getHistory(dados.id);
+    return {
+      visitas: h.length,
+      visitado: UserData.isVisited(dados.id),
+      rating: !!UserData.getRating(dados.id)
+    };
+  }, { id: idAlvo });
+  chk("Anular repõe a visita, o visitado e o rating",
+    reposto.visitas === antesDoX && reposto.visitado === true && reposto.rating === true,
+    JSON.stringify(reposto));
+  const convitesRecriados = await p.evaluate(() => window.__convites.length);
+  chk("… e recria os convites que tinha levado", convitesRecriados > convitesAntes,
+    `antes=${convitesAntes} depois=${convitesRecriados}`);
+} else {
+  chk("Anular repõe a visita, o visitado e o rating", false, "sem snackbar");
+  chk("… e recria os convites que tinha levado", false, "sem snackbar");
+}
+
+// Expirar NÃO repõe nada: remove outra vez e deixa a janela fechar-se sozinha.
+const expirar = await p.evaluate(() => {
+  window.__snackbarMs = 1200;
+  window.__convitesApagados = [];
+  // A sonda da nona lição: em vez de adivinhar o que o snackbar fez, regista-se
+  // cada mudança de classe com o relógio ao lado.
+  window.__snackLog = [];
+  const s = document.getElementById("snackbar");
+  if (s) new MutationObserver(() => {
+    window.__snackLog.push({ t: Date.now() % 100000, hidden: s.classList.contains("hidden") });
+  }).observe(s, { attributes: true, attributeFilter: ["class"] });
+  return true;
+});
+await p.click("#detail-body [data-del-visit], #detail-panel [data-del-visit]").catch(() => {});
+let erroAbriu = "";
+const abriuDeNovo = await p.waitForSelector("#snackbar:not(.hidden)", { timeout: 3000 })
+  .then(() => true)
+  .catch((e) => { erroAbriu = String(e).slice(0, 200); return false; });
+if (!abriuDeNovo) console.log("  (waitForSelector do 2º snackbar: " + erroAbriu + ")");
+// state:"attached", não o default "visible": um elemento display:none nunca
+// fica "visible", e a espera pelo FECHO falhava eternamente — o arnês acusava
+// a app do seu próprio defeito. (Descoberto com a sonda: o log mostrava o
+// snackbar a abrir e a fechar direitinho enquanto isto dava vermelho.)
+const fechouSozinho = abriuDeNovo && await p
+  .waitForSelector("#snackbar.hidden", { state: "attached", timeout: 4000 })
+  .then(() => true).catch(() => false);
+chk("a janela do Anular fecha-se sozinha", !!fechouSozinho,
+  await p.evaluate((id) => JSON.stringify({
+    abriu: !document.getElementById("snackbar").classList.contains("hidden"),
+    visitas: UserData.getHistory(id).length,
+    log: window.__snackLog
+  }), idAlvo));
+const aposExpirar = await p.evaluate((id) => ({
+  visitas: UserData.getHistory(id).length, visitado: UserData.isVisited(id)
+}), idAlvo);
+chk("expirada a janela, a remoção fica feita",
+  aposExpirar.visitas === antesDoX - 1 && aposExpirar.visitado === false,
+  JSON.stringify(aposExpirar));
 
 await browser.close();
 srv.close();

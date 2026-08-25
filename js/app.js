@@ -1114,7 +1114,7 @@ const App = (() => {
     renderMyMarks(r);
     renderAmigos(r);
     haptico("sucesso");
-    showSuccess(r.name);
+    showSnackbar(visitDraft.editId ? "Visita atualizada." : `Registado: ${r.name}.`);
   }
 
   function renderMyMarks(r) {
@@ -1184,11 +1184,51 @@ const App = (() => {
         if (entry) openVisitSheet(r, entry);
       });
     });
+    // O × remove JÁ e sem perguntar — a pergunta chata foi trocada por uma
+    // volta: o snackbar dá 5s de "Anular" que repõe a visita (o mesmo id), o
+    // visitado, o rating derivado e os convites. Dentro da janela nada é
+    // irreversível: os convites pendentes apagam-se logo mas recriam-se no
+    // Anular; fechar a app a meio deixa, no pior caso, um convite reenviado.
     if (tail) tail.querySelectorAll("[data-del-visit]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        UserData.removeVisit(r.id, btn.dataset.delVisit);
+      btn.addEventListener("click", async () => {
+        const removida = UserData.removeVisit(r.id, btn.dataset.delVisit);
         renderMyMarks(r);
         renderAmigos(r);
+        if (!removida) return;
+        setVisited(r.id, UserData.isVisited(r.id)); // sincroniza cartão e pin
+        // Os convites pendentes DESTA visita saem já (só o remetente os pode
+        // apagar — é por isso que isto vive aqui e não na função de apagar conta).
+        const dataDaVisita = UserData.visitDate(removida);
+        let apagados = [];
+        try {
+          const token = await tokenSessao();
+          const enviados = await DB.fetchSentVisitInvites(UserData.me().uid, token);
+          apagados = enviados.filter((i) =>
+            i.restaurantId === r.id && i.date === dataDaVisita && i.status === "pending");
+          await Promise.all(apagados.map((i) => DB.deleteVisitInvite(i.id, token).catch(() => {})));
+        } catch (e) { apagados = []; }
+        const desligou = !UserData.isVisited(r.id);
+        showSnackbar(
+          desligou ? "Visita removida — o sítio deixou de contar como visitado." : "Visita removida.",
+          {
+            acao: "Anular",
+            aoAnular: async () => {
+              UserData.undoRemoveVisit(r.id, removida);
+              setVisited(r.id, UserData.isVisited(r.id));
+              renderMyMarks(r);
+              renderAmigos(r);
+              try {
+                const token = await tokenSessao();
+                const me = UserData.me();
+                await Promise.all(apagados.map((i) => DB.createVisitInvite({
+                  fromUid: me.uid, fromName: me.displayName, fromPhoto: me.photoURL,
+                  toUid: i.toUid, restaurantId: i.restaurantId,
+                  restaurantName: i.restaurantName, date: i.date
+                }, token).catch(() => {})));
+              } catch (e) { /* o pior caso é um convite por reenviar */ }
+            }
+          }
+        );
       });
     });
   }
@@ -2268,21 +2308,46 @@ const App = (() => {
     return el && !el.classList.contains("hidden");
   }
 
-  // ---------- Success modal (after registering an experience) ----------
-  let successTimer = null;
-  function showSuccess(name) {
-    const m = document.getElementById("success-modal");
-    if (!m) return;
-    const txt = m.querySelector("[data-success-text]");
-    if (txt) txt.textContent = `Refeição no ${name} registada e partilhada.`;
-    m.classList.remove("hidden");
-    clearTimeout(successTimer);
-    successTimer = setTimeout(hideSuccess, 3000);
+  // ---------- Snackbar (substituiu o modal de sucesso a 25/08) ----------
+  //
+  // UM padrão para toda a app: informa sem interromper, e é onde vive o
+  // "Anular" das remoções. As regras que importam:
+  //   - um snackbar novo empurra o anterior, e os efeitos IRREVERSÍVEIS
+  //     pendentes do anterior correm nesse momento (aoExpirar) — nunca se
+  //     perdem por a pessoa fazer duas coisas depressa;
+  //   - "Anular" cancela o aoExpirar e corre o aoAnular; expirar corre o
+  //     aoExpirar. Nunca os dois.
+  //   - __snackbarMs é o interruptor dos arneses (como o __semPortao): a
+  //     janela real são 5s, o ensaio não pode ficar 5s à espera dela.
+  let snackbarTimer = null;
+  let snackbarAoExpirar = null;
+  function fecharSnackbar(executarExpiracao) {
+    const s = document.getElementById("snackbar");
+    if (!s) return;
+    clearTimeout(snackbarTimer);
+    snackbarTimer = null;
+    s.classList.add("hidden");
+    const exp = snackbarAoExpirar;
+    snackbarAoExpirar = null;
+    if (executarExpiracao && exp) { try { exp(); } catch (e) { /* melhor-esforço */ } }
   }
-  function hideSuccess() {
-    const m = document.getElementById("success-modal");
-    if (m) m.classList.add("hidden");
-    clearTimeout(successTimer);
+  function showSnackbar(texto, opts = {}) {
+    const s = document.getElementById("snackbar");
+    if (!s) return;
+    fecharSnackbar(true); // o anterior fecha JÁ, com os efeitos pendentes dele
+    s.querySelector("[data-snackbar-texto]").textContent = texto;
+    const b = s.querySelector("[data-snackbar-acao]");
+    if (opts.acao && opts.aoAnular) {
+      b.textContent = opts.acao;
+      b.hidden = false;
+      b.onclick = () => { fecharSnackbar(false); try { opts.aoAnular(); } catch (e) {} };
+    } else {
+      b.hidden = true;
+      b.onclick = null;
+    }
+    snackbarAoExpirar = opts.aoExpirar || null;
+    s.classList.remove("hidden");
+    snackbarTimer = setTimeout(() => fecharSnackbar(true), opts.ms || window.__snackbarMs || 5000);
   }
 
   // ---------- Profile modal (edit avatar) ----------
@@ -4777,7 +4842,6 @@ const App = (() => {
     });
     const tourPrev = document.getElementById("tour-prev");
     if (tourPrev) tourPrev.addEventListener("click", () => { if (tourIdx > 0) { tourIdx--; paintTourSlide(); } });
-    document.querySelectorAll("[data-close-success]").forEach((el) => el.addEventListener("click", hideSuccess));
     // O avatar da barra superior deixa de abrir um modal: navega para o separador.
     const chipImg = document.getElementById("user-chip-img");
     if (chipImg) chipImg.addEventListener("click", () => navTo("perfil"));
@@ -4788,8 +4852,6 @@ const App = (() => {
         if (groupModalOpen()) { hideGroupModal(); return; }
         if (aiOpen()) { hideAi(); return; }
         if (tourOpen()) { hideTour(); return; }
-        const su = document.getElementById("success-modal");
-        if (su && !su.classList.contains("hidden")) { hideSuccess(); return; }
         const sm = document.getElementById("signin-modal");
         if (sm && !sm.classList.contains("hidden")) { hideSigninModal(true); return; }
         closeDetail();
