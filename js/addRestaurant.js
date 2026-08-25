@@ -120,7 +120,15 @@ const AddRestaurantModule = (() => {
     modal.classList.remove("hidden");
     statusEl.textContent = "";
     statusEl.className = "form-status";
-    nameInput.focus();
+    // O `focus()` era imediato, e por isso o teclado subia no mesmo instante em
+    // que o modal aparecia — o cartão nascia já arrastado para fora do ecrã pelo
+    // topo, com o título debaixo da Dynamic Island. Não era preciso arrastar
+    // nada para o defeito aparecer: bastava abrir.
+    //
+    // Adiado para depois da animação de entrada (0.2s no `.modal-card`), para o
+    // cartão assentar primeiro e só então o teclado subir. Continua a poupar um
+    // toque a quem já sabe o que vai escrever.
+    setTimeout(() => { try { nameInput.focus({ preventScroll: true }); } catch (e) { nameInput.focus(); } }, 260);
   }
 
   function close() {

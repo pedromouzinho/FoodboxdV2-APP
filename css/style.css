@@ -256,6 +256,27 @@ body { height: 100dvh; overflow: hidden; }
 /* Don't let the chrome be text-selected (keeps inputs/review text selectable). */
 .topbar, .tabbar, .detail-tabs, .seg, .visit-row, .card-meta, .lb-row { -webkit-user-select: none; user-select: none; }
 
+/* O toque longo, que é o tell de página web mais visível a seguir ao scroll.
+   Sem isto, manter o dedo no nome de um restaurante abre a lupa e o menu
+   Copiar/Procurar do iOS, e numa fotografia abre a folha Guardar/Partilhar —
+   coisas que numa app nativa não acontecem em cima de um cartão de lista.
+
+   Por adição controlada e NÃO com `*`: o texto de uma crítica, uma nota e os
+   campos de formulário têm de continuar a poder ser selecionados e copiados,
+   que é uma coisa que as pessoas fazem de propósito. */
+.card, .feed-item, .rcard, .memory-card, .photo-tile, .gallery img, .viewer-img,
+.chip, .btn, .tab, .seg-btn, .state, .screen-head, .modal-title, .sheet-title {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* E as exceções, explícitas, dentro do que ficou por cima. */
+input, textarea, .comment-body p, .feed-note, .my-note, .state-text {
+  -webkit-touch-callout: default;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: 600; }
 
 button { font-family: inherit; }
@@ -698,7 +719,27 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
 /* ---------- Modal ---------- */
-.modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: var(--sp-4); }
+/* O `.modal` era o ÚNICO bloco de cromo da app sem área segura — a topbar, a
+   tabbar, o ecrã de entrada e o onboarding já usavam env(). Num iPhone com
+   Dynamic Island o cartão nascia a ~4dvh do topo, contra 59pt de área segura, e
+   o título ficava debaixo da ilha.
+
+   `overscroll-behavior: contain` pela mesma razão que o `.screen-data` e o
+   `.list-pane` já o têm: sem ele, arrastar para além do fim dentro do modal
+   encadeia para fora dele. */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(var(--sp-4), env(safe-area-inset-top))
+           max(var(--sp-4), env(safe-area-inset-right))
+           max(var(--sp-4), env(safe-area-inset-bottom))
+           max(var(--sp-4), env(safe-area-inset-left));
+  overscroll-behavior: contain;
+}
 .modal.hidden { display: none; }
 .modal-scrim { position: absolute; inset: 0; background: rgba(30, 22, 12, 0.5); }
 @keyframes modal-in { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: none; } }
@@ -707,8 +748,16 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .modal-intro { color: var(--text-muted); font-size: var(--fs-base); margin: 6px 0 var(--sp-4); }
 #add-restaurant-form { display: flex; flex-direction: column; gap: var(--sp-3); }
 .coords-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
-.advanced { margin-top: var(--sp-2); }
-.form-status { font-size: var(--fs-base); margin: 0; min-height: 1em; }
+/* O `margin-top` somava ao `gap` do formulário em vez de colapsar — em flex as
+   margens não colapsam. Com o `.form-status` vazio no meio, dava 46px de vão
+   morto entre o botão de submeter e as "Opções avançadas". O gap do formulário
+   já chega. */
+.advanced { margin-top: 0; }
+/* Reservar a linha só quando há mensagem: com `min-height: 1em` fixo eram mais
+   14px de nada. Sem reserva nenhuma o conteúdo saltava ao aparecer a mensagem —
+   daí o :not(:empty) em vez de tirar a altura de vez. */
+.form-status { font-size: var(--fs-base); margin: 0; }
+.form-status:not(:empty) { min-height: 1em; }
 .form-status.info { color: var(--text-muted); }
 .form-status.success { color: var(--success); font-weight: 600; }
 .form-status.error { color: var(--danger); font-weight: 600; }
@@ -1326,8 +1375,15 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
   padding: var(--sp-5);
   width: 100%;
   max-width: 460px;
-  max-height: 92dvh;
+  /* 92dvh secos punham o cartão mais alto do que o espaço utilizável: os dvh
+     não sabem da ilha nem do indicador de home. Descontá-los é o que faz o
+     cartão comportar-se como folha nativa — e é o que o passa de "não rola" a
+     "rola por dentro" nos iPhones grandes, que é o que se quer. */
+  /* `--kb` é o que o teclado tapa, medido pelo visualViewport. Sem isto o
+     cartão continuava com a altura toda e metade dele ficava atrás do teclado. */
+  max-height: calc(92dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--kb, 0px));
   overflow-y: auto;
+  overscroll-behavior: contain;
   box-shadow: var(--sh-pop);
   animation: modal-in 0.2s var(--ease);
 }

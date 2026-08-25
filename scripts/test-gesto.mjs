@@ -139,6 +139,42 @@ await caminho([300, 340, 400, 470, 540], 25);
 ok("com a ficha já rolada, arrastar para baixo não a fecha", await aberta(),
   "o allow=scrollTop<=0 é o que impede isto");
 
+// ---- 5. o pull-to-refresh não pode engatar a meio da lista ---------------
+//
+// O mesmo defeito da ficha, no outro gesto: o `pulling` é decidido no
+// touchstart e nunca desarmado. Cenário concreto — o dedo assenta no topo,
+// sobe a rolar a lista, e no mesmo toque volta a descer mais do que subiu.
+// O `dist` volta a ser positivo, o preventDefault mata o fling, e se passar
+// dos 90px chama reloadData() sem ninguém ter puxado do topo.
+// A ficha do caso anterior fica aberta e interceta tudo.
+if (await aberta()) {
+  await p.click("#detail-panel .detail-close[data-close-detail]");
+  await p.waitForTimeout(400);
+}
+await p.click('[data-tab-nav="diario"]');
+await p.waitForTimeout(700);
+// A altura do indicador volta a zero no fim do gesto, portanto medi-la depois
+// não diz nada. O que se observa é se o recarregamento chegou a arrancar: o
+// `end()` põe a classe `spin` no indicador antes de chamar o reloadData.
+await p.evaluate(() => {
+  const el = document.querySelector('[data-screen="diario"] .ptr');
+  window.__girou = false;
+  if (!el) return;
+  new MutationObserver(() => {
+    if (el.classList.contains("spin")) window.__girou = true;
+  }).observe(el, { attributes: true, attributeFilter: ["class"] });
+});
+ok("o indicador de pull-to-refresh existe no Diário",
+  await p.evaluate(() => !!document.querySelector('[data-screen="diario"] .ptr')));
+
+// O dedo assenta no topo, sobe 300 a rolar a lista, e no mesmo toque volta a
+// descer 200 — o `dist` final fica em +200, acima dos 90 que disparam o
+// recarregamento. Ninguém puxou do topo.
+await caminho([400, 150, 600], 8);
+ok("o pull-to-refresh não recarrega quando o dedo já tinha ido a subir",
+  !(await p.evaluate(() => window.__girou)),
+  "o dist final era positivo mas o gesto era de scroll");
+
 await b.close();
 srv.close();
 console.log(falhas ? `\n${falhas} falha(s)` : "\ngestos: a ficha fecha quando se quer, e só quando se quer");

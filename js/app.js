@@ -871,6 +871,16 @@ const App = (() => {
 
   // Com contentInset "never", o teclado tapa o rodapé. O visualViewport dá a
   // altura real visível e funciona igual na PWA e no nativo — sem plugin.
+  //
+  // O que isto compensa, medido no simulador: sem o plugin de teclado a
+  // WKWebView **não é redimensionada** quando o teclado abre. O WebKit arrasta a
+  // *visual viewport* para cima para desocultar o cursor — e tudo o que é
+  // `position: fixed` sobe com ela. Foi assim que o modal de adicionar apareceu
+  // com o título debaixo da Dynamic Island: não foi mau layout, foi a página
+  // inteira a ser empurrada por baixo do cromo do sistema.
+  //
+  // Estava ligado a um sítio só, o sheet de registar visita. Passa a estar em
+  // todos os que ganham foco ao abrir.
   function wireKeyboardLift(sheet) {
     if (!window.visualViewport || sheet.dataset.kbWired) return;
     sheet.dataset.kbWired = "1";
@@ -880,6 +890,21 @@ const App = (() => {
     };
     window.visualViewport.addEventListener("resize", sync);
     window.visualViewport.addEventListener("scroll", sync);
+  }
+
+  // Ligar a compensação de teclado a todos os overlays que abrem com um campo
+  // focado. Chamado uma vez no arranque; o `dataset.kbWired` impede duplicados.
+  //
+  // O `--kb` é lido pelo CSS do `.modal-card` e do `.sheet-card`: com o teclado
+  // aberto, o cartão encolhe a altura máxima em vez de ficar metade escondido.
+  function ligarTecladoNosOverlays() {
+    ["add-restaurant-modal", "ai-modal", "group-modal", "signin-modal", "map-search"]
+      .forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) wireKeyboardLift(el);
+      });
+    const entrada = document.getElementById("entrada");
+    if (entrada) wireKeyboardLift(entrada);
   }
 
   function paintVisitSheet(r) {
@@ -2158,18 +2183,30 @@ const App = (() => {
       ptr.className = "ptr";
       ptr.innerHTML = `<div class="ptr-spinner"></div>`;
       sc.insertBefore(ptr, sc.firstChild);
-      let startY = 0, pulling = false, dist = 0, refreshing = false;
+      let startY = 0, pulling = false, dist = 0, refreshing = false, engatado = false;
       sc.addEventListener("touchstart", (e) => {
         if (refreshing || e.touches.length !== 1) { pulling = false; return; }
         pulling = sc.scrollTop <= 0;
+        engatado = false;
         if (pulling) { startY = e.touches[0].clientY; dist = 0; ptr.classList.remove("settle"); }
       }, { passive: true });
       sc.addEventListener("touchmove", (e) => {
         if (!pulling || refreshing) return;
         dist = e.touches[0].clientY - startY;
+
+        // O mesmo desarme que o gesto da ficha tem, e pela mesma razão.
+        //
+        // O `pulling` era decidido no touchstart — dedo no topo — e nunca mais
+        // reavaliado. Quem assentasse o dedo no topo, subisse a rolar a lista e
+        // no mesmo toque voltasse a descer mais do que tinha subido, via o
+        // `dist` voltar a ser positivo: o preventDefault matava o fling e, se
+        // passasse dos 90, o `reloadData()` disparava sem ninguém ter puxado do
+        // topo. Reproduzido no test:gesto antes de isto existir.
+        if (!engatado && dist < -6) { pulling = false; return; }
+
         if (dist > 0) {
+          if (dist > 12) { engatado = true; e.preventDefault(); }
           ptr.style.height = Math.min(dist * 0.5, 70) + "px";
-          if (dist > 12) e.preventDefault();
         }
       }, { passive: false });
       const end = async () => {
@@ -4565,6 +4602,7 @@ const App = (() => {
     buildStyleFilters();
     buildRegionFilters();
     wireEvents();
+    ligarTecladoNosOverlays();
     render();
     showScreen(screenFromHash());
     maybeShowA2HS();
