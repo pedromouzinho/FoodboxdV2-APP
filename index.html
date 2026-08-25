@@ -143,6 +143,9 @@
       <svg class="icon brand-icon"><use href="#i-brand"/></svg>
       <h1>Foodboxd</h1>
     </div>
+    <button id="add-open-btn" class="btn btn-ghost btn-sm topbar-add" aria-label="Adicionar um sítio">
+      <svg class="icon"><use href="#i-plus"/></svg>
+    </button>
     <button id="ai-suggest-btn" class="btn btn-ghost btn-sm topbar-ai" aria-label="Pergunta-me">
       <svg class="icon"><use href="#i-sparkles"/></svg> <span class="ai-btn-label">Pergunta-me</span>
     </button>
@@ -224,14 +227,6 @@
       <section class="list-pane" data-mode-pane="lista" hidden>
         <div class="list-head">
           <span id="list-count">0 restaurantes</span>
-          <div class="list-add-group">
-            <button id="add-wishlist-btn" class="btn btn-ghost btn-sm list-add-btn" title="Adicionar um sítio onde quero ir">
-              <svg class="icon"><use href="#i-flame"/></svg> Wishlist
-            </button>
-            <button id="add-experience-btn" class="btn btn-ghost btn-sm list-add-btn" title="Registar um sítio onde já fui">
-              <svg class="icon"><use href="#i-check-circle"/></svg> Já fui
-            </button>
-          </div>
         </div>
         <div id="restaurant-list" class="restaurant-list"></div>
       </section>
@@ -369,6 +364,27 @@
           <button type="button" id="form-ai-suggest-btn" class="linklike ai-draft hidden">
             <svg class="icon"><use href="#i-sparkles"/></svg> Sugerir tipo e especialidade
           </button>
+        </div>
+
+        <!-- O último passo, e não uma bifurcação à entrada.
+             Antes eram dois botões diferentes na lista, e quem chegava tinha de
+             escolher antes de saber o que estava a adicionar. A escolha é sobre
+             o sítio, e faz-se quando o sítio já está escrito.
+
+             Fica em markup estático de propósito: o preview e o audit abrem
+             este modal por fora, sem passar pelo open(), e um passo criado por
+             JS seria fotografado e auditado vazio. -->
+        <div class="field form-escolha">
+          <span class="field-label">Já lá foste?</span>
+          <div class="chip-row" role="radiogroup" aria-label="Já lá foste?">
+            <button type="button" class="chip" data-escolha="quero" aria-pressed="true">
+              <svg class="icon"><use href="#i-flame"/></svg> Quero ir
+            </button>
+            <button type="button" class="chip" data-escolha="fui" aria-pressed="false">
+              <svg class="icon"><use href="#i-check-circle"/></svg> Já fui
+            </button>
+          </div>
+          <p class="field-hint" data-escolha-hint>Fica marcado como prioritário no mapa.</p>
         </div>
 
         <button type="submit" class="btn btn-primary btn-block" id="form-submit-btn">Adicionar ao mapa</button>

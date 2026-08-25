@@ -2265,7 +2265,7 @@ const App = (() => {
 
   // ---------- Map search: explore without committing ----------
   // Results are temporary pins + a preview sheet. Nothing is saved unless you tap
-  // "Wishlist"/"Logbook"; closing the search wipes the pins.
+  // "Quero ir"/"Já fui"; closing the search wipes the pins.
   let mapSearchResults = [];
   function openMapSearch() {
     const box = document.getElementById("map-search");
@@ -2361,15 +2361,18 @@ const App = (() => {
       <div class="discover-preview-actions">
         ${d && d.googleUrl ? `<a class="btn btn-ghost btn-sm" href="${esc(d.googleUrl)}" target="_blank" rel="noopener">${icon("external")} Google</a>` : ""}
         ${p.known ? `<span class="muted ai-hint">Já está na tua lista.</span>` : `
-          <button class="btn btn-ghost btn-sm" data-map-add-log="${i}">${icon("check-circle")} Logbook</button>
-          <button class="btn btn-primary btn-sm" data-map-add-wish="${i}">${icon("flame")} Wishlist</button>`}
+          <button class="btn btn-ghost btn-sm" data-map-add-log="${i}">${icon("check-circle")} Já fui</button>
+          <button class="btn btn-primary btn-sm" data-map-add-wish="${i}">${icon("flame")} Quero ir</button>`}
       </div>`;
     const ph = host.querySelector(".ph");
     if (ph && d && d.photos && d.photos[0]) setThumbPhoto(ph, d.photos[0]);
     const wish = host.querySelector("[data-map-add-wish]");
     if (wish) wish.addEventListener("click", () => addDiscoveredPlace(p, wish));
     const log = host.querySelector("[data-map-add-log]");
-    if (log) log.addEventListener("click", () => addDiscoveredPlace(p, log, { tab: "experiencia", priority: false }));
+    // `visited: true` pela mesma razão do formulário: "Já fui" tem de marcar o
+    // que diz. Sem isto ficavam duas convenções para a mesma escolha — a da
+    // lupa a não marcar e a do formulário a marcar.
+    if (log) log.addEventListener("click", () => addDiscoveredPlace(p, log, { tab: "experiencia", priority: false, visited: true }));
   }
 
   // ---------- Cover chooser (the "Mudar foto" button on the hero) ----------
@@ -3125,9 +3128,16 @@ const App = (() => {
       onRestaurantAdded(saved, {
         priority: o.priority !== false,
         silent: o.tab ? false : true,
-        tab: o.tab
+        tab: o.tab,
+        visited: o.visited === true
       });
-      if (btn) { btn.innerHTML = `${icon("check")} Na tua wishlist`; btn.classList.add("added"); }
+      // Dizia "Na tua wishlist" nos dois caminhos, incluindo no "Já fui" —
+      // errado desde antes desta mudança, e agora que os dois botões estão
+      // lado a lado a mentira ficava à vista.
+      if (btn) {
+        btn.innerHTML = `${icon("check")} ${o.visited === true ? "No teu diário" : "Na tua lista"}`;
+        btn.classList.add("added");
+      }
     } catch (e) {
       if (btn) { btn.disabled = false; btn.innerHTML = `${icon("plus")} Adicionar`; }
     }
@@ -4438,7 +4448,12 @@ const App = (() => {
     opts = opts || {};
     state.restaurants = mergeRestaurants(state.restaurants, [r]);
     buildRegionFilters();
-    if (opts.priority) UserData.setPriority(r.id, true); // wishlist: quero ir
+    if (opts.priority) UserData.setPriority(r.id, true); // "quero ir"
+    // "já fui" passa a marcar visitado. Antes só abria a ficha e deixava a
+    // pessoa fazê-lo à mão — o botão dizia uma coisa e a app fazia outra, e o
+    // sítio não aparecia no Diário até alguém reparar. A avaliação continua
+    // opcional, como em todo o lado.
+    if (opts.visited) UserData.setVisited(r.id, true);
     render();
     if (opts.silent) return; // added in the background (e.g. an AI discovery) — don't steal focus
     if (opts.tab) openOnTab(r, opts.tab); // experiência: abre para avaliar

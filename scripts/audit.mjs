@@ -222,7 +222,21 @@ for (const scheme of ["light","dark"]) {
     ["Ficha (O sítio)", async()=>{ await p.click('[data-tab-nav="mapa"]'); await p.click('[data-map-mode="lista"]'); await p.click("#restaurant-list .card"); }],
     ["Ficha (experiência)", async()=>{ await p.click('[data-tab="experiencia"]'); }],
     ["Registar visita", async()=>{ await p.click("[data-open-visit-sheet]").catch(async()=>{ await p.click("[data-open-visit]"); }); }],
-    ["Adicionar restaurante", async()=>{ await p.click(".visit-close[data-close-visit]"); await p.evaluate(()=>{document.getElementById("add-restaurant-modal").classList.remove("hidden");}); }],
+    // Pela PORTA, e não a forçar a classe.
+    //
+    // Antes fazia `classList.remove("hidden")` no modal, e por isso a auditoria
+    // passava mesmo que o botão que o abre estivesse desligado — não havia
+    // teste nenhum a cobrir a abertura. Clicar no "+" faz a cena falhar se a
+    // porta se partir, que é metade do que este ensaio devia dizer.
+    ["Adicionar (pela porta)", async()=>{
+      await p.click(".visit-close[data-close-visit]");
+      // A ficha fica aberta da cena anterior e tapa a barra de cima — o "+"
+      // está lá, mas por baixo. Fechá-la é o que põe a porta ao alcance.
+      await p.click(".detail-close[data-close-detail]");
+      await p.waitForTimeout(300);
+      await p.click("#add-open-btn");
+    }],
+    ["Adicionar · já fui", async()=>{ await p.click('#add-restaurant-modal [data-escolha="fui"]'); }],
   ];
   for (const [nome, agir] of cenas) {
     try { await agir(); } catch(e) { problemas.erros.add(`${scheme}: cena "${nome}" falhou — ${String(e.message).split("\n")[0].slice(0,70)}`); continue; }

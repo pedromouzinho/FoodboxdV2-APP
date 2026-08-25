@@ -513,7 +513,6 @@ input[type="checkbox"] { width: 18px; height: 18px; }
 /* ---------- Restaurant list ---------- */
 .list-head { display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-2); }
 #list-count { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); font-weight: 600; }
-.list-add-btn { min-height: var(--h-control); padding: 0 var(--sp-2); font-size: var(--fs-sm); white-space: normal; line-height: 1.1; text-align: center; justify-content: center; }
 .restaurant-list { display: flex; flex-direction: column; gap: var(--sp-2); }
 .region-heading {
   font-family: var(--font-display);
@@ -1369,6 +1368,19 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
   color: var(--text);
 }
 .topbar-ai:hover { background: var(--surface-3); }
+/* A porta única. Ao lado do "Pergunta-me" e com o mesmo peso visual: são as
+   duas coisas que se fazem a partir de qualquer ecrã. */
+.topbar-add {
+  flex-shrink: 0;
+  width: var(--h-control);
+  padding: 0;
+  justify-content: center;
+  background: var(--surface-2);
+  border: none;
+  color: var(--text);
+}
+.topbar-add:hover { background: var(--surface-3); }
+.topbar-add .icon { width: 18px; height: 18px; color: var(--text); }
 .topbar-ai .icon { width: 16px; height: 16px; color: var(--text); }
 .modal-card.ai-card { border: 1px solid var(--border); }
 
@@ -1522,9 +1534,6 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .stop .rcard-thumb { flex: none; }
 .stop .route-summary { font-size: var(--fs-sm); color: var(--primary-strong); margin-top: 2px; cursor: pointer; }
 
-/* dois CTAs de adicionar (wishlist / experiência) */
-.list-add-group { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
-.list-add-group .list-add-btn .icon { width: 14px; height: 14px; flex: none; }
 /* Segmented control (Críticas: mine / all) */
 /* Segmented control — each option reads as a distinct chip. */
 .seg {
@@ -2552,6 +2561,19 @@ body.ob-open { overflow: hidden; }
    montada por baixo — o mapa precisa de existir para o initApp correr —
    e é por isso que isto é uma camada e não um esconder peça a peça.
    ============================================================ */
+/* O último passo do formulário de adicionar: a escolha "quero ir" / "já fui". */
+.form-escolha .chip-row { display: flex; gap: var(--sp-2); }
+.form-escolha .chip[aria-pressed="true"] {
+  background: var(--chip-on-bg);
+  color: var(--chip-on-ink);
+  border-color: transparent;
+}
+.form-escolha .field-hint {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
 .entrada {
   position: fixed;
   inset: 0;

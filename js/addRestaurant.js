@@ -9,7 +9,8 @@ const AddRestaurantModule = (() => {
   let nameInput, townInput, regionInput, categorySelect, notesInput, latInput, lngInput, stylesWrap;
   // "wishlist" = um sítio onde quero ir (fica prioritário); "experience" = já fui
   // (abre logo a experiência para avaliar). Define o comportamento pós-adição.
-  let mode = "wishlist";
+  // "quero" | "fui" — o último passo do formulário.
+  let escolha = "quero";
   let pendingGeoConfirm = false; // second submit click confirms an out-of-region pin
 
   function slugify(text) {
@@ -58,10 +59,12 @@ const AddRestaurantModule = (() => {
 
     titleEl = modal.querySelector(".modal-title");
     introEl = modal.querySelector(".modal-intro");
-    const wishlistBtn = document.getElementById("add-wishlist-btn");
-    const experienceBtn = document.getElementById("add-experience-btn");
-    if (wishlistBtn) wishlistBtn.addEventListener("click", () => open("wishlist"));
-    if (experienceBtn) experienceBtn.addEventListener("click", () => open("experience"));
+    // A porta única: o "+" da barra de cima. Serve o mapa e a lista, e é o
+    // único sítio da app que abre este formulário.
+    const abrir = document.getElementById("add-open-btn");
+    if (abrir) abrir.addEventListener("click", () => open());
+    document.querySelectorAll("#add-restaurant-modal [data-escolha]").forEach((b) =>
+      b.addEventListener("click", () => { escolha = b.dataset.escolha; pintarEscolha(); }));
     modal.querySelectorAll("[data-close-modal]").forEach((el) => el.addEventListener("click", close));
 
     locateBtn.addEventListener("click", manualLocate);
@@ -101,14 +104,19 @@ const AddRestaurantModule = (() => {
     aiSuggestBtn.disabled = false;
   }
 
-  function open(m) {
-    mode = m === "experience" ? "experience" : "wishlist";
+  // Uma porta só.
+  //
+  // Havia dois botões na cabeça da lista — "Wishlist" e "Já fui" — e obrigavam
+  // a escolher ANTES de escrever o nome, quando a escolha é sobre o sítio e só
+  // se sabe depois de o ter à frente. Passou a haver um "+" na barra de cima,
+  // que serve o mapa e a lista, e a escolha é o último campo do formulário.
+  //
+  // O `open()` deixa de receber modo. Fica sem parâmetros de propósito: o modo
+  // era a única coisa que os dois botões diziam de diferente.
+  function open() {
     pendingGeoConfirm = false;
-    if (titleEl) titleEl.textContent = mode === "experience" ? "Adicionar experiência" : "Adicionar à wishlist";
-    if (introEl) introEl.textContent = mode === "experience"
-      ? "Um sítio onde já foste — depois avalias e registas a visita."
-      : "Um sítio onde queres ir — fica marcado como prioritário.";
-    if (submitBtn) submitBtn.textContent = mode === "experience" ? "Adicionar e avaliar" : "Adicionar à wishlist";
+    escolha = "quero";
+    pintarEscolha();
     modal.classList.remove("hidden");
     statusEl.textContent = "";
     statusEl.className = "form-status";
@@ -119,10 +127,30 @@ const AddRestaurantModule = (() => {
     modal.classList.add("hidden");
     form.reset();
     pendingGeoConfirm = false;
+    escolha = "quero";
+    pintarEscolha();
     regionInput.value = "";
     locateStatus.textContent = "";
     statusEl.textContent = "";
     statusEl.className = "form-status";
+  }
+
+  // O texto do botão depende de duas coisas que mudam em momentos diferentes: a
+  // escolha, e o aviso do GeoValidate (que troca o botão para "Guardar mesmo
+  // assim" e ficava pendurado até ao open() seguinte). Recalcular num sítio só
+  // é o que evita as duas ficarem a discutir.
+  function pintarEscolha() {
+    const fui = escolha === "fui";
+    document.querySelectorAll("#add-restaurant-modal [data-escolha]").forEach((b) => {
+      b.setAttribute("aria-pressed", String(b.dataset.escolha === escolha));
+    });
+    const dica = document.querySelector("#add-restaurant-modal [data-escolha-hint]");
+    if (dica) dica.textContent = fui
+      ? "Fica marcado como visitado, e podes avaliar a seguir."
+      : "Fica marcado como prioritário no mapa.";
+    if (submitBtn && !pendingGeoConfirm) {
+      submitBtn.textContent = fui ? "Adicionar e avaliar" : "Adicionar à lista";
+    }
   }
 
   function setStatus(message, type) {
@@ -227,6 +255,8 @@ const AddRestaurantModule = (() => {
             const where = effectiveRegion || coords.country || "Portugal";
             setStatus(`Esta localização parece estar fora de ${where}. Carrega novamente para guardar mesmo assim.`, "warning");
             pendingGeoConfirm = true;
+            // Depois do pintarEscolha(), senão a escolha voltava a escrever o
+            // texto por cima deste. Os dois escrevem no mesmo botão.
             submitBtn.textContent = "Guardar mesmo assim";
             submitBtn.disabled = false;
             return;
@@ -262,12 +292,17 @@ const AddRestaurantModule = (() => {
       // The shared list requires a signed-in author (Firestore rules enforce
       // addedByUid == auth.uid). Without a session, save locally instead.
       // Post-add behaviour depends on the CTA used.
-      const opts = mode === "experience" ? { tab: "experiencia" } : { priority: true };
+      // "Já fui" passa a marcar VISITADO, que é o que a palavra promete. Até
+      // aqui só abria a ficha e deixava a pessoa registar à mão — dizia uma
+      // coisa e fazia outra. Decisão do dono, 25/08.
+      const opts = escolha === "fui"
+        ? { tab: "experiencia", visited: true }
+        : { priority: true };
       if (DB.isAvailable() && signedIn) {
         setStatus("A guardar para todos...", "info");
         const saved = await DB.add(restaurant, token);
         App.onRestaurantAdded(saved, opts);
-        setStatus(mode === "experience" ? "Adicionado. Avalia a tua experiência." : "Adicionado à wishlist.", "success");
+        setStatus(escolha === "fui" ? "Adicionado. Avalia a tua experiência." : "Adicionado à tua lista.", "success");
       } else {
         Storage.addCustomRestaurant(restaurant);
         App.onRestaurantAdded(restaurant, opts);
