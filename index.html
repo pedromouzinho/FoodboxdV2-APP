@@ -1121,7 +1121,17 @@
             // como o recuperar: a credencial que mandamos ao Firebase é
             // construída em JS e não leva `fullName`.
             const nome = (r.user && r.user.displayName) || "";
-            registarRespostaDaApple("nativo", r, nome);
+            // O `isNewUser` NÃO vem no resultado do plugin.
+            //
+            // Com `skipNativeAuth: true` o plugin não faz o sign-in no Firebase,
+            // portanto não tem `additionalUserInfo` para devolver — quem sabe se
+            // esta autorização é a primeira é o `signInWithCredential`, que é
+            // quem falou com o Firebase. Lendo do sítio errado, o diagnóstico
+            // classificou uma primeira autorização a sério como "repetida", com
+            // o nome à frente. Apanhado a 25/08 com o registo já a funcionar.
+            let extraNativo = null;
+            try { extraNativo = getAdditionalUserInfo(res); } catch (e) { /* segue sem */ }
+            registarRespostaDaApple("nativo", { user: r.user, additionalUserInfo: extraNativo }, nome);
             if (nome && res.user && !res.user.displayName) {
               try { await nomeGuardado(res.user, nome); } catch (e) {}
             }

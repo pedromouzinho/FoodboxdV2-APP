@@ -1598,7 +1598,7 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | Guardas nos `replace` do `pbxproj`, destino genérico no build | agente | ✅ |
 | — | Apple ID nas Definições do simulador | dono | ✅ feito |
 | — | A ponte da Apple: `rawNonce` e `signInWithCredential` | agente | ✅ medidos |
-| 1 | **Exercitar a captura do nome da Apple** numa primeira autorização: `appleid.apple.com` → *parar de usar*, entrar outra vez | dono destranca, agente mede | por fazer — **instrumentação já ligada** |
+| — | **A captura do nome da Apple** numa primeira autorização | dono destrancou, agente mediu | ✅ **fechado 25/08** — `nome="Pedro Mouzinho"` |
 | — | Equipa de assinatura no projeto (4.1) | agente | ✅ `LGN8A4342T`, versionada em `ios-signing.json` |
 | 2 | Capacidade *Sign in with Apple* — só se o build para dispositivo a pedir | dono, se preciso | por confirmar |
 | — | "Pergunta-me" + permissão de localização (4.2) | agente | ✅ medido |
@@ -1698,6 +1698,45 @@ npm run ios:apple-diag
 > disco sem depender de ninguém ter uma consola aberta no momento certo. Guarda
 > as últimas cinco entradas, para uma tentativa não apagar a prova da anterior.
 
+#### ✅ FECHADO a 25/08 — a Apple mandou o nome e a app guardou-o
+
+O dono fez o *parar de usar* em `appleid.apple.com` e entrou outra vez. O
+registo, lido com `npm run ios:apple-diag`:
+
+```
+2026-08-25T01:10:42.048Z  [nativo]
+   nome="Pedro Mouzinho"  displayNameDoPlugin="Pedro Mouzinho"  temUser=true
+   chavesDoUser=["displayName"]
+   chavesDoPerfil=[]
+```
+
+**A ponte funciona de ponta a ponta.** O nome veio do plugin em
+`r.user.displayName` — o único sítio de onde se podia salvar no caminho nativo
+— e o `nomeGuardado` levou-o ao `profiles`: "Pedro Mouzinho" aparece agora com
+nome na lista de *Descobrir pessoas*, onde antes aparecia "Amigo".
+
+**O `chavesDoUser=["displayName"]` confirma o que se tinha lido no Swift do
+plugin:** com `skipNativeAuth` não há sign-in nativo, portanto o `user` do
+resultado não é um utilizador — é um objeto com **um campo só**, feito à mão
+para transportar o nome. Se o nome não vier, o objeto inteiro é `null`.
+
+> ⚠️ **E o registo classificou-o mal, o que é um defeito do instrumento.**
+> Dizia *"repetida, mas veio nome (inesperado)"* numa autorização que foi
+> mesmo a primeira. A causa: eu lia o `isNewUser` do resultado do **plugin**,
+> e com `skipNativeAuth: true` o plugin não fala com o Firebase — não tem
+> `additionalUserInfo` nenhum para devolver. Quem sabe se a autorização é
+> primeira é o `signInWithCredential`. Corrigido: passa a ler
+> `getAdditionalUserInfo(res)`.
+>
+> Repara no que se salvou por sorte: **o dado estava certo e a etiqueta
+> errada.** Se a etiqueta fosse o que se lia — e era, era essa a razão de o
+> instrumento existir — a conclusão teria sido "a Apple mandou o nome numa
+> autorização repetida", que é falso e mandaria o próximo a reescrever código
+> que está bom.
+
+<details>
+<summary>O que se sabia da tentativa de 24/08, antes disto (fica para referência)</summary>
+
 **O que se sabe da tentativa de 24/08, e o que não se sabe:**
 
 | | |
@@ -1710,7 +1749,9 @@ Ou seja: **a tentativa não conta como medição.** Não se pode dizer que a cap
 falhou nem que funcionou; só que não houve nome, o que é o esperado numa
 autorização repetida e um defeito numa primeira.
 
-**A boa notícia é que a passagem se renova.** O *parar de usar* pode fazer-se
+</details>
+
+**A passagem renova-se, e isso confirmou-se.** O *parar de usar* pode fazer-se
 outra vez, e outra: cada re-autorização depois de uma revogação conta como
 primeira e a Apple volta a mandar o nome. O que não se pode é gastá-la sem
 instrumento — e agora há um.
