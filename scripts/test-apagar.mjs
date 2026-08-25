@@ -184,6 +184,67 @@ ok("os meus eventos de atividade desaparecem",
   (await db.collection("activity").where("uid", "==", EU).get()).empty);
 ok("os eventos de atividade dos outros ficam", await existe("activity/act3"));
 
+// A PAGINAÇÃO do cliente (F6). O teto silencioso: o fetchAll pedia UMA página
+// de 300 e nunca a segunda — o 301.º restaurante adicionado desaparecia do
+// mapa de toda a gente, sem erro nenhum. Semeiam-se 301 aqui (Admin) e
+// carrega-se o db.js VERDADEIRO num vm de node com fetch real apontado ao
+// emulador — o mesmo caminho que o browser faz.
+{
+  const lote = [];
+  for (let i = 0; i < 301; i++) lote.push(db.collection("restaurants").doc(`pag-${i}`).set({
+    name: `Paginado ${i}`, town: "X", region: "Teste", category: "tradicional",
+    lat: 38, lng: -8, createdAt: new Date(2026, 0, 1, 0, 0, i).toISOString()
+  }));
+  await Promise.all(lote);
+
+  const vm = await import("node:vm");
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const { dirname, join } = await import("node:path");
+  const raiz = join(dirname(fileURLToPath(import.meta.url)), "..");
+  const ctx = {
+    console, setTimeout, clearTimeout, fetch: globalThis.fetch,
+    window: {}, location: { hostname: "127.0.0.1" }
+  };
+  ctx.window = ctx;
+  vm.createContext(ctx);
+  for (const f of ["js/config.js", "js/db.js"]) {
+    vm.runInContext(readFileSync(join(raiz, f), "utf8"), ctx, { filename: f });
+  }
+  vm.runInContext("DB.init()", ctx);
+  const todos = await vm.runInContext("DB.fetchAll()", ctx);
+  // 301 semeados + o r1 da semente principal já foi apagado no limpar? Não:
+  // este bloco corre DEPOIS da cascata, e o r1 sobrevive de propósito.
+  ok("o cliente carrega para lá da página de 300", todos.length >= 301,
+    `vieram ${todos.length}`);
+  await Promise.all(Array.from({ length: 301 }, (_, i) => db.collection("restaurants").doc(`pag-${i}`).delete()));
+}
+
+// O CONTADOR da IA (F6). O de antes lia-e-escrevia sem transação: cinco
+// pedidos simultâneos liam todos zero e escreviam todos um — o limite diário
+// só contava bem se ninguém tivesse pressa. (O fail-open com o Firestore em
+// baixo passou a fail-closed no endpoint; isso não se simula com o emulador
+// ligado e fica dito em vez de fingido.)
+{
+  const limitar = mod.__test.checkRateLimit;
+  ok("o contador da IA está exposto ao ensaio", typeof limitar === "function");
+  if (typeof limitar === "function") {
+    await db.collection("aiUsage").doc("apressado").delete().catch(() => {});
+    const cinco = await Promise.all([1, 2, 3, 4, 5].map(() => limitar("apressado")));
+    const doc = await db.collection("aiUsage").doc("apressado").get();
+    ok("cinco pedidos simultâneos contam cinco",
+      cinco.every(Boolean) && doc.exists && doc.data().count === 5,
+      `count=${doc.exists ? doc.data().count : "sem doc"}`);
+    await db.collection("aiUsage").doc("cheio").set({ day: new Date().toISOString().slice(0, 10), count: 99999 });
+    ok("o teto diário recusa", (await limitar("cheio")) === false);
+    await db.collection("aiUsage").doc("apressado").delete().catch(() => {});
+    await db.collection("aiUsage").doc("cheio").delete().catch(() => {});
+  } else {
+    ok("cinco pedidos simultâneos contam cinco", false, "sem função");
+    ok("o teto diário recusa", false, "sem função");
+  }
+}
+
 // A DECISÃO de envio do push (F3), como função pura — é a parte com risco de
 // privacidade: notificar quem desligou, quem escolheu "só avaliações", ou
 // quem BLOQUEOU o autor seria o filtro social a falhar por fora. O transporte

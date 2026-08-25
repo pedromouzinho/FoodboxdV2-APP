@@ -106,14 +106,34 @@ const DB = (() => {
     };
   }
 
+  // Lê uma coleção INTEIRA, página a página. Existia um teto silencioso de
+  // uma página: pedia-se pageSize=300 e nunca a segunda — o 301.º restaurante
+  // desaparecia do mapa de toda a gente sem erro nenhum. E medido no
+  // emulador ficou pior: o SERVIDOR manda no tamanho real da página (mandou
+  // 150 com 300 pedidos), portanto sem o laço do nextPageToken o teto nem
+  // sequer era os 300 assumidos. O limite de voltas é um para-quedas contra
+  // um servidor que nunca esgote — 40 páginas ≥ 6000 docs, muito além do que
+  // esta app verá antes de outra arquitetura.
+  async function fetchTodasAsPaginas(colecao, headers) {
+    const docs = [];
+    let pageToken = "";
+    for (let volta = 0; volta < 40; volta++) {
+      const q = `${keyQ()}&pageSize=300${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ""}`;
+      const res = await fetch(`${docsBase}/${colecao}?${q}`, headers ? { headers } : undefined);
+      if (!res.ok) break;
+      const data = await res.json();
+      docs.push(...(data.documents || []));
+      pageToken = data.nextPageToken || "";
+      if (!pageToken) break;
+    }
+    return docs;
+  }
+
   // ---- Restaurants ----
   async function fetchAll() {
     if (!ready) return [];
     try {
-      const res = await fetch(`${docsBase}/restaurants?${keyQ()}&pageSize=300`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (data.documents || [])
+      return (await fetchTodasAsPaginas("restaurants"))
         .map(docToRestaurant)
         .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
     } catch (e) {
@@ -166,11 +186,9 @@ const DB = (() => {
   async function fetchOverrides() {
     if (!ready) return {};
     try {
-      const res = await fetch(`${docsBase}/overrides?${keyQ()}&pageSize=300`);
-      if (!res.ok) return {};
-      const data = await res.json();
+      const documents = await fetchTodasAsPaginas("overrides");
       const map = {};
-      (data.documents || []).forEach((doc) => {
+      documents.forEach((doc) => {
         const id = doc.name.split("/").pop();
         const f = decodeFields(doc);
         const o = {};
@@ -585,10 +603,7 @@ const DB = (() => {
   async function searchProfiles(term, token) {
     if (!ready) return [];
     try {
-      const res = await fetch(`${docsBase}/profiles?${keyQ()}&pageSize=300`, { headers: authHeaders(token) });
-      if (!res.ok) return [];
-      const data = await res.json();
-      const all = (data.documents || []).map(decodeProfile);
+      const all = (await fetchTodasAsPaginas("profiles", authHeaders(token))).map(decodeProfile);
       const q = String(term || "").trim().toLowerCase();
       return q ? all.filter((p) => (p.displayName || "").toLowerCase().includes(q)) : all;
     } catch (e) { return []; }

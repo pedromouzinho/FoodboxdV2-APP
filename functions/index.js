@@ -75,23 +75,26 @@ async function requireUser(req) {
   }
 }
 
-// Simple per-user daily cap (best-effort). Fails OPEN: if Firestore is
-// unreachable (e.g. the runtime SA lacks datastore access), we skip the cap
-// rather than block the request.
+// Limite diário por pessoa, numa TRANSAÇÃO — o de antes lia-e-escrevia solto
+// e cinco pedidos simultâneos liam todos zero: o contador só contava bem se
+// ninguém tivesse pressa (medido no emulador: count=1 em vez de 5).
+//
+// E deixou de falhar ABERTO: o fail-open esteve dias a deixar tudo passar
+// enquanto a conta de serviço não tinha acesso ao Firestore, e ninguém viu
+// (secção 12 do CONTEXT). Agora rebenta — e é o ENDPOINT que decide o que
+// fazer com isso: o `ai` devolve 503 (Opus pago não se serve às cegas); o
+// apagar conta nunca passou por aqui e continua tolerante como deve.
 async function checkRateLimit(uid) {
-  try {
-    const day = new Date().toISOString().slice(0, 10);
-    const ref = db.collection("aiUsage").doc(uid);
-    const snap = await ref.get();
+  const day = new Date().toISOString().slice(0, 10);
+  const ref = db.collection("aiUsage").doc(uid);
+  return db.runTransaction(async (t) => {
+    const snap = await t.get(ref);
     const d = snap.exists ? snap.data() : {};
     const count = d.day === day ? (d.count || 0) : 0;
     if (count >= DAILY_CAP) return false;
-    await ref.set({ day, count: count + 1, updatedAt: new Date().toISOString() }, { merge: true });
+    t.set(ref, { day, count: count + 1, updatedAt: new Date().toISOString() }, { merge: true });
     return true;
-  } catch (e) {
-    console.error("rate-limit skipped:", e && e.message);
-    return true;
-  }
+  });
 }
 
 // One forced-tool call → returns the tool input as the structured result.
@@ -522,7 +525,14 @@ exports.ai = onRequest(
     if (!ACTIONS[action]) return res.status(400).json({ error: "action" });
 
     try {
-      const ok = await checkRateLimit(user.uid);
+      let ok;
+      try {
+        ok = await checkRateLimit(user.uid);
+      } catch (e) {
+        // Fail CLOSED, e em voz alta: sem contador não se serve modelo pago.
+        console.error("rate-limit indisponivel:", e && e.message);
+        return res.status(503).json({ error: "tenta já a seguir" });
+      }
       if (!ok) return res.status(429).json({ error: "limite diário atingido" });
       const result = await ACTIONS[action](user.uid, body);
       if (!result) return res.status(502).json({ error: "sem resposta" });
@@ -800,7 +810,7 @@ exports.push = onDocumentCreated(
 // fabricar um token. O que se testa é a parte com risco — sete coleções, dois
 // prefixos do Storage e uma ordem que importa; a camada HTTP acima são quinze
 // linhas iguais às do `ai`.
-exports.__test = { apagarConta, sairDosGrupos, alvoQuerEsteEvento };
+exports.__test = { apagarConta, sairDosGrupos, alvoQuerEsteEvento, checkRateLimit };
 
 // Endpoint próprio, e não mais uma ação do `ai`: apagar a conta não pode ficar
 // atrás do limite diário de pedidos ao modelo, e não deve estar escondido num
