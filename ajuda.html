@@ -70,7 +70,9 @@
   h2 { font-family: var(--font-display); font-size: 1.3rem; margin: 40px 0 8px; }
   h3 { font-size: 1.02rem; margin: 24px 0 2px; }
   .sub { color: var(--text-muted); margin: 0 0 8px; }
-  a { color: var(--primary); }
+  a { color: var(--primary); position: relative; }
+  /* alvo de toque de 44px sem mexer no desenho (F5) */
+  a::after { content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: max(100%, 44px); height: 44px; }
   ul { padding-left: 1.25rem; }
   li { margin: 6px 0; }
   .card {

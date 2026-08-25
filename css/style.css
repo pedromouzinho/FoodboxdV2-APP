@@ -1917,6 +1917,45 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .companions { gap: var(--sp-2); }
 .companion-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .visit-with { color: var(--text-faint); font-size: var(--fs-xs); margin-left: 6px; }
+
+/* ---- Alvos de toque (F5, 25/08) --------------------------------------------
+   A lista do audit tinha ~17 alvos abaixo de 44px. Onde engordar o visual
+   estragava o desenho, usa-se o padrão do .linklike (documentado no próprio
+   audit): um ::after posicionado de 44px que é a área de toque real — o
+   audit mede o maior dos dois. Onde dava para subir o mínimo, subiu-se. */
+.person-abrir { position: relative; }
+.person-abrir::after {
+  content: ""; position: absolute;
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: max(100%, 44px); height: max(100%, 44px);
+}
+.detail-tab { min-height: 44px; }
+.groupbar-select { min-height: 44px; }
+.chip, .chip-sort, .chip-tab, .switch-chip, .price-chip, .companion-chip { min-height: 44px; }
+#visit-sheet .visit-star { width: 44px; height: 44px; }
+.hero-photo-btn { position: relative; }
+.hero-photo-btn::after {
+  content: ""; position: absolute;
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: max(100%, 44px); height: 44px;
+}
+.sheet-close, .visit-close { position: relative; }
+.sheet-close::after, .visit-close::after {
+  content: ""; position: absolute;
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 44px; height: 44px;
+}
+/* O checkbox de 15px dentro do .switch-chip era um segundo alvo minúsculo
+   dentro de um label que já é o alvo inteiro. Em vez de o encolher (1×1
+   ainda contava como alvo), estica-se invisível sobre o chip todo: o input É
+   o alvo de 44px, o foco do teclado continua nele, e o :has(checked) do
+   label continua a pintar o estado. */
+.switch-chip { position: relative; }
+.switch-chip input {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  opacity: 0; margin: 0; cursor: pointer;
+}
 /* As estrelas de cada visita (modelo 25/08: a avaliação vive na visita). */
 .visit-stars { color: var(--primary); font-size: var(--fs-xs); letter-spacing: 1px; }
 /* O passo da foto na folha de visita. */
