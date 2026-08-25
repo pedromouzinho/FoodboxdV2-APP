@@ -38,7 +38,11 @@
       "ios-info.json",
       "SETUP_IOS.md",
       "HANDOFF-IOS-AGENTE.md",
-    "HANDOFF-SWOT-CODEBASE.md",
+      "HANDOFF-SWOT-CODEBASE.md",
+      "Foodboxd Agent Orchestrator.py",
+      "DIFF-REPORT.md",
+      "firestore-debug.log",
+      "=1.0",
       "ios-build.json",
       "ios-entitlements.plist",
       "loja/**"
