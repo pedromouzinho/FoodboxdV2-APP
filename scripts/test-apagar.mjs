@@ -183,6 +183,33 @@ ok("os tokens de push desaparecem", !(await existe(`pushTokens/${EU}`)));
 ok("os meus eventos de atividade desaparecem",
   (await db.collection("activity").where("uid", "==", EU).get()).empty);
 ok("os eventos de atividade dos outros ficam", await existe("activity/act3"));
+
+// A DECISÃO de envio do push (F3), como função pura — é a parte com risco de
+// privacidade: notificar quem desligou, quem escolheu "só avaliações", ou
+// quem BLOQUEOU o autor seria o filtro social a falhar por fora. O transporte
+// (FCM/APNs) só se prova em TestFlight, e isso fica dito em vez de fingido.
+{
+  const decidir = mod.__test.alvoQuerEsteEvento;
+  ok("a função de decisão do push existe", typeof decidir === "function");
+  if (typeof decidir === "function") {
+    const ev = { uid: "autor", tipo: "visita" };
+    const evAval = { uid: "autor", tipo: "avaliacao" };
+    ok("por omissão, um seguidor recebe tudo", decidir({}, ev) === true);
+    ok("pushEnabled false corta tudo", decidir({ pushEnabled: false }, evAval) === false);
+    ok("pref 'none' para o autor corta tudo dele",
+      decidir({ followPrefs: { autor: "none" } }, evAval) === false);
+    ok("pref 'ratings' deixa passar avaliações…",
+      decidir({ followPrefs: { autor: "ratings" } }, evAval) === true);
+    ok("… e corta visitas sem estrelas",
+      decidir({ followPrefs: { autor: "ratings" } }, ev) === false);
+    ok("quem bloqueou o autor nunca é notificado",
+      decidir({ blocked: ["autor"] }, evAval) === false);
+  } else {
+    for (const n of ["por omissão, um seguidor recebe tudo", "pushEnabled false corta tudo",
+      "pref 'none' para o autor corta tudo dele", "pref 'ratings' deixa passar avaliações…",
+      "… e corta visitas sem estrelas", "quem bloqueou o autor nunca é notificado"]) ok(n, false, "sem função");
+  }
+}
 ok("a conta da outra pessoa intacta", await existe(`userData/${OUTRO}`));
 
 // ---- grupos: ninguém fica preso num grupo sem dono -------------------------

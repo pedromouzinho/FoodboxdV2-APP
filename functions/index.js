@@ -4,6 +4,7 @@
 // returns structured JSON. No model key ever reaches the browser.
 
 const { onRequest } = require("firebase-functions/v2/https");
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 
@@ -721,11 +722,85 @@ async function apagarConta(uid) {
   return contagem;
 }
 
+// ---- push (F3) -------------------------------------------------------------
+//
+// Um registo novo (doc em `activity`) vira notificação para quem segue o
+// autor. A DECISÃO de quem recebe está numa função pura, porque é a parte com
+// risco de privacidade: notificar quem desligou, quem escolheu "só
+// avaliações", ou quem BLOQUEOU o autor seria o filtro social a falhar por
+// fora da app. O test:apagar exercita-a caso a caso; o transporte (FCM→APNs)
+// só se prova num dispositivo real via TestFlight — está dito onde tem de
+// estar em vez de fingido aqui.
+function alvoQuerEsteEvento(u, ev) {
+  const dados = u || {};
+  if (dados.pushEnabled === false) return false;
+  if (Array.isArray(dados.blocked) && dados.blocked.includes(ev.uid)) return false;
+  const pref = (dados.followPrefs || {})[ev.uid] || "all";
+  if (pref === "none") return false;
+  if (pref === "ratings" && ev.tipo !== "avaliacao") return false;
+  return true;
+}
+
+function corpoDaNotificacao(nomeAutor, ev) {
+  const quem = nomeAutor || "Um amigo";
+  const sitio = ev.restaurantName || "um sítio";
+  if (ev.tipo === "avaliacao") {
+    const estrelas = ev.stars ? ` — ${"★".repeat(Math.min(5, ev.stars))}` : "";
+    return `${quem} avaliou ${sitio}${estrelas}`;
+  }
+  if (ev.tipo === "foto") return `${quem} partilhou uma foto de ${sitio}`;
+  return `${quem} visitou ${sitio}`;
+}
+
+exports.push = onDocumentCreated(
+  { document: "activity/{id}", region: "europe-west1", serviceAccount: RUNTIME_SA },
+  async (event) => {
+    const ev = event.data ? event.data.data() : null;
+    if (!ev || !ev.uid) return;
+    const seguidores = await db.collection("follows").where("targetUid", "==", ev.uid).get();
+    if (seguidores.empty) return;
+    const perfil = await db.collection("profiles").doc(ev.uid).get();
+    const nomeAutor = perfil.exists ? (perfil.data().displayName || "") : "";
+
+    await Promise.all(seguidores.docs.map(async (d) => {
+      const alvo = d.data().followerUid;
+      if (!alvo) return;
+      try {
+        const ud = await db.collection("userData").doc(alvo).get();
+        if (!alvoQuerEsteEvento(ud.exists ? ud.data() : {}, ev)) return;
+        const tokDoc = await db.collection("pushTokens").doc(alvo).get();
+        const tokens = (tokDoc.exists ? tokDoc.data().tokens || [] : [])
+          .map((t) => t && t.token).filter(Boolean);
+        if (!tokens.length) return;
+        const resposta = await admin.messaging().sendEachForMulticast({
+          tokens,
+          notification: { title: "Foodboxd", body: corpoDaNotificacao(nomeAutor, ev) },
+          data: { restaurantId: String(ev.restaurantId || "") },
+          apns: { payload: { aps: { sound: "default" } } }
+        });
+        // Tokens mortos saem do doc — um telemóvel reposto deixa lixo para trás.
+        const mortos = [];
+        resposta.responses.forEach((r, i) => {
+          const codigo = (r.error && r.error.code) || "";
+          if (!r.success && /registration-token-not-registered|invalid-argument/.test(codigo)) mortos.push(tokens[i]);
+        });
+        if (mortos.length) {
+          const vivos = (tokDoc.data().tokens || []).filter((t) => t && !mortos.includes(t.token));
+          await tokDoc.ref.set({ tokens: vivos, updatedAt: new Date().toISOString() }, { merge: true });
+        }
+      } catch (e) {
+        // Um destinatário que falha não pode calar os outros.
+        console.error("push: falha para", alvo, e && e.message);
+      }
+    }));
+  }
+);
+
 // Exposto para o ensaio poder correr a cascata contra o emulador sem ter de
 // fabricar um token. O que se testa é a parte com risco — sete coleções, dois
 // prefixos do Storage e uma ordem que importa; a camada HTTP acima são quinze
 // linhas iguais às do `ai`.
-exports.__test = { apagarConta, sairDosGrupos };
+exports.__test = { apagarConta, sairDosGrupos, alvoQuerEsteEvento };
 
 // Endpoint próprio, e não mais uma ação do `ai`: apagar a conta não pode ficar
 // atrás do limite diário de pedidos ao modelo, e não deve estar escondido num
