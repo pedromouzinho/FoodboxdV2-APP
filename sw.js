@@ -13,6 +13,7 @@ const ASSETS = [
   "css/style.css",
   "js/config.js",
   "js/storage.js",
+  "js/imagem.js",
   "js/db.js",
   "js/userdata.js",
   "js/filtro.js",

@@ -1821,12 +1821,15 @@ const App = (() => {
       const handleFile = async (file) => {
         if (!file) return;
         if (!/^image\//.test(file.type)) { statusEl.textContent = "Isso não é uma imagem."; return; }
-        if (file.size > 6 * 1024 * 1024) { statusEl.textContent = "Imagem demasiado grande (máx. 6 MB)."; return; }
+        // Comprimir ANTES do limite: uma foto de câmara de 5 MB passa a caber
+        // sempre, em vez de ser recusada por uns KB.
+        const enviavel = typeof Imagem !== "undefined" ? await Imagem.comprimir(file) : file;
+        if (enviavel.size > 6 * 1024 * 1024) { statusEl.textContent = "Imagem demasiado grande (máx. 6 MB)."; return; }
         statusEl.textContent = "A enviar foto…";
         try {
-          const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+          const ext = (enviavel.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
           const path = `restaurants/${slugifyId(r.id)}/${me.uid}-${Date.now()}.${ext}`;
-          const url = await window.FirebaseStorage.upload(path, file);
+          const url = await window.FirebaseStorage.upload(path, enviavel);
           const fb = window.FirebaseAuth;
           const token = fb ? await fb.getToken() : null;
           const saved = await DB.addPhoto({ restaurantId: r.id, uid: me.uid, author: me.displayName, url, path }, token);
@@ -2518,13 +2521,14 @@ const App = (() => {
         return;
       }
       if (!/^image\//.test(file.type)) { if (status) status.textContent = "Isso não é uma imagem."; return; }
-      if (file.size > 6 * 1024 * 1024) { if (status) status.textContent = "Imagem demasiado grande (máx. 6 MB)."; return; }
+      const enviavel = typeof Imagem !== "undefined" ? await Imagem.comprimir(file) : file;
+      if (enviavel.size > 6 * 1024 * 1024) { if (status) status.textContent = "Imagem demasiado grande (máx. 6 MB)."; return; }
       if (status) status.textContent = "A enviar…";
       try {
         const me = UserData.me();
-        const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const ext = (enviavel.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
         const path = `avatars/${me.uid}-${Date.now()}.${ext}`;
-        const url = await window.FirebaseStorage.upload(path, file);
+        const url = await window.FirebaseStorage.upload(path, enviavel);
         UserData.setPhotoURL(url);
         const chipImg = document.getElementById("user-chip-img");
         if (chipImg) { chipImg.src = url; chipImg.classList.remove("hidden"); }
@@ -2930,13 +2934,14 @@ const App = (() => {
     const status = m.querySelector("[data-cover-status]");
     if (!r || !file || !UserData.isCloud() || !(window.FirebaseStorage && window.FirebaseStorage.configured)) return;
     if (!/^image\//.test(file.type)) { status.textContent = "Isso não é uma imagem."; return; }
-    if (file.size > 6 * 1024 * 1024) { status.textContent = "Imagem demasiado grande (máx. 6 MB)."; return; }
+    const enviavel = typeof Imagem !== "undefined" ? await Imagem.comprimir(file) : file;
+    if (enviavel.size > 6 * 1024 * 1024) { status.textContent = "Imagem demasiado grande (máx. 6 MB)."; return; }
     status.textContent = "A enviar…";
     try {
       const me = UserData.me();
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const ext = (enviavel.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
       const path = `restaurants/${slugifyId(r.id)}/${me.uid}-${Date.now()}.${ext}`;
-      const url = await window.FirebaseStorage.upload(path, file);
+      const url = await window.FirebaseStorage.upload(path, enviavel);
       const fb = window.FirebaseAuth;
       const token = fb ? await fb.getToken() : null;
       await DB.addPhoto({ restaurantId: r.id, uid: me.uid, author: me.displayName, url, path }, token); // into the gallery too

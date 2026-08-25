@@ -213,9 +213,10 @@ const AddRestaurantModule = (() => {
     const me = UserData.me();
     const file = fotoEscolhida;
     try {
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const enviavel = typeof Imagem !== "undefined" ? await Imagem.comprimir(file) : file;
+      const ext = (enviavel.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
       const caminho = `restaurants/${slugParaStorage(restaurante.id)}/${me.uid}-${Date.now()}.${ext}`;
-      const url = await window.FirebaseStorage.upload(caminho, file);
+      const url = await window.FirebaseStorage.upload(caminho, enviavel);
       const fb = window.FirebaseAuth;
       const token = fb ? await fb.getToken() : null;
       await DB.addPhoto({ restaurantId: restaurante.id, uid: me.uid, author: me.displayName, url, path: caminho }, token);

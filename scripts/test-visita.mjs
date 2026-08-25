@@ -590,6 +590,43 @@ if (temApagar) {
    "… e a capa não fica a apontar para um ficheiro morto"].forEach((n) => chk(n, false, "sem botão"));
 }
 
+// ---------------------------------------------------------------------------
+// 12. O upload comprime — uma imagem de 3000px não sobe com 3000px
+// ---------------------------------------------------------------------------
+// Fabrica-se um PNG grande no próprio browser, mete-se no input da galeria, e
+// mede-se O QUE O UPLOAD RECEBE — não o que o código diz que faz.
+const comprimido = await p.evaluate(async () => {
+  try {
+    const medidas = [];
+    window.FirebaseStorage.upload = async (path, file) => {
+      const bmp = await createImageBitmap(file);
+      medidas.push({ largura: bmp.width, tipo: file.type, bytes: file.size });
+      return "http://x/enviada.jpg";
+    };
+    const c = document.createElement("canvas");
+    c.width = 3000; c.height = 2000;
+    const g = c.getContext("2d");
+    g.fillStyle = "#b04a1c"; g.fillRect(0, 0, 3000, 2000);
+    g.fillStyle = "#fff"; for (let i = 0; i < 60; i++) g.fillRect(i * 50, (i % 20) * 100, 40, 80);
+    const blob = await new Promise((r) => c.toBlob(r, "image/png"));
+    const file = new File([blob], "grande.png", { type: "image/png" });
+    const input = document.querySelector("[data-photo-input]");
+    if (!input) return { erro: "sem input de galeria (a ficha não está aberta?)" };
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 1500));
+    return { medidas, original: { largura: 3000, bytes: blob.size } };
+  } catch (e) { return { erro: String(e).slice(0, 160) }; }
+});
+chk("o upload recebeu a imagem", !!(comprimido && !comprimido.erro && comprimido.medidas && comprimido.medidas.length === 1),
+  JSON.stringify(comprimido && (comprimido.erro || comprimido.medidas)));
+const m12 = comprimido && comprimido.medidas && comprimido.medidas[0];
+chk("… redimensionada (lado maior ≤ 1600)", !!(m12 && m12.largura <= 1600),
+  m12 ? `largura enviada: ${m12.largura}` : "sem medida");
+chk("… e como JPEG", !!(m12 && m12.tipo === "image/jpeg"), m12 ? `tipo: ${m12.tipo}` : "sem medida");
+
 await browser.close();
 srv.close();
 console.log(falhas ? `\nvisita: ${falhas} FALHA(S)` : "\nvisita: a unidade atómica está de pé");
