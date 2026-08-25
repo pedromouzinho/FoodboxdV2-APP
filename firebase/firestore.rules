@@ -139,6 +139,24 @@ service cloud.firestore {
                     && request.resource.data.tipo in ['comentario', 'foto'];
     }
 
+    // Erros do cliente (js/erros.js). Write-only, como os reports: a app
+    // grava e ninguém os lê daqui — leem-se na consola do Firestore. Sessão
+    // obrigatória, e o uid tem de ser o de quem chama: abrir isto ao
+    // anonimato seria reabrir o buraco fechado nos overrides. O preço é que
+    // um erro no ecrã de entrada (sem sessão) não fica gravado — aceite, e
+    // dito aqui em vez de descoberto mais tarde.
+    match /errosClient/{doc} {
+      allow read: if false;
+      allow update, delete: if false;
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.msg is string
+                    && request.resource.data.msg.size() > 0
+                    && request.resource.data.msg.size() <= 500
+                    && request.resource.data.keys().hasOnly(
+                         ['uid', 'msg', 'stack', 'onde', 'ua', 'quando']);
+    }
+
     // Photo metadata per restaurant (the file itself lives in Cloud Storage).
     // Anyone can read; only signed-in users can add, and only the uploader can
     // remove their own.

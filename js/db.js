@@ -449,6 +449,24 @@ const DB = (() => {
     return true;
   }
 
+  // Erros do cliente (js/erros.js). Write-only como os reports: grava-se e
+  // lê-se na consola. A regra valida o uid e o tamanho da mensagem.
+  async function addErro(erro, token) {
+    if (!ready) return false;
+    const fields = encodeFields({
+      uid: erro.uid,
+      msg: String(erro.msg || "").slice(0, 500),
+      stack: String(erro.stack || "").slice(0, 1500),
+      onde: erro.onde || "",
+      ua: erro.ua || ""
+    });
+    fields.quando = { timestampValue: new Date().toISOString() };
+    const res = await fetch(`${docsBase}/errosClient?${keyQ()}`, {
+      method: "POST", headers: authHeaders(token), body: JSON.stringify({ fields })
+    });
+    return res.ok;
+  }
+
   function decodeProfile(doc) {
     const f = decodeFields(doc);
     return { uid: doc.name.split("/").pop(), displayName: f.displayName || "", photoURL: f.photoURL || "" };
@@ -969,6 +987,7 @@ const DB = (() => {
     fetchPhotos,
     fetchRecentPhotos,
     addPhoto,
-    addReport
+    addReport,
+    addErro
   };
 })();

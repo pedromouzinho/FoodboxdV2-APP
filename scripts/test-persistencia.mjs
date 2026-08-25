@@ -39,11 +39,16 @@ function chk(nome, cond, extra) {
 // O contexto: o mínimo de browser de que os três ficheiros precisam.
 // ---------------------------------------------------------------------------
 const gravacoes = []; // todos os PATCH a /userData/ — { url, fields }
+const errosGravados = []; // todos os POST a /errosClient — { fields }
 let docNoServidor = null; // o que o fetchUserDoc devolve (null → 404)
 
 function fazerFetch() {
   return async function fetchFalso(url, opts = {}) {
     const metodo = (opts.method || "GET").toUpperCase();
+    if (url.includes("/errosClient") && metodo === "POST") {
+      errosGravados.push(JSON.parse(opts.body).fields || {});
+      return { ok: true, status: 200, json: async () => ({}) };
+    }
     if (url.includes("/userData/") && metodo === "GET") {
       if (!docNoServidor) return { ok: false, status: 404, json: async () => ({}) };
       return { ok: true, status: 200, json: async () => docNoServidor };
@@ -208,6 +213,50 @@ function descodificar(v) {
   }
   chk("podeVerPerfil: o próprio vê-se sempre",
     vm.runInContext(`UserData.podeVerPerfil({ uid: "eu-teste", visibilidade: "ninguem" }, false)`, ctx) === true);
+}
+
+// ---------------------------------------------------------------------------
+// 3. O registo de erros do cliente (js/erros.js → coleção errosClient)
+// ---------------------------------------------------------------------------
+{
+  const ctx = novoContexto();
+  ctx.navigator = { userAgent: "arnes-teste" };
+  ctx.location.pathname = "/";
+  ctx.addEventListener = () => {}; // os listeners reais são do browser; aqui chama-se registar() à mão
+  ctx.FirebaseAuth = { configured: true, getToken: async () => "token-falso" };
+  let carregou = true;
+  try {
+    vm.runInContext(readFileSync(join(ROOT, "js/erros.js"), "utf8"), ctx, { filename: "js/erros.js" });
+  } catch (e) { carregou = false; }
+  chk("js/erros.js existe e carrega", carregou);
+
+  if (carregou) {
+    docNoServidor = null;
+    ctx.u = utilizador; ctx.t = token;
+    await vm.runInContext("UserData.setUser(u, t)", ctx);
+    await pausa();
+    errosGravados.length = 0;
+
+    ctx.errCaso = new Error("x".repeat(900)); // maior do que o limite da regra
+    await vm.runInContext(`Erros.registar(errCaso, "teste")`, ctx);
+    await pausa();
+    const g = errosGravados[0];
+    chk("um erro registado chega à coleção errosClient", !!g);
+    const msg = g && g.msg ? descodificar(g.msg) : "";
+    chk("a mensagem vai truncada ao limite da regra (500)", msg.length > 0 && msg.length <= 500,
+      `tamanho: ${msg.length}`);
+    chk("o uid gravado é o da sessão", g && descodificar(g.uid) === "eu-teste");
+
+    await vm.runInContext(`Erros.registar(errCaso, "teste")`, ctx);
+    await pausa();
+    chk("o mesmo erro não é gravado duas vezes na sessão", errosGravados.length === 1,
+      `gravações: ${errosGravados.length}`);
+  } else {
+    ["um erro registado chega à coleção errosClient",
+     "a mensagem vai truncada ao limite da regra (500)",
+     "o uid gravado é o da sessão",
+     "o mesmo erro não é gravado duas vezes na sessão"].forEach((n) => chk(n, false, "sem módulo"));
+  }
 }
 
 console.log(falhas ? `\npersistência/privacidade: ${falhas} FALHA(S)` : "\npersistência e privacidade: tudo no sítio");

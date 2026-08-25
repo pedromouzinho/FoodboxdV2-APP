@@ -5,6 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Foodboxd</title>
   <meta name="description" content="Foodboxd — o teu diário de restaurantes: avalia, regista e descobre com os amigos." />
+  <script>
+    // Coletor de erros de arranque. Vive aqui, antes de qualquer outro
+    // script, para apanhar o que rebentar durante o próprio carregamento —
+    // que é precisamente quando o js/erros.js ainda não existe para ajudar.
+    // Só guarda; quem grava é o js/erros.js, que drena isto ao carregar e
+    // se pendura em __registarErro. Nunca interfere: não faz preventDefault,
+    // não devolve true, e um erro aqui dentro morre em silêncio.
+    window.__errosPendentes = [];
+    (function () {
+      function guardar(err, origem) {
+        try {
+          if (window.__registarErro) { window.__registarErro(err, origem); return; }
+          if (window.__errosPendentes.length < 20) window.__errosPendentes.push({ err: err, origem: origem });
+        } catch (e) { /* nada */ }
+      }
+      window.addEventListener("error", function (e) { guardar(e.error || e.message, "erro"); });
+      window.addEventListener("unhandledrejection", function (e) { guardar(e.reason, "promessa"); });
+    })();
+  </script>
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#f6f1e7" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#181511" media="(prefers-color-scheme: dark)" />
@@ -923,6 +942,7 @@
   <script src="js/storage.js"></script>
   <script src="js/db.js"></script>
   <script src="js/userdata.js"></script>
+  <script src="js/erros.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/map.js"></script>
   <script src="js/geocode.js"></script>
