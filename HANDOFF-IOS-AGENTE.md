@@ -1155,7 +1155,36 @@ diretriz **1.2 (Safety — User-Generated Content)** aplica-se por inteiro.
 - **Bloquear não avisa ninguém e não apaga nada.** Não há mensagens diretas
   nesta app, portanto não há nada a impedir — só a esconder.
 
-> ⚠️ **O que NÃO está medido, e é preciso ser claro:** o percurso de ponta a
+#### Medido pelo dono a 25/08 — e apanhou tres defeitos
+
+| O quê | Resultado |
+| --- | --- |
+| Bloquear uma pessoa a partir de uma foto | ✅ funciona, some na hora |
+| Desbloquear em Perfil → Pessoas bloqueadas | ✅ funciona, volta |
+| **Denunciar** | ❌ *"Não consegui enviar. Tenta outra vez."* |
+
+**O denunciar falhar era o esperado**, e é boa notícia por duas razões: as
+regras do `reports` ainda não estavam publicadas, portanto a escrita foi
+recusada — e a app **disse-o**, em vez de fingir que tinha enviado. Um
+`catch` que engolisse o erro teria dado uma denúncia perdida em silêncio, que é
+exatamente o que não se pode ter num mecanismo de segurança.
+
+**Os três defeitos que só se viram no ecrã**, e nenhum deles aparecia em
+nenhum arnês:
+
+1. **Os botões da folha estavam azuis.** A classe `.btn` sozinha não define cor
+   nenhuma — as variantes é que definem — e a WKWebView pintava-os com o azul
+   de sistema. Passaram a `btn-ghost`, como os outros da app.
+2. **A lista de bloqueados mostrava o identificador em bruto**
+   (`OW3B2oJHkONxk40J3AE0Hben5pl1`) em vez do nome. Ir buscá-lo ao `profiles`
+   não servia: bloquear deixa de seguir, e nem todas as contas lá têm
+   documento. O nome passa a ser **guardado no momento em que se bloqueia** —
+   está à mão, é o que está escrito por cima da foto ou do comentário.
+3. **A dica «Bloquear esconde tudo o que esta pessoa publica» aparecia na lista
+   de bloqueados**, a explicar a bloquear a quem já tinha bloqueado.
+
+> ⚠️ **O que continua por medir:** denunciar **um comentário** (a foto já foi
+> exercitada), e o percurso de ponta a
 > ponta nunca correu. O botão só existe em conteúdo de **outra** pessoa, e a
 > conta que está no simulador é nova — as fichas que abri não tinham
 > comentários de ninguém. O que está verificado é: sintaxe das três camadas, o
@@ -1505,7 +1534,7 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | Publicar a função `conta` (1b) | dono autorizou, agente disparou | ✅ publicada 24/08 |
 | — | O 2.º pedido de localização diz "localhost" (3b) | dono decidiu, agente fez | ✅ resolvido e medido 24/08 |
 | — | Etiquetas de privacidade (4.3) | agente | ✅ levantadas do código |
-| **0** | ⛔ **Diretriz 1.2 — denunciar e bloquear** (4.0) | agente construiu | ⚠️ **feito, por medir** — e faltam publicar as regras |
+| **0** | ⛔ **Diretriz 1.2 — denunciar e bloquear** (4.0) | agente construiu, dono mediu | ⚠️ bloquear/desbloquear ✅; **denunciar espera pelas regras** |
 | **0** | ⛔ **Política de privacidade** (4.3b) — escrita, com dois campos por preencher e por publicar | agente escreveu; **dono dá nome+email, lê e autoriza publicar** | **por decidir** |
 | 4 | **Submeter** as etiquetas na App Store Connect (4.3) | dono | por fazer |
 | 5 | Nota ao revisor (4.4) — **já escrita**, falta colar e confirmar | dono | por fazer |

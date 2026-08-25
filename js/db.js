@@ -446,23 +446,6 @@ const DB = (() => {
     });
     return res.ok;
   }
-  // Nomes e fotos de uma lista de uids, do `profiles` (que é público a quem
-  // tem sessão). Serve a lista de bloqueados: depois de bloquear deixa-se de
-  // seguir a pessoa, portanto o `userData` dela já não vem — e sem isto a
-  // lista mostrava identificadores em vez de nomes, que não serve para
-  // ninguém decidir quem desbloquear.
-  async function fetchProfilesByIds(uids, token) {
-    if (!ready || !uids || !uids.length) return [];
-    const out = await Promise.all(uids.map(async (uid) => {
-      try {
-        const res = await fetch(`${docsBase}/profiles/${encodeURIComponent(uid)}?${keyQ()}`, { headers: authHeaders(token) });
-        if (!res.ok) return { uid, displayName: "", photoURL: "" };
-        return decodeProfile(await res.json());
-      } catch (e) { return { uid, displayName: "", photoURL: "" }; }
-    }));
-    return out;
-  }
-
   // Small user base: fetch the page and filter client-side (Firestore has no
   // substring search).
   async function searchProfiles(term, token) {
@@ -900,7 +883,6 @@ const DB = (() => {
     fetchUsersByIds,
     upsertProfile,
     searchProfiles,
-    fetchProfilesByIds,
     createVisitInvite,
     fetchVisitInvites,
     respondVisitInvite,

@@ -48,6 +48,17 @@ const UserData = (() => {
   // do social já é filtrado. Nunca chega a mais ninguém: o `fetchUsersByIds`
   // pede só os campos da vista social, e este não é um deles.
   let blocked = [];
+  // O nome de quem foi bloqueado, guardado no momento em que se bloqueia.
+  //
+  // Sem isto a lista de bloqueados mostrava o identificador em bruto — medido
+  // no simulador: `OW3B2oJHkONxk40J3AE0Hben5pl1` em vez de "Pedro Mouzinho",
+  // que não serve a ninguém para decidir quem desbloquear. E não bastava ir
+  // buscar ao `profiles`: bloquear deixa de seguir, portanto os dados dessa
+  // pessoa deixam de ser descarregados, e nem todas as contas têm lá documento.
+  //
+  // O nome já está à mão no sítio de onde se bloqueia — é o que está escrito
+  // por cima do comentário ou da foto. Guarda-se esse.
+  let blockedNames = {};
 
   let onChange = null; // called after async loads complete
   let saveTimer = null;
@@ -131,6 +142,7 @@ const UserData = (() => {
       shareGroupIds = Array.isArray(doc.shareGroups) ? doc.shareGroups : [];
       visibleTo = Array.isArray(doc.visibleTo) ? doc.visibleTo : [];
       blocked = Array.isArray(doc.blocked) ? doc.blocked : [];
+      blockedNames = (doc.blockedNames && typeof doc.blockedNames === "object") ? doc.blockedNames : {};
       const legacyAudience = doc.audienceGlobal === undefined; // stamp it so others can query me
       // First sign-in: fold in whatever was marked locally before logging in.
       if (firstTime) {
@@ -173,6 +185,7 @@ const UserData = (() => {
     audienceGlobal = true;
     shareGroupIds = [];
     blocked = [];
+    blockedNames = {};
     visibleTo = [];
     following = [];
     if (onChange) onChange();
@@ -286,7 +299,8 @@ const UserData = (() => {
         audienceGlobal,
         visibleTo: computeVisibleTo(),
         shareGroups: shareGroupIds,
-        blocked
+        blocked,
+        blockedNames
       },
       token
     );
@@ -309,10 +323,12 @@ const UserData = (() => {
   // tira de tudo o que me aparece. É o que a Apple exige e é o que faz sentido
   // aqui: não há mensagens diretas, portanto não há nada a impedir.
   function isBlocked(u) { return !!u && blocked.includes(u); }
-  function getBlocked() { return blocked.slice(); }
-  function blockUser(u) {
+  // Devolve já com nome, que é o que a lista precisa de mostrar.
+  function getBlocked() { return blocked.map((u) => ({ uid: u, nome: blockedNames[u] || "" })); }
+  function blockUser(u, nome) {
     if (!u || u === uid || blocked.includes(u)) return false;
     blocked.push(u);
+    if (nome) blockedNames[u] = nome;
     // Deixar de seguir também, senão a pessoa continuava a ser descarregada a
     // cada arranque só para ser filtrada a seguir.
     if (following.includes(u)) unfollow(u).catch(() => {});
@@ -325,6 +341,7 @@ const UserData = (() => {
     const i = blocked.indexOf(u);
     if (i < 0) return false;
     blocked.splice(i, 1);
+    delete blockedNames[u];
     applyGroupFilter();
     persistNow().catch(() => {});
     if (onChange) onChange();

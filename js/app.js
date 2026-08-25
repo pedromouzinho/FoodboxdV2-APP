@@ -1293,6 +1293,7 @@ const App = (() => {
     // aqui é o que evita a folha aparecer vazia na vez seguinte.
     sheet.querySelector("[data-mod-denunciar]").hidden = false;
     sheet.querySelector("[data-mod-bloquear]").hidden = false;
+    sheet.querySelector("[data-mod-dica]").hidden = false;
     sheet.classList.remove("hidden");
     sheet.setAttribute("aria-hidden", "false");
   }
@@ -1308,7 +1309,7 @@ const App = (() => {
   function bloquearDaModeracao() {
     if (!modAlvo || !modAlvo.alvoUid) return;
     const quem = modAlvo.quem || "esta pessoa";
-    UserData.blockUser(modAlvo.alvoUid);
+    UserData.blockUser(modAlvo.alvoUid, quem);
     fecharModeracao();
     // Redesenhar já: quem bloqueia espera que a pessoa desapareça agora, não
     // no próximo arranque.
@@ -1879,30 +1880,26 @@ const App = (() => {
   // tudo e não há onde a ir buscar. Os nomes vêm do `profiles` e não do
   // `userData` — depois de bloquear deixa-se de seguir, portanto o `userData`
   // dessa pessoa já não é descarregado.
-  async function abrirBloqueados() {
-    const uids = UserData.getBlocked();
+  function abrirBloqueados() {
+    const pessoas = UserData.getBlocked();
     const sheet = document.getElementById("mod-sheet");
-    if (!sheet || !uids.length) return;
+    if (!sheet || !pessoas.length) return;
     sheet.querySelector("#mod-title").textContent = "Pessoas bloqueadas";
     sheet.querySelector("[data-mod-de]").textContent = "Não veem que estão bloqueadas.";
-    // Esta folha é a mesma da denúncia; aqui as duas ações não fazem sentido.
+    // Esta folha é a mesma da denúncia. Aqui as duas ações não fazem sentido, e
+    // a dica também não — falava de bloquear a quem já bloqueou.
     sheet.querySelector("[data-mod-denunciar]").hidden = true;
     sheet.querySelector("[data-mod-bloquear]").hidden = true;
+    sheet.querySelector("[data-mod-dica]").hidden = true;
     const status = sheet.querySelector("[data-mod-status]");
-    status.textContent = "A carregar…";
-    sheet.classList.remove("hidden");
-    sheet.setAttribute("aria-hidden", "false");
 
-    let perfis = uids.map((uid) => ({ uid, displayName: "", photoURL: "" }));
-    try {
-      const token = await window.FirebaseAuth.getIdToken();
-      perfis = await DB.fetchProfilesByIds(uids, token);
-    } catch (e) { /* sem nomes, mostram-se os identificadores */ }
-
-    status.innerHTML = perfis.map((p) => `
+    // O nome vem do que se guardou ao bloquear. Uma conta bloqueada antes desta
+    // mudança não tem nome guardado — nesse caso diz-se "Pessoa bloqueada", que
+    // é honesto, em vez do identificador em bruto, que não diz nada a ninguém.
+    status.innerHTML = pessoas.map((p) => `
       <span class="comment">
-        ${avatar(p.displayName || "Bloqueado", p.photoURL)}
-        <span class="comment-body"><span class="name">${esc(p.displayName || p.uid)}</span></span>
+        ${avatar(p.nome || "Pessoa bloqueada", "")}
+        <span class="comment-body"><span class="name">${esc(p.nome || "Pessoa bloqueada")}</span></span>
         <button type="button" class="btn btn-ghost btn-sm" data-desbloquear="${esc(p.uid)}">Desbloquear</button>
       </span>`).join("");
     status.querySelectorAll("[data-desbloquear]").forEach((b) => b.addEventListener("click", () => {
@@ -1911,6 +1908,8 @@ const App = (() => {
       render();
       renderPerfil();
     }));
+    sheet.classList.remove("hidden");
+    sheet.setAttribute("aria-hidden", "false");
   }
 
   function wireProfileUpload() {
