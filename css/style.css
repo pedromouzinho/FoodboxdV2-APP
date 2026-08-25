@@ -1879,6 +1879,8 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .companions { gap: var(--sp-2); }
 .companion-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .visit-with { color: var(--text-faint); font-size: var(--fs-xs); margin-left: 6px; }
+/* As estrelas de cada visita (modelo 25/08: a avaliação vive na visita). */
+.visit-stars { color: var(--primary); font-size: var(--fs-xs); letter-spacing: 1px; }
 
 .invites { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4) 0; }
 .invites[hidden] { display: none; }

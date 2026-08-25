@@ -181,6 +181,94 @@ chk("a visita de convite não tem estrelas",
   JSON.stringify(conviteEntrada));
 chk("mas tem id e companhia", !!(conviteEntrada && conviteEntrada.id && conviteEntrada.with && conviteEntrada.with[0] === "amigo-1"));
 
+// ---------------------------------------------------------------------------
+// 3. O rating do restaurante é uma SOMBRA das visitas
+// ---------------------------------------------------------------------------
+const sombra = await p.evaluate((id) => {
+  const r = UserData.getRating(id);
+  return r ? JSON.parse(JSON.stringify(r)) : null;
+}, idAlvo);
+chk("o rating derivado aponta para a visita que o criou (visitId)",
+  !!(sombra && sombra.stars === 4 && typeof sombra.visitId === "string"),
+  `rating: ${JSON.stringify(sombra)}`);
+
+// Um rating LEGADO/manual (sem visitId) nunca é apagado pelo recálculo.
+const legado = await p.evaluate(() => {
+  try {
+    UserData.setRating("rest-legado", 5, "nota antiga", []);
+    UserData.addVisit("rest-legado", { date: "2026-08-10", with: [] }); // sem stars
+    const r = UserData.getRating("rest-legado");
+    return r ? JSON.parse(JSON.stringify(r)) : null;
+  } catch (e) { return { erro: String(e).slice(0, 120) }; }
+});
+chk("um rating legado sobrevive a visitas sem estrelas",
+  !!(legado && !legado.erro && legado.stars === 5 && legado.note === "nota antiga"),
+  JSON.stringify(legado));
+
+// ---------------------------------------------------------------------------
+// 4. Remover a última visita desfaz os derivados
+// ---------------------------------------------------------------------------
+const aposRemover = await p.evaluate((id) => {
+  try {
+    const h = UserData.getHistory(id);
+    const ultima = h[h.length - 1];
+    const chave = UserData.visitId(ultima) || UserData.visitDate(ultima);
+    UserData.removeVisit(id, chave);
+    return {
+      visitas: UserData.getHistory(id).length,
+      visitado: UserData.isVisited(id),
+      rating: UserData.getRating(id) ? JSON.parse(JSON.stringify(UserData.getRating(id))) : null
+    };
+  } catch (e) { return { erro: String(e).slice(0, 120) }; }
+}, idAlvo);
+chk("remover a única visita esvazia o histórico",
+  !!(aposRemover && !aposRemover.erro && aposRemover.visitas === 0), JSON.stringify(aposRemover));
+chk("… e desliga o visitado (o leaderboard Sempre desce)",
+  !!(aposRemover && aposRemover.visitado === false), JSON.stringify(aposRemover));
+chk("… e leva o rating derivado com ela",
+  !!(aposRemover && aposRemover.rating === null), JSON.stringify(aposRemover));
+
+// Com DUAS visitas com stars, remover a mais recente faz a anterior voltar a
+// mandar no rating — e o updatedAt volta ao relógio DELA (o feed não mente).
+const duas = await p.evaluate(() => {
+  try {
+    const v1 = UserData.addVisit("rest-duas", { date: "2026-03-01", stars: 2, note: "primeira" });
+    const v2 = UserData.addVisit("rest-duas", { date: "2026-08-01", stars: 5, note: "segunda" });
+    const antes = JSON.parse(JSON.stringify(UserData.getRating("rest-duas")));
+    UserData.removeVisit("rest-duas", v2.id);
+    const depois = JSON.parse(JSON.stringify(UserData.getRating("rest-duas")));
+    return { antes, depois, v1id: v1.id, visitado: UserData.isVisited("rest-duas") };
+  } catch (e) { return { erro: String(e).slice(0, 140) }; }
+});
+chk("com duas visitas, a mais recente manda no rating",
+  !!(duas && !duas.erro && duas.antes && duas.antes.stars === 5 && duas.antes.note === "segunda"),
+  JSON.stringify(duas && (duas.erro || duas.antes)));
+chk("removida a recente, a anterior volta a mandar",
+  !!(duas && !duas.erro && duas.depois && duas.depois.stars === 2 && duas.depois.visitId === duas.v1id && duas.visitado === true),
+  JSON.stringify(duas && (duas.erro || duas.depois)));
+
+// ---------------------------------------------------------------------------
+// 5. Remover a avaliação sem remover a visita (clearVisitRating)
+// ---------------------------------------------------------------------------
+const limpar = await p.evaluate(() => {
+  try {
+    if (typeof UserData.clearVisitRating !== "function") return { erro: "clearVisitRating não existe" };
+    const v = UserData.addVisit("rest-limpar", { date: "2026-07-01", stars: 3, note: "engano" });
+    UserData.clearVisitRating("rest-limpar", v.id);
+    const h = UserData.getHistory("rest-limpar");
+    return {
+      visitas: h.length,
+      stars: UserData.visitStars(h[0]),
+      rating: UserData.getRating("rest-limpar"),
+      visitado: UserData.isVisited("rest-limpar")
+    };
+  } catch (e) { return { erro: String(e).slice(0, 120) }; }
+});
+chk("limpar a avaliação mantém a visita e o visitado",
+  !!(limpar && !limpar.erro && limpar.visitas === 1 && limpar.visitado === true), JSON.stringify(limpar));
+chk("… e o rating do restaurante desaparece",
+  !!(limpar && !limpar.erro && limpar.stars === null && limpar.rating === null), JSON.stringify(limpar));
+
 await browser.close();
 srv.close();
 console.log(falhas ? `\nvisita: ${falhas} FALHA(S)` : "\nvisita: a unidade atómica está de pé");

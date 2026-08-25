@@ -636,17 +636,85 @@ const UserData = (() => {
     list.sort((a, b) => (visitDate(a) < visitDate(b) ? -1 : 1));
     mine.history[id] = list;
     mine.visited.add(id); // a recorded visit implies visited
+    recalcularDerivados(id);
     scheduleSave();
     return entry;
   }
-  function removeVisit(id, isoDate) {
-    if (!cloud) return;
-    const list = mine.history[id] || [];
-    const idx = list.findIndex((e) => visitDate(e) === isoDate);
-    if (idx >= 0) list.splice(idx, 1);
-    if (list.length) mine.history[id] = list;
-    else delete mine.history[id];
+
+  // O rating do restaurante é uma SOMBRA das visitas: a visita com stars de
+  // data mais recente manda (empate → a última registada). O `visitId` no
+  // rating é o discriminador que salva o passado: um rating SEM visitId é
+  // legado/manual — escrito antes deste modelo, ou por um cliente antigo em
+  // cache — e o recálculo nunca o apaga. Sem essa guarda, o primeiro cliente
+  // novo a correr limparia as avaliações antigas de toda a gente.
+  //
+  // O updatedAt do rating derivado é o relógio da visita VENCEDORA (o `at`),
+  // não "agora": ao remover a visita mais recente, a anterior volta a mandar
+  // com a data dela — senão o feed punha uma avaliação velha no topo.
+  function recalcularDerivados(id) {
+    const lista = mine.history[id] || [];
+    let vencedora = null;
+    lista.forEach((e) => {
+      if (visitStars(e) === null) return;
+      if (!vencedora || visitDate(e) >= visitDate(vencedora)) vencedora = e;
+    });
+    const atual = mine.ratings[id];
+    if (vencedora) {
+      mine.ratings[id] = {
+        stars: visitStars(vencedora),
+        note: visitNote(vencedora),
+        dishes: visitDishes(vencedora).slice(),
+        updatedAt: visitAt(vencedora) || (visitDate(vencedora) + "T12:00:00.000Z"),
+        visitId: visitId(vencedora)
+      };
+    } else if (atual && atual.visitId) {
+      delete mine.ratings[id]; // era derivado e a visita que o criou já não existe
+    }
+  }
+
+  // Remover a avaliação sem apagar a ida. Com `vid`, limpa a avaliação dessa
+  // visita; sem `vid`, apaga um rating legado/manual (sem visita associada).
+  // Era o beco sem saída medido a 25/08: o único caminho que escrevia stars
+  // exigia stars, e corrigir um engano custava uma visita falsa.
+  function clearVisitRating(id, vid) {
+    if (!cloud) return false;
+    if (vid) {
+      const e = (mine.history[id] || []).find((x) => visitId(x) === vid);
+      if (!e) return false;
+      delete e.stars;
+      delete e.note;
+      delete e.dishes;
+    } else {
+      const atual = mine.ratings[id];
+      if (!atual || atual.visitId) return false; // derivados limpam-se pela visita
+      delete mine.ratings[id];
+    }
+    recalcularDerivados(id);
     scheduleSave();
+    if (onChange) onChange();
+    return true;
+  }
+  // A chave é o visitId (entradas novas) com fallback pela data (legadas) —
+  // era só a data, e duas visitas no mesmo dia eram gémeas indistinguíveis.
+  // Remover a ÚLTIMA visita desliga o visitado e o recálculo leva o rating
+  // derivado: era o buraco medido a 25/08 — removia-se a única visita e o
+  // leaderboard "Sempre" nem mexia, porque contava a flag que ficava acesa.
+  function removeVisit(id, chave) {
+    if (!cloud) return null;
+    const list = mine.history[id] || [];
+    let idx = chave ? list.findIndex((e) => visitId(e) === chave) : -1;
+    if (idx < 0) idx = list.findIndex((e) => visitDate(e) === chave);
+    if (idx < 0) return null;
+    const removida = list.splice(idx, 1)[0];
+    if (list.length) {
+      mine.history[id] = list;
+    } else {
+      delete mine.history[id];
+      mine.visited.delete(id);
+    }
+    recalcularDerivados(id);
+    scheduleSave();
+    return removida;
   }
 
   // ---- group queries ----
@@ -733,6 +801,7 @@ const UserData = (() => {
     setPriority,
     getRating,
     setRating,
+    clearVisitRating,
     getHistory,
     visitDate,
     visitWith,

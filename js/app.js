@@ -778,9 +778,14 @@ const App = (() => {
       .map((entry) => {
         const iso = UserData.visitDate(entry);
         const who = companionNames(UserData.visitWith(entry));
+        const stars = UserData.visitStars(entry);
+        // A chave do apagar é o id da visita; a data é só o fallback das
+        // entradas legadas — duas idas no mesmo dia deixam de ser gémeas.
+        const chave = UserData.visitId(entry) || iso;
         return `<div class="visit-entry"><span>${icon("check-circle")} ${fmtDate(iso)}` +
+          `${stars ? `<span class="visit-stars">${"★".repeat(stars)}</span>` : ""}` +
           `${who ? `<span class="visit-with">com ${esc(who)}</span>` : ""}</span>` +
-          `<button type="button" class="icon-btn visit-del" data-del-visit="${esc(iso)}" aria-label="Remover visita">${icon("x")}</button></div>`;
+          `<button type="button" class="icon-btn visit-del" data-del-visit="${esc(chave)}" aria-label="Remover visita">${icon("x")}</button></div>`;
       })
       .join("");
   }
@@ -1062,7 +1067,8 @@ const App = (() => {
   function submitVisit() {
     const r = (state.restaurants || []).find((x) => x.id === visitDraft.id);
     if (!r || !visitDraft.stars) return;
-    UserData.setRating(r.id, visitDraft.stars, visitDraft.note.trim(), visitDraft.dishes.slice());
+    // O rating do restaurante já não se escreve daqui: nasce no recálculo,
+    // como sombra da visita — um sítio a escrever em vez de dois a divergir.
     UserData.addVisit(r.id, {
       date: visitDraft.date,
       with: visitDraft.withUids,
