@@ -98,6 +98,17 @@ Sem bundler. `index.html` carrega os scripts por ordem. Cada módulo é um IIFE
   direta e desenha opções de percurso com waypoint
   (`origem → restaurante → destino`).
 - `data/restaurants.json` — lista curada (todos `region: "Alentejo"`).
+- `privacidade.html` / `ajuda.html` — as duas páginas públicas, servidas em
+  `/privacidade` e `/ajuda` por rewrites no `firebase.json`. A primeira é
+  obrigatória para a App Store; a segunda é o *Support URL* e o contacto que a
+  diretriz 1.2 exige. **Autónomas de propósito**: não usam o `css/style.css`,
+  que é construído à volta da casca da app.
+- `loja/` — os metadados da App Store: `README.md` com os campos e as contagens
+  de caracteres, `submissao.html` com o passo a passo, `screenshots/` em
+  1320×2868. **Fora do hosting** (`loja/**` no ignore do `firebase.json`).
+- `ios-build.json` — Team ID e mínimo de iOS, versionados. O
+  `scripts/ios-info.mjs` escreve-os no projeto a cada `npm run sync`, porque a
+  pasta `ios/` é gerada e o que se escolhe no Xcode desaparece no clone seguinte.
 - `sw.js` — service worker (cache). `manifest.webmanifest` — PWA.
 - `firebase/firestore.rules`, `firebase/storage.rules` — regras.
 - `firebase.json` — hosting (`public: "."`) com `ignore` para www/ios/scripts/
@@ -277,6 +288,20 @@ all; write se `auth && file começa por uid + imagem + <6MB`; delete se auth.
     "Todos" = global (default). UI no ecrã Amigos. **Filtro "Só prioritários"** na
     lista. **Sidebar fecha-se sozinha** ao sair do mapa para outro tab. (sw v23.)
 
+13. **A app passa a exigir conta (v1.0, 25/08).** Ecrã de entrada que cobre
+    tudo, com **email e palavra-passe** ao lado da Google e da Apple — e o
+    email é o caminho mais simples dos três nesta arquitetura: não abre popup
+    nem usa resolver, portanto funciona em `capacitor://` sem plugin nativo.
+    Inclui recuperação de palavra-passe e erros traduzidos um a um.
+14. **Uma porta para adicionar.** Um `+` na barra de cima serve o mapa e a
+    lista; os dois botões da cabeça da lista saíram. A escolha **Quero ir / Já
+    fui** é o último passo do formulário, e o "Já fui" passa a **marcar
+    visitado** — antes só abria a ficha, ou seja o botão dizia uma coisa e a
+    app fazia outra. No "Já fui" há também um campo de **foto**.
+15. **Sensação nativa.** `@capacitor/keyboard` (barra de acessórios
+    desligada), `ios.scrollEnabled: false`, áreas seguras nos modais, toque
+    longo desligado no cromo, e dois gestos corrigidos — ver a secção 12.
+
 ## 8. Convenções / decisões
 
 - **Tom das labels:** claro/neutro, **sem emojis** na UI, sem linguagem
@@ -290,6 +315,18 @@ all; write se `auth && file começa por uid + imagem + <6MB`; delete se auth.
   precisar de correção manual no campo (editável).
 
 ## 9. Itens em aberto / TODO
+
+- 🔴 **AS PÁGINAS PUBLICADAS CONTRADIZEM A APP, E ESTÃO NO AR.** A
+  `/privacidade` diz «Podes usar o Foodboxd sem conta» num cartão em destaque, e
+  a `/ajuda` responde «Não, para explorar» à pergunta «Preciso de conta?». Desde
+  que o ecrã de entrada entrou (25/08) as duas são **falsas**. Reescrever e
+  republicar — e a `/ajuda` ganha ainda a pergunta que passou a existir:
+  «esqueci-me da palavra-passe».
+- 🔴 **E os metadados da loja também.** O `loja/README.md` e o
+  `loja/submissao.html` dizem `Sign-in required = NO` e trazem uma nota ao
+  revisor construída à volta de «não é precisa conta nenhuma». Com o bloqueio,
+  o campo passa a **YES** e a nota tem de entregar a conta de teste
+  (que já existe, criada pelo dono a 25/08).
 
 - ⏳ **Node 20 das Cloud Functions é decomissionado a 30/10/2026.** Apareceu no
   deploy de 24/08. As duas funções (`ai` e `conta`) estão em `nodejs20`; a
@@ -324,6 +361,11 @@ Build, assinatura e submissão **só num Mac com Xcode**.
 npm install
 npm run ios:build     # sync + build para simulador, com as flags certas
 ```
+
+**A app exige conta desde 25/08.** Ecrã de entrada com email/palavra-passe,
+Google e Apple. Isto muda a submissão: `Sign-in required` passa a **YES** e a
+nota ao revisor tem de entregar a conta de teste — ver a secção 9, que lista o
+que ficou a contradizer isto.
 
 **O que já funciona no simulador, medido:** entrar com Google e com Apple (sessão
 real, dados reais do Firestore), o "Pergunta-me" de ponta a ponta, carregar fotos,
@@ -459,6 +501,52 @@ referrers.
   **não tem posição nenhuma**. Sem `xcrun simctl location booted set`, o plugin
   devolve erro e a IA responde *"Sem a tua localização…"* — que é exatamente o
   que se veria se o plugin estivesse partido. A leitura óbvia é a errada.
+
+### A WKWebView, e porque é que a app parecia uma página web
+
+**Sem o plugin de teclado, a webview NÃO é redimensionada quando o teclado
+abre.** O WebKit resolve a oclusão do cursor **arrastando a visual viewport**
+para cima — e tudo o que é `position: fixed` sobe com ela. Medido no simulador:
+a barra do topo subiu ~28pt e a barra de estado apareceu por cima do conteúdo.
+
+Não era mau layout: era a página inteira empurrada por baixo do cromo do
+sistema. E o formulário de adicionar fazia `focus()` no mesmo instante em que
+abria, por isso nascia já arrastado — não era preciso arrastar nada.
+
+Três coisas resolvem, e é preciso as três:
+
+- **`ios.scrollEnabled: false`** — a scrollview de fora é o que o WebKit
+  arrasta. O `body` tem `overflow: hidden` e todo o scroll da app é em
+  contentores internos, portanto aquela scrollview não servia nada.
+- **`@capacitor/keyboard` com `resize: "none"`** — para desligar a barra de
+  acessórios, que não sai por CSS nenhum. O `none` é deliberado: a app já
+  compensa pelo `visualViewport` (`--kb`), e deixar o plugin redimensionar
+  mudaria o `100dvh` de todos os ecrãs de uma vez.
+- **Áreas seguras nos modais.** O `.modal` era o único bloco de cromo da app
+  sem `env(safe-area-inset-*)` — a topbar, a tabbar e o ecrã de entrada já as
+  usavam.
+
+**E o toque longo é o tell mais visível a seguir ao scroll.** Sem
+`-webkit-touch-callout: none`, manter o dedo num nome de restaurante abre a lupa
+e o menu Copiar do iOS; numa fotografia, a folha Guardar/Partilhar. Desligado
+por adição controlada — o texto das críticas, das notas e os campos continuam
+selecionáveis, que é uma coisa que as pessoas fazem de propósito.
+
+### Dois gestos que faziam o contrário do que a pessoa queria
+
+**Arrastar a ficha para CIMA fechava-a.** A direção era decidida no primeiro
+movimento e nunca reavaliada, e o `dy` congelava no último valor positivo. Um
+flick para cima precedido da descida mínima que um polegar faz ao assentar era
+julgado como swipe-down rápido. Segundo sintoma da mesma causa: com uma descida
+curta a ficha não fechava mas também não rolava, porque o `preventDefault` já
+tinha tirado o gesto ao scroller.
+
+**O pull-to-refresh tinha o mesmo defeito** e chegava a chamar o `reloadData()`
+sem ninguém ter puxado do topo.
+
+A correção é a mesma nos dois, e tem de ser **não capturar o gesto de início**:
+depois de um `preventDefault()` num touchmove, o WebKit já não inicia o scroll
+para o resto da sequência — largar o gesto a meio não o devolve.
 
 ### Decisões tomadas, para não se reabrirem por engano
 

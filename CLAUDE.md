@@ -74,8 +74,16 @@ npm run preview        # telemóvel e ecrã grande, claro e escuro
 npm run audit          # contraste, alvos de toque, transbordo, ids repetidos
 npm run test:map
 npm run test:update
-npm run test:gesto     # o gesto de fechar a ficha; mede toque, não cliques
+npm run test:gesto     # os gestos; mede toque, e não cliques
+npm run test:apagar    # apagar conta — precisa do emulador (npm run emu:start)
 ```
+
+**São cinco, e cada um vê uma coisa que os outros não veem.** O `audit` percorre
+os ecrãs e mede desenho — e desde 25/08 também **percorre o tutorial** e afirma
+que cada passo destaca alguma coisa. O `test:gesto` é o único que despacha
+eventos de toque: os outros conduzem a app com cliques, e um clique não tem
+direção nem duração. O `test:apagar` é o único que corre a cascata destrutiva,
+e é o único que precisa do emulador.
 
 Se mexeres em ficheiros que a app corre, corre-os. Se só mexeres em documentação,
 diz que não os correste e porquê — não os dês por corridos.

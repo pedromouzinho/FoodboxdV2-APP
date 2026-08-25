@@ -1,5 +1,17 @@
 # Metadados da App Store — rascunho para aprovar
 
+> 🔴 **DESATUALIZADO em três pontos desde 25/08**, quando a app passou a exigir
+> conta. Não colar sem corrigir:
+>
+> | Campo | Diz | Devia dizer |
+> | --- | --- | --- |
+> | Sign-in required | NO | **YES**, com a conta de teste |
+> | Nota ao revisor | «NO ACCOUNT IS NEEDED» | o contrário, e entregar as credenciais |
+> | Descrição, bloco «SEM CONTA, JÁ FUNCIONA» | que se vê tudo sem conta | tirar ou reescrever |
+>
+> Os screenshots, as palavras-chave, o subtítulo, as etiquetas de privacidade,
+> a classificação etária e a conformidade de exportação **continuam válidos**.
+
 > **O que é isto:** tudo o que a App Store Connect pede ao lado da build, escrito
 > para ser copiado campo a campo. Os textos são um rascunho do agente; **a
 > decisão é do dono** — sobretudo a descrição, que é a promessa que a app faz a

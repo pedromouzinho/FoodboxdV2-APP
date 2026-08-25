@@ -1369,6 +1369,24 @@ a pessoa ficaria presa numa página estática sem saída a não ser matar a app.
 
 ### 4.4 Nota para o revisor — humano decide, texto já escrito
 
+> 🔴 **ATENÇÃO: esta secção inteira ficou obsoleta a 25/08.**
+>
+> Foi escrita quando a app se via toda sem conta, e a conclusão era «não é
+> precisa conta de teste, e o `Sign-in required` é NO». **A app passou a exigir
+> conta** — ecrã de entrada, decisão do dono — e portanto:
+>
+> - o `Sign-in required` passa a **YES**;
+> - a conta de teste **é precisa**, e existe (criada pelo dono a 25/08, com
+>   email e palavra-passe, que é precisamente o caminho que se acrescentou para
+>   a poder entregar);
+> - a nota em inglês mais abaixo **está falsa em três parágrafos** e tem de ser
+>   refeita antes de ser colada.
+>
+> Fica por baixo, e não apagada, porque o raciocínio continua a valer para a
+> parte que não mudou: o problema de a app só ter login social, e porque é que
+> entregar credenciais Google à App Review costuma dar rejeição. Foi esse
+> raciocínio que levou ao email/palavra-passe.
+
 #### Primeiro, o problema que esta secção não via
 
 **A app só tem Google e Apple.** Não há email/palavra-passe em lado nenhum
@@ -1610,12 +1628,15 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | O 2.º pedido de localização diz "localhost" (3b) | dono decidiu, agente fez | ✅ resolvido e medido 24/08 |
 | — | Etiquetas de privacidade (4.3) | agente | ✅ levantadas do código |
 | — | **Diretriz 1.2 — denunciar e bloquear** (4.0) | agente construiu, dono e agente mediram | ✅ **fechado** — denunciar, bloquear e desbloquear, e em produção |
+| **0** | 🔴 **As páginas no ar contradizem a app** — a `/privacidade` e a `/ajuda` dizem que funciona sem conta | agente reescreve, dono autoriza publicar | **por fazer** |
 | **0** | ⛔ **Política de privacidade** (4.3b) — escrita, com dois campos por preencher e por publicar | agente escreveu; **dono dá nome+email, lê e autoriza publicar** | **por decidir** |
 | 4 | **Submeter** as etiquetas na App Store Connect (4.3) | dono | por fazer |
-| 5 | Nota ao revisor (4.4) — **já escrita**, falta colar e confirmar | dono | por fazer |
-| — | Conta de teste (4.4) | — | ✅ **não é precisa** — a app vê-se toda sem conta (medido) |
+| 5 | 🔴 Nota ao revisor (4.4) — **a que está escrita ficou FALSA** com o bloqueio; refazer antes de colar | agente refaz, dono cola | por fazer |
+| — | Conta de teste (4.4) | dono | ✅ criada 25/08 — **e agora É precisa**, ver 4.4 |
 | — | ⚠️ **Contas Apple e Google separadas — já em produção** | dono decide o quê, agente executa | ver abaixo |
-| 7 | A procura numa porta, o ecrã de entrada, o perfil público | decisão do dono | por decidir |
+| — | A procura numa porta (item 7) | dono decidiu, agente fez | ✅ `+` na barra, escolha no fim |
+| — | O ecrã de entrada (item 7) | dono decidiu, agente fez | ✅ com email/palavra-passe |
+| 7 | O perfil público (item 7) — visibilidade escolhida por pessoa | dono decidiu, agente a fazer | em curso |
 | 6 | **Submeter** — passo a passo em [`loja/submissao.html`](loja/submissao.html), com cada campo pronto a copiar; valores em [`loja/README.md`](loja/README.md) | agente preparou; **dono executa** | por fazer |
 
 ### ⚠️ Duas contas para a mesma pessoa — e já está no ar
