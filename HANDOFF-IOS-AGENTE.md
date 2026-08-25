@@ -1196,7 +1196,7 @@ Verificado a seguir, do lado de fora:
 
 ```
 GET /privacidade            -> HTTP 200, <title>Privacidade · Foodboxd</title>
-GET /sw.js                  -> const CACHE = "foodboxd-v85"    (estava v84)
+GET /sw.js                  -> const CACHE = "foodboxd-v86"    (estava v84)
 GET /ios-signing.json       -> HTTP 404                        (deixou de ser publicado)
 ```
 
@@ -1251,10 +1251,11 @@ ver conteúdo alheio, e era exatamente onde não havia botão.
 > texto «Denúncia recebida» não chegou a ser fotografado: some antes de o
 > screenshot voltar.
 >
-> **O que fecharia isto de vez** é olhar para a coleção `reports` na consola do
-> Firestore e ver lá os documentos. As regras são `read: false` para clientes —
-> de propósito — portanto nem a app nem o agente lhe chegam. É um olhar do
-> dono, e ficam lá **duas denúncias de teste** sobre a mesma foto, para apagar.
+> **✅ Fechado pelo dono:** foi à consola do Firestore e **apagou as duas
+> denúncias de teste**. Havia documentos para apagar — portanto as denúncias
+> chegaram mesmo ao Firestore, e a prova que faltava está feita pelo único
+> caminho que existia. As regras são `read: false` para clientes, de propósito,
+> por isso nem a app nem o agente lá chegam.
 
 > ⚠️ **O que continua por medir:** o *Denunciar* a resultar depois das regras
 > irem para produção, denunciar **um comentário** (a foto já foi
@@ -1608,7 +1609,7 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | Publicar a função `conta` (1b) | dono autorizou, agente disparou | ✅ publicada 24/08 |
 | — | O 2.º pedido de localização diz "localhost" (3b) | dono decidiu, agente fez | ✅ resolvido e medido 24/08 |
 | — | Etiquetas de privacidade (4.3) | agente | ✅ levantadas do código |
-| — | **Diretriz 1.2 — denunciar e bloquear** (4.0) | agente construiu, dono e agente mediram | ✅ os três funcionam; falta confirmar os documentos na consola |
+| — | **Diretriz 1.2 — denunciar e bloquear** (4.0) | agente construiu, dono e agente mediram | ✅ **fechado** — denunciar, bloquear e desbloquear, e em produção |
 | **0** | ⛔ **Política de privacidade** (4.3b) — escrita, com dois campos por preencher e por publicar | agente escreveu; **dono dá nome+email, lê e autoriza publicar** | **por decidir** |
 | 4 | **Submeter** as etiquetas na App Store Connect (4.3) | dono | por fazer |
 | 5 | Nota ao revisor (4.4) — **já escrita**, falta colar e confirmar | dono | por fazer |

@@ -6,7 +6,7 @@
 //   - Other static files -> stale-while-revalidate (fast, self-healing).
 //   - Cross-origin (Google Maps/Places/Directions, Firebase) -> network only.
 
-const CACHE = "foodboxd-v85";
+const CACHE = "foodboxd-v86";
 const ASSETS = [
   "./",
   "index.html",
