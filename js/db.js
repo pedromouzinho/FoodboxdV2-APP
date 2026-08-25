@@ -189,7 +189,13 @@ const DB = (() => {
 
   // Upsert one field of a restaurant's shared override (category or photoURL),
   // leaving the other field intact (updateMask targets just this field).
-  async function patchOverride(id, field, value) {
+  //
+  // Levam token desde 25/08: as regras passaram a exigir sessão para escrever
+  // aqui. Antes era `if true` — qualquer pessoa na internet, sem conta, podia
+  // mover o pino de um restaurante ou trocar-lhe a capa. O anonimato não era
+  // usado por nenhum caminho da app (todos os botões que escrevem overrides
+  // estão atrás de sessão); só a regra é que não o dizia.
+  async function patchOverride(id, field, value, token) {
     if (!ready) throw new Error("Cloud database not configured.");
     const fields = {};
     fields[field] = encodeValue(value);
@@ -197,28 +203,28 @@ const DB = (() => {
     const mask = `updateMask.fieldPaths=${field}&updateMask.fieldPaths=updatedAt`;
     const res = await fetch(`${docsBase}/overrides/${encodeURIComponent(id)}?${mask}&${keyQ()}`, {
       method: "PATCH",
-      headers: authHeaders(),
+      headers: authHeaders(token),
       body: JSON.stringify({ fields })
     });
     if (!res.ok) throw new Error(`Could not save (${res.status}).`);
     return true;
   }
-  function setOverride(id, category) { return patchOverride(id, "category", category); }
+  function setOverride(id, category, token) { return patchOverride(id, "category", category, token); }
   // Correct a pin. The restaurants collection is read-only in the rules, so shared
   // fixes live in overrides — same as category and the cover photo.
-  async function setGeoOverride(id, lat, lng) {
+  async function setGeoOverride(id, lat, lng, token) {
     if (!ready) throw new Error("Cloud database not configured.");
     const fields = { lat: encodeValue(lat), lng: encodeValue(lng), updatedAt: { timestampValue: new Date().toISOString() } };
     const mask = "updateMask.fieldPaths=lat&updateMask.fieldPaths=lng&updateMask.fieldPaths=updatedAt";
     const res = await fetch(`${docsBase}/overrides/${encodeURIComponent(id)}?${mask}&${keyQ()}`, {
-      method: "PATCH", headers: authHeaders(), body: JSON.stringify({ fields })
+      method: "PATCH", headers: authHeaders(token), body: JSON.stringify({ fields })
     });
     if (!res.ok) throw new Error(`Could not save (${res.status}).`);
     return true;
   }
-  function setPhotoOverride(id, url) { return patchOverride(id, "photoURL", url); }
+  function setPhotoOverride(id, url, token) { return patchOverride(id, "photoURL", url, token); }
   // Cuisine + styles travel together (the restaurants collection is read-only).
-  async function setAxesOverride(id, cuisine, styles) {
+  async function setAxesOverride(id, cuisine, styles, token) {
     if (!ready) throw new Error("Cloud database not configured.");
     const fields = {
       cuisine: encodeValue(cuisine || ""),
@@ -227,7 +233,7 @@ const DB = (() => {
     };
     const mask = "updateMask.fieldPaths=cuisine&updateMask.fieldPaths=styles&updateMask.fieldPaths=updatedAt";
     const res = await fetch(`${docsBase}/overrides/${encodeURIComponent(id)}?${mask}&${keyQ()}`, {
-      method: "PATCH", headers: authHeaders(), body: JSON.stringify({ fields })
+      method: "PATCH", headers: authHeaders(token), body: JSON.stringify({ fields })
     });
     if (!res.ok) throw new Error(`Could not save (${res.status}).`);
     return true;

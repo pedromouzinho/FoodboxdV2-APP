@@ -66,6 +66,14 @@ const App = (() => {
   function icon(name, cls) {
     return `<svg class="icon${cls ? " " + cls : ""}"><use href="#i-${name}"/></svg>`;
   }
+  // O token da sessão, para as escritas que as regras passaram a exigir com
+  // conta (overrides). Nunca atira: sem sessão devolve null e a regra recusa
+  // do lado de lá, que é o comportamento certo — a interface já não mostra
+  // estes botões a quem não entrou.
+  async function tokenSessao() {
+    try { return window.FirebaseAuth ? await window.FirebaseAuth.getToken() : null; }
+    catch (e) { return null; }
+  }
   function catFor(r) {
     return CUISINES[cuisineOf(r)] || { label: "Outros", varName: "--text-muted", hex: "#888" };
   }
@@ -415,7 +423,7 @@ const App = (() => {
     }
     r.lat = data.lat;
     r.lng = data.lng;
-    if (DB.isAvailable()) DB.setGeoOverride(r.id, data.lat, data.lng).catch(() => {});
+    if (DB.isAvailable()) tokenSessao().then((t) => DB.setGeoOverride(r.id, data.lat, data.lng, t)).catch(() => {});
     render(); // re-runs renderMarkers with the corrected coordinates
     if (state.currentDetail === r) MapModule.focusRestaurant(r);
   }
@@ -1776,7 +1784,7 @@ const App = (() => {
   function setStyles(r, styles) {
     r.styles = styles;
     r.category = legacyCategoryFor(cuisineOf(r), styles); // keep old clients sane
-    if (DB.isAvailable()) DB.setAxesOverride(r.id, cuisineOf(r), styles).catch(() => {});
+    if (DB.isAvailable()) tokenSessao().then((t) => DB.setAxesOverride(r.id, cuisineOf(r), styles, t)).catch(() => {});
     render();
     highlightCard(r.id);
   }
@@ -1785,7 +1793,7 @@ const App = (() => {
     r.cuisine = key;
     r.category = legacyCategoryFor(key, stylesOf(r));
     Storage.setOverride(r.id, r.category);
-    if (DB.isAvailable()) DB.setAxesOverride(r.id, key, stylesOf(r)).catch(() => {});
+    if (DB.isAvailable()) tokenSessao().then((t) => DB.setAxesOverride(r.id, key, stylesOf(r), t)).catch(() => {});
 
     render();
     highlightCard(r.id);
@@ -2585,7 +2593,7 @@ const App = (() => {
   // An empty url clears the override -> back to the Google photo.
   async function setRestaurantCoverUrl(r, url) {
     if (!r || !UserData.isCloud()) return false;
-    await DB.setPhotoOverride(r.id, url || "");
+    await DB.setPhotoOverride(r.id, url || "", await tokenSessao());
     r.photoURL = url || "";
     if (url) setHeroPhoto(r, url);
     render();

@@ -13,10 +13,19 @@ service cloud.firestore {
                     && resource.data.addedByUid == request.auth.uid;
     }
     // Shared edits (e.g. category changes) keyed by restaurant id. Anyone can
-    // read and set them so corrections show up for everyone.
+    // read them; writing passou a exigir sessão a 25/08 — era `if true`, e
+    // qualquer pessoa SEM conta podia mover pinos e trocar capas de toda a
+    // gente. Nenhum caminho da app escrevia anonimamente (os botões estão
+    // atrás de sessão); a regra é que ainda dizia o contrário. A lista de
+    // campos é fechada: um override só corrige o que a app sabe corrigir.
     match /overrides/{doc} {
       allow read: if true;
-      allow create, update: if true;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasOnly(
+                         ['category', 'cuisine', 'styles', 'photoURL', 'lat', 'lng', 'updatedAt']);
+      allow update: if request.auth != null
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+                         ['category', 'cuisine', 'styles', 'photoURL', 'lat', 'lng', 'updatedAt']);
       allow delete: if false;
     }
     // Per-person marks (visited / priority / ratings / notes / history).
