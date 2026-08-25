@@ -1857,7 +1857,10 @@ const App = (() => {
   function photoTile(p) {
     const source = p.source || "user";
     const badge = source === "google" ? "Google" : (p.author || "");
-    return `<button type="button" class="photo-tile" data-photo-url="${esc(p.url)}" data-photo-source="${esc(source)}" data-photo-badge="${esc(badge)}" data-photo-uid="${esc(p.uid || "")}" title="${esc(p.author || "")}">
+    // id e path viajam até ao viewer: sem eles o Apagar não sabe o que apagar
+    // — foi assim que a app viveu meses com regras que permitiam apagar e
+    // nenhum botão capaz de o fazer.
+    return `<button type="button" class="photo-tile" data-photo-url="${esc(p.url)}" data-photo-source="${esc(source)}" data-photo-badge="${esc(badge)}" data-photo-uid="${esc(p.uid || "")}" data-photo-id="${esc(p.id || "")}" data-photo-path="${esc(p.path || "")}" title="${esc(p.author || "")}">
       <img src="${esc(p.url)}" alt="" loading="lazy" />
     </button>`;
   }
@@ -2709,20 +2712,26 @@ const App = (() => {
   // visualizador saber sobre quem é — as fotos da Google não têm dono nosso, e
   // as minhas não se denunciam a si próprias.
   let viewerDono = { uid: "", quem: "" };
+  let viewerMeta = { id: "", path: "" }; // o doc e o ficheiro, para o Apagar
   function viewerOpen() {
     const m = document.getElementById("photo-viewer");
     return m && !m.classList.contains("hidden");
   }
-  function openPhotoViewer(url, source, dono) {
+  function openPhotoViewer(url, source, dono, meta) {
     const m = document.getElementById("photo-viewer");
     if (!m || !url) return;
     viewerUrl = url;
     viewerDono = dono || { uid: "", quem: "" };
+    viewerMeta = meta || { id: "", path: "" };
     const meuUid = UserData.isCloud() ? UserData.me().uid : "";
     const denBtn = m.querySelector("[data-viewer-denunciar]");
     // Só em fotos de outra pessoa, e só com sessão: a diretriz 1.2 é sobre
     // conteúdo alheio, e sem conta não há quem denuncie.
     if (denBtn) denBtn.hidden = !(meuUid && viewerDono.uid && viewerDono.uid !== meuUid);
+    // Apagar: só nas MINHAS, e só quando há metadados (as do Google e as
+    // antigas sem doc não têm o que apagar).
+    const delBtn = m.querySelector("[data-viewer-apagar]");
+    if (delBtn) delBtn.hidden = !(meuUid && viewerDono.uid === meuUid && viewerMeta.id);
     const img = m.querySelector("[data-viewer-img]");
     if (img) img.src = url;
     // "Foto do restaurante" only from a restaurant's gallery, signed in, and never
@@ -4961,7 +4970,8 @@ const App = (() => {
       if (t) {
         e.preventDefault();
         openPhotoViewer(t.dataset.photoUrl, t.dataset.photoSource,
-          { uid: t.dataset.photoUid || "", quem: t.dataset.photoBadge || t.title || "esta pessoa" });
+          { uid: t.dataset.photoUid || "", quem: t.dataset.photoBadge || t.title || "esta pessoa" },
+          { id: t.dataset.photoId || "", path: t.dataset.photoPath || "" });
       }
     });
     document.querySelectorAll("[data-close-viewer]").forEach((el) => el.addEventListener("click", hidePhotoViewer));
@@ -4982,6 +4992,30 @@ const App = (() => {
     });
     const vCover = document.querySelector("[data-viewer-cover]");
     if (vCover) vCover.addEventListener("click", () => setRestaurantCover(viewerUrl));
+    // Apagar uma foto minha: o doc, o ficheiro, e — se era a capa — o
+    // override partilhado, senão a ficha aponta para um ficheiro morto.
+    // Aqui há confirmação em vez de Anular: o ficheiro morre a sério e não
+    // há janela que o traga de volta.
+    const vDel = document.querySelector("[data-viewer-apagar]");
+    if (vDel) vDel.addEventListener("click", async () => {
+      const meta = viewerMeta;
+      const url = viewerUrl;
+      const r = state.currentDetail;
+      if (!meta.id || !window.confirm("Apagar esta foto? Não há volta.")) return;
+      try {
+        const token = await tokenSessao();
+        await DB.deletePhoto(meta.id, token);
+        if (meta.path && window.FirebaseStorage && window.FirebaseStorage.remove) {
+          await window.FirebaseStorage.remove(meta.path).catch(() => {});
+        }
+        if (r && r.photoURL === url) await setRestaurantCoverUrl(r, "");
+        hidePhotoViewer();
+        if (r) renderPhotos(r);
+        showSnackbar("Foto apagada.");
+      } catch (e) {
+        showSnackbar("Não consegui apagar agora — tenta outra vez.");
+      }
+    });
     document.querySelectorAll("[data-close-people]").forEach((el) => el.addEventListener("click", hidePeopleModal));
     const peopleSearch = document.querySelector("#people-sheet [data-people-search]");
     if (peopleSearch) {

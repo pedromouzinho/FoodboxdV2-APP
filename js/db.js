@@ -900,6 +900,8 @@ const DB = (() => {
           const f = decodeFields(row.document);
           return {
             id: row.document.name.split("/").pop(),
+            restaurantId: f.restaurantId || "",
+            visitId: f.visitId || "",
             uid: f.uid || "",
             author: f.author || "",
             url: f.url || "",
@@ -911,6 +913,18 @@ const DB = (() => {
     } catch (e) {
       return [];
     }
+  }
+
+  // Apagar o documento de uma foto (o ficheiro em si sai pelo
+  // FirebaseStorage.remove — dois passos porque vivem em serviços diferentes).
+  // As regras só o permitem ao autor, desde sempre; o botão é que faltava.
+  async function deletePhoto(id, token) {
+    if (!ready) throw new Error("Cloud database not configured.");
+    const res = await fetch(`${docsBase}/photos/${encodeURIComponent(id)}?${keyQ()}`, {
+      method: "DELETE", headers: authHeaders(token)
+    });
+    if (!res.ok && res.status !== 404) throw new Error(`Could not delete photo (${res.status}).`);
+    return true;
   }
 
   // Most recent photos across every restaurant and user (newest first).
@@ -953,13 +967,18 @@ const DB = (() => {
 
   async function addPhoto(photo, token) {
     if (!ready) throw new Error("Cloud database not configured.");
-    const fields = encodeFields({
+    const dados = {
       restaurantId: photo.restaurantId,
       uid: photo.uid,
       author: photo.author || "",
       url: photo.url,
       path: photo.path || ""
-    });
+    };
+    // A ligação foto→visita (modelo 25/08). Só nas novas: as antigas não a
+    // ganham (`allow update: if false` nas regras) e ficam soltas — apagáveis
+    // uma a uma, nunca em cascata.
+    if (photo.visitId) dados.visitId = photo.visitId;
+    const fields = encodeFields(dados);
     fields.createdAt = { timestampValue: new Date().toISOString() };
     const res = await fetch(`${docsBase}/photos?${keyQ()}`, {
       method: "POST",
@@ -1018,6 +1037,7 @@ const DB = (() => {
     fetchPhotos,
     fetchRecentPhotos,
     addPhoto,
+    deletePhoto,
     addReport,
     addErro
   };

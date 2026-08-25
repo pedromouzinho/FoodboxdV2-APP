@@ -525,6 +525,71 @@ const linhaAmiga = await p.evaluate(() => {
 chk("o Sempre mostra os sítios", !!(linhaAmiga && /2\s*sítios/.test(linhaAmiga)), `linha: ${linhaAmiga}`);
 chk("… e as visitas, lado a lado", !!(linhaAmiga && /2\s*visitas/.test(linhaAmiga)), `linha: ${linhaAmiga}`);
 
+// ---------------------------------------------------------------------------
+// 11. Apagar uma foto minha — em qualquer sítio onde ela apareça
+// ---------------------------------------------------------------------------
+// Antes de 25/08 NÃO EXISTIA caminho nenhum para apagar uma foto: as regras
+// permitiam-no ao autor desde sempre, o cliente é que nunca o implementou.
+await p.evaluate((rid) => {
+  window.__fotosApagadas = [];
+  window.__ficheirosApagados = [];
+  window.__overridesFoto = [];
+  DB.fetchPhotos = async () => [{
+    id: "ph1", uid: "eu-arnes", author: "Eu do Arnês",
+    url: location.origin + "/icons/icon-192.png",
+    path: "restaurants/x/eu-arnes-1.png", restaurantId: rid
+  }];
+  DB.deletePhoto = async (id) => { window.__fotosApagadas.push(id); return true; };
+  DB.setPhotoOverride = async (id, url) => { window.__overridesFoto.push({ id, url }); return true; };
+  window.FirebaseStorage = {
+    configured: true,
+    upload: async () => "http://x/enviada.png",
+    remove: async (path) => { window.__ficheirosApagados.push(path); return true; }
+  };
+  window.confirm = () => true; // o arnês confirma sempre
+}, rid1);
+
+// Reabrir a ficha do primeiro sítio, no separador da experiência.
+await p.click('[data-tab-nav="mapa"]');
+await p.click('[data-map-mode="lista"]');
+await p.click(".rcard");
+await p.waitForSelector('#detail-panel[aria-hidden="false"]');
+await p.click('.detail-tab:has-text("experiência")');
+await p.waitForSelector("[data-my-grid] .photo-tile", { timeout: 6000 }).catch(() => {});
+
+await p.evaluate(() => { const t = document.querySelector("[data-my-grid] .photo-tile"); if (t) t.click(); });
+const viewerAberto = await p.waitForSelector("#photo-viewer:not(.hidden)", { timeout: 4000 })
+  .then(() => true).catch(() => false);
+chk("a minha foto abre no viewer", viewerAberto);
+
+const temApagar = viewerAberto && await p.evaluate(() => {
+  const b = document.querySelector("[data-viewer-apagar]");
+  return !!(b && !b.hidden && !b.classList.contains("hidden"));
+});
+chk("o viewer tem o botão Apagar na MINHA foto", !!temApagar);
+
+if (temApagar) {
+  // Torna-a capa primeiro — apagar a capa tem de limpar o override partilhado,
+  // senão a ficha aponta para um ficheiro morto.
+  await p.evaluate(() => document.querySelector("[data-viewer-cover]").click());
+  await p.waitForTimeout(300);
+  await p.evaluate(() => { const t = document.querySelector("[data-my-grid] .photo-tile"); if (t) t.click(); });
+  await p.waitForSelector("#photo-viewer:not(.hidden)", { timeout: 4000 }).catch(() => {});
+  await p.evaluate(() => document.querySelector("[data-viewer-apagar]").click());
+  await p.waitForFunction(() => window.__fotosApagadas.length > 0, null, { timeout: 4000 }).catch(() => {});
+  chk("apagar leva o documento da foto", await p.evaluate(() => window.__fotosApagadas.includes("ph1")),
+    await p.evaluate(() => JSON.stringify(window.__fotosApagadas)));
+  chk("… e o ficheiro do Storage",
+    await p.evaluate(() => window.__ficheirosApagados.includes("restaurants/x/eu-arnes-1.png")),
+    await p.evaluate(() => JSON.stringify(window.__ficheirosApagados)));
+  chk("… e a capa não fica a apontar para um ficheiro morto",
+    await p.evaluate(() => window.__overridesFoto.some((o) => o.url === "")),
+    await p.evaluate(() => JSON.stringify(window.__overridesFoto)));
+} else {
+  ["apagar leva o documento da foto", "… e o ficheiro do Storage",
+   "… e a capa não fica a apontar para um ficheiro morto"].forEach((n) => chk(n, false, "sem botão"));
+}
+
 await browser.close();
 srv.close();
 console.log(falhas ? `\nvisita: ${falhas} FALHA(S)` : "\nvisita: a unidade atómica está de pé");

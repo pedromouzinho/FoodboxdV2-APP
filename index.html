@@ -666,6 +666,9 @@
       <div class="viewer-actions">
         <button class="btn btn-ghost" data-viewer-cover hidden><svg class="icon"><use href="#i-pin"/></svg> Foto do restaurante</button>
         <button class="btn btn-ghost" data-viewer-denunciar hidden><svg class="icon"><use href="#i-flag"/></svg> Denunciar</button>
+        <!-- Só nas MINHAS fotos (e só quando o viewer sabe o id/path — as do
+             Google e as antigas sem metadados não têm o que apagar). -->
+        <button class="btn btn-ghost" data-viewer-apagar hidden><svg class="icon"><use href="#i-trash"/></svg> Apagar</button>
         <button class="btn btn-ghost" data-viewer-download><svg class="icon"><use href="#i-download"/></svg> Descarregar</button>
         <button class="btn btn-primary" data-viewer-share><svg class="icon"><use href="#i-share"/></svg> Partilhar</button>
       </div>
@@ -1097,7 +1100,7 @@
       createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
     import {
-      getStorage, ref as storageRef, uploadBytes, getDownloadURL, connectStorageEmulator
+      getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject, connectStorageEmulator
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
 
     if (window.CONFIG && CONFIG.FIREBASE_PROJECT_ID && CONFIG.FIREBASE_API_KEY) {
@@ -1441,6 +1444,12 @@
             const r = storageRef(storage, path);
             await uploadBytes(r, file, { contentType: file.type });
             return await getDownloadURL(r);
+          },
+          // Apagar um ficheiro (25/08). As regras do Storage exigem que o nome
+          // comece pelo uid de quem apaga — a mesma convenção da escrita.
+          remove: async function (path) {
+            await deleteObject(storageRef(storage, path));
+            return true;
           }
         };
 
