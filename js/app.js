@@ -66,6 +66,22 @@ const App = (() => {
   function icon(name, cls) {
     return `<svg class="icon${cls ? " " + cls : ""}"><use href="#i-${name}"/></svg>`;
   }
+  // Dois "Pedro Mouzinho" no pódio eram um só aos olhos de toda a gente —
+  // medido no simulador a 25/08: as contas Google/Apple/email da mesma pessoa
+  // (mantidas separadas por decisão escrita) aparecem como homónimos
+  // indistinguíveis. Em colisão de displayName no conjunto visível, sufixa-se
+  // um pedaço do uid — feio na medida certa: distingue sem fingir que se sabe
+  // o apelido.
+  function nomeExibido(uid, nomeBase) {
+    const nome = nomeBase || "Amigo";
+    if (typeof UserData === "undefined" || !UserData.isCloud()) return nome;
+    const iguais = UserData.everyone().filter((g) => (g.displayName || "Amigo") === nome);
+    if (iguais.length <= 1) return nome;
+    // Os ÚLTIMOS 4 do uid, não os primeiros: o arnês provou logo à primeira
+    // que prefixos colidem ("gemeo-1"/"gemeo-2" → "geme"/"geme").
+    return `${nome} · ${String(uid || "").slice(-4)}`;
+  }
+
   // O token da sessão, para as escritas que as regras passaram a exigir com
   // conta (overrides). Nunca atira: sem sessão devolve null e a regra recusa
   // do lado de lá, que é o comportamento certo — a interface já não mostra
@@ -769,7 +785,7 @@ const App = (() => {
   // Turn companion uids into names ("Leonor e Miguel"), skipping anyone we can't see.
   function companionNames(uids) {
     if (!uids || !uids.length) return "";
-    const byUid = new Map(UserData.everyone().map((g) => [g.uid, g.displayName || "Amigo"]));
+    const byUid = new Map(UserData.everyone().map((g) => [g.uid, nomeExibido(g.uid, g.displayName || "Amigo")]));
     const names = uids.map((u) => byUid.get(u)).filter(Boolean);
     if (!names.length) return "";
     if (names.length === 1) return names[0];
@@ -4482,7 +4498,7 @@ const App = (() => {
         ${avatar(p.displayName, p.photoURL)}
       </button>
       <button type="button" class="person-text person-abrir" data-abrir-pessoa="${esc(p.uid)}" data-abrir-nome="${esc(p.displayName || "")}">
-        <span class="person-name">${esc(p.displayName || "Sem nome")}</span>
+        <span class="person-name">${esc(nomeExibido(p.uid, p.displayName || "Sem nome"))}</span>
         <span class="person-why">${esc(followReason(p))}</span>
       </button>
       <button type="button" class="chip" data-follow="${esc(p.uid)}" data-on="${on}" aria-pressed="${on}">
@@ -4727,7 +4743,7 @@ const App = (() => {
 
   function feedRow(it) {
     const cat = catFor(it.r);
-    const who = esc(it.g.displayName || "Amigo");
+    const who = esc(nomeExibido(it.g.uid, it.g.displayName || "Amigo"));
     let verb;
     if (it.type === "rating") {
       const comp = it.with && it.with.length ? companionNames(it.with) : "";
@@ -4879,7 +4895,7 @@ const App = (() => {
       ${lbRankLabel(rank)}
       ${avatar(item.g.displayName, item.g.photoURL)}
       <div class="lb-body">
-        <span class="lb-name">${esc(item.g.displayName || "Amigo")}</span>
+        <span class="lb-name">${esc(nomeExibido(item.g.uid, item.g.displayName || "Amigo"))}</span>
         <span class="lb-stats muted">${icon("star")} ${item.ratings}${item.avgStars ? ` (${item.avgStars.toFixed(1)})` : ""}</span>
       </div>
       <span class="lb-score">${score}</span>

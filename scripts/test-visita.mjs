@@ -751,6 +751,31 @@ chk("… e o ficheiro",
   await p.evaluate(() => JSON.stringify(window.__ficheirosApagados)));
 
 // ---------------------------------------------------------------------------
+// 14b. Dois homónimos deixam de ser um só (medido no simulador: as contas
+// Google/Apple/email da mesma pessoa apareciam como três "Pedro Mouzinho"
+// indistinguíveis no pódio)
+// ---------------------------------------------------------------------------
+await p.evaluate(() => { const x = document.querySelector(".detail-close"); if (x) x.click(); });
+await p.evaluate(() => {
+  DB.fetchFollowing = async () => ["amigo-feed", "gemeo-1", "gemeo-2"];
+  DB.fetchUsersByIds = async () => [
+    { uid: "amigo-feed", displayName: "Amiga Feed", photoURL: "", visited: [], priority: [], priorityAt: {}, ratings: {}, history: {} },
+    { uid: "gemeo-1", displayName: "Pedro Gémeo", photoURL: "", visited: [], priority: [], priorityAt: {}, ratings: {}, history: {} },
+    { uid: "gemeo-2", displayName: "Pedro Gémeo", photoURL: "", visited: [], priority: [], priorityAt: {}, ratings: {}, history: {} }
+  ];
+  return UserData.reloadGroup();
+});
+await p.click('[data-tab-nav="amigos"]');
+await p.click('[data-atab="leaderboard"]');
+await p.waitForTimeout(500);
+const rotulos = await p.evaluate(() =>
+  [...document.querySelectorAll("#amigos-leaderboard .lb-row .lb-name")]
+    .map((e) => e.textContent.trim())
+    .filter((n) => n.startsWith("Pedro Gémeo")));
+chk("dois homónimos saem com rótulos distintos no pódio",
+  rotulos.length === 2 && rotulos[0] !== rotulos[1], JSON.stringify(rotulos));
+
+// ---------------------------------------------------------------------------
 // 15. A preferência de push por pessoa, na folha do perfil dela
 // ---------------------------------------------------------------------------
 await p.evaluate(() => {
