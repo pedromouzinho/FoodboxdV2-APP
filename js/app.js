@@ -848,9 +848,12 @@ const App = (() => {
   // ---------- Sheet de registar visita (Fase 4) ----------
   // O fluxo central da app. Estava dentro do separador "As minhas experiências",
   // partido em dois blocos separados por uma grelha de fotos; passa a ter porta
-  // própria na ficha e cinco passos seguidos. As fotos saem do fluxo de
-  // propósito: registar é rápido, fotografar é depois.
-  const visitDraft = { id: null, stars: 0, dishes: [], note: "", date: "", withUids: [], editId: null, withAntes: [] };
+  // própria na ficha. A foto ESTEVE fora do fluxo ("registar é rápido,
+  // fotografar é depois") e voltou a 25/08 por pedido do dono: com o telemóvel
+  // na mão à mesa, ir buscá-la depois à ficha era o passo a mais. O compromisso
+  // com a rapidez mantém-se doutra forma — a foto sobe em segundo plano depois
+  // do registo, e falhar nunca trava a visita.
+  const visitDraft = { id: null, stars: 0, dishes: [], note: "", date: "", withUids: [], editId: null, withAntes: [], foto: null, fotoUrl: "" };
 
   // Sem `visita`: registo novo, e o rascunho começa EM BRANCO — herdava o
   // rating do restaurante (25/08), e com o rating derivado da última visita
@@ -879,6 +882,9 @@ const App = (() => {
     }
     // Para os convites: quem JÁ estava na visita não volta a ser convidado.
     visitDraft.withAntes = visitDraft.withUids.slice();
+    if (visitDraft.fotoUrl) { try { URL.revokeObjectURL(visitDraft.fotoUrl); } catch (e) {} }
+    visitDraft.foto = null;
+    visitDraft.fotoUrl = "";
 
     const cuisine = CUISINES[cuisineOf(r)];
     sheet.querySelector("[data-visit-cuisine]").textContent = cuisine ? cuisine.label : "";
@@ -987,7 +993,24 @@ const App = (() => {
               ${avatar(f.displayName, f.photoURL, "avatar-xs")}<span>${esc(f.displayName || "Amigo")}</span>
             </button>`).join("")}
         </div>`,
-        `<p class="visit-hint" data-companion-note></p>`) : ""
+        `<p class="visit-hint" data-companion-note></p>`) : "",
+
+      // A foto voltou ao formulário a 25/08, por pedido do dono — estás a
+      // registar com o telemóvel na mão, e ir buscá-la depois à ficha era um
+      // passo a mais no pior momento. Sobe DEPOIS do registo, em segundo
+      // plano, ligada à visita pelo visitId: falhar a foto nunca trava a visita.
+      step(friends.length ? 6 : 5, "Foto", `
+        <div class="visit-foto" data-visit-foto>
+          <button type="button" class="btn btn-ghost btn-sm" data-visit-foto-tirar>${icon("camera")} Tirar foto</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-visit-foto-galeria>Galeria</button>
+          <input type="file" accept="image/*" capture="environment" data-visit-foto-camara hidden />
+          <input type="file" accept="image/*" data-visit-foto-input hidden />
+          <div class="visit-foto-preview hidden" data-visit-foto-preview>
+            <img alt="" />
+            <button type="button" class="icon-btn" data-visit-foto-limpar aria-label="Remover a foto escolhida">${icon("x")}</button>
+          </div>
+        </div>`,
+        `<p class="visit-hint">Opcional — vai com a visita, e podes juntar mais na ficha.</p>`)
     ].join("");
 
     paintVisitDishes();
@@ -1024,6 +1047,30 @@ const App = (() => {
         .map((x) => x.dataset.companion);
       paintCompanionNote();
     }));
+
+    // O passo da foto: escolher, pré-ver, arrepender-se. O ficheiro fica no
+    // rascunho e só sobe no submit — fechar a folha sem registar não deixa nada.
+    const fotoInput = body.querySelector("[data-visit-foto-input]");
+    const fotoCamara = body.querySelector("[data-visit-foto-camara]");
+    const fotoPreview = body.querySelector("[data-visit-foto-preview]");
+    const escolherFotoDaVisita = (file) => {
+      if (!file || !/^image\//.test(file.type)) return;
+      if (visitDraft.fotoUrl) { try { URL.revokeObjectURL(visitDraft.fotoUrl); } catch (e) {} }
+      visitDraft.foto = file;
+      visitDraft.fotoUrl = URL.createObjectURL(file);
+      fotoPreview.querySelector("img").src = visitDraft.fotoUrl;
+      fotoPreview.classList.remove("hidden");
+    };
+    body.querySelector("[data-visit-foto-galeria]").addEventListener("click", () => fotoInput.click());
+    body.querySelector("[data-visit-foto-tirar]").addEventListener("click", () => fotoCamara.click());
+    fotoInput.addEventListener("change", () => { const f = fotoInput.files && fotoInput.files[0]; fotoInput.value = ""; escolherFotoDaVisita(f); });
+    fotoCamara.addEventListener("change", () => { const f = fotoCamara.files && fotoCamara.files[0]; fotoCamara.value = ""; escolherFotoDaVisita(f); });
+    body.querySelector("[data-visit-foto-limpar]").addEventListener("click", () => {
+      if (visitDraft.fotoUrl) { try { URL.revokeObjectURL(visitDraft.fotoUrl); } catch (e) {} }
+      visitDraft.foto = null;
+      visitDraft.fotoUrl = "";
+      fotoPreview.classList.add("hidden");
+    });
 
     syncVisitCta();
   }
@@ -1097,24 +1144,51 @@ const App = (() => {
       note: visitDraft.note.trim(),
       dishes: visitDraft.dishes.slice()
     };
+    let entrada;
     if (visitDraft.editId) {
       // Editar não é registar outra vez: a mesma visita, corrigida no lugar.
-      UserData.updateVisit(r.id, visitDraft.editId, dados);
+      entrada = UserData.updateVisit(r.id, visitDraft.editId, dados);
       // Cada acompanhante recebe um convite — mas só os NOVOS: quem já estava
       // na visita já o recebeu quando ela foi registada.
       const novos = visitDraft.withUids.filter((u) => !visitDraft.withAntes.includes(u));
       if (novos.length) sendVisitInvites(r, visitDraft.date, novos);
     } else {
-      UserData.addVisit(r.id, dados);
+      entrada = UserData.addVisit(r.id, dados);
       setVisited(r.id, true);
       // Cada acompanhante recebe um convite; só ele pode escrever o próprio diário.
       if (visitDraft.withUids.length) sendVisitInvites(r, visitDraft.date, visitDraft.withUids);
+    }
+    // A foto sobe DEPOIS do registo, em segundo plano, ligada pelo visitId —
+    // falhar a foto nunca trava a visita.
+    if (visitDraft.foto && entrada) {
+      enviarFotoDaVisita(r, UserData.visitId(entrada), visitDraft.foto);
+      visitDraft.foto = null;
     }
     closeVisitSheet();
     renderMyMarks(r);
     renderAmigos(r);
     haptico("sucesso");
     showSnackbar(visitDraft.editId ? "Visita atualizada." : `Registado: ${r.name}.`);
+  }
+
+  // O quinto ponto de upload (os outros quatro: galeria da ficha, avatar,
+  // capa, adicionar restaurante). Mesmo caminho de todos — comprimir, subir,
+  // gravar o doc — mais o visitId que liga a foto à visita, para a cascata do
+  // × a poder levar. Melhor-esforço: a falha diz-se num snackbar e a foto
+  // junta-se depois na ficha.
+  async function enviarFotoDaVisita(r, visitId, file) {
+    try {
+      const me = UserData.me();
+      const enviavel = typeof Imagem !== "undefined" ? await Imagem.comprimir(file) : file;
+      const ext = (enviavel.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const path = `restaurants/${slugifyId(r.id)}/${me.uid}-${Date.now()}.${ext}`;
+      const url = await window.FirebaseStorage.upload(path, enviavel);
+      const token = await tokenSessao();
+      await DB.addPhoto({ restaurantId: r.id, uid: me.uid, author: me.displayName, url, path, visitId: visitId || "" }, token);
+      if (state.currentDetail === r) renderPhotos(r);
+    } catch (e) {
+      showSnackbar("A foto não subiu — junta-a na ficha quando houver rede.");
+    }
   }
 
   function renderMyMarks(r) {

@@ -1913,6 +1913,16 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .visit-with { color: var(--text-faint); font-size: var(--fs-xs); margin-left: 6px; }
 /* As estrelas de cada visita (modelo 25/08: a avaliação vive na visita). */
 .visit-stars { color: var(--primary); font-size: var(--fs-xs); letter-spacing: 1px; }
+/* O passo da foto na folha de visita. */
+.visit-foto { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.visit-foto-preview { position: relative; width: 96px; }
+.visit-foto-preview img { width: 96px; height: 96px; object-fit: cover; border-radius: 12px; display: block; }
+.visit-foto-preview .icon-btn {
+  position: absolute; top: -8px; right: -8px;
+  background: var(--text); color: var(--bg); border-radius: 50%;
+}
+.visit-foto-preview.hidden { display: none; }
+.visit-entry-acoes { display: inline-flex; gap: 2px; }
 
 .invites { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4) 0; }
 .invites[hidden] { display: none; }

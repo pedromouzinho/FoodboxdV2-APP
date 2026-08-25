@@ -627,6 +627,64 @@ chk("… redimensionada (lado maior ≤ 1600)", !!(m12 && m12.largura <= 1600),
   m12 ? `largura enviada: ${m12.largura}` : "sem medida");
 chk("… e como JPEG", !!(m12 && m12.tipo === "image/jpeg"), m12 ? `tipo: ${m12.tipo}` : "sem medida");
 
+// ---------------------------------------------------------------------------
+// 13. A foto entra no registo da visita, ligada por visitId
+// ---------------------------------------------------------------------------
+const fotoNaVisita = await p.evaluate(async () => {
+  try {
+    window.__uploads = [];
+    window.__fotosGravadas = [];
+    window.FirebaseStorage.upload = async (path, file) => {
+      const bmp = await createImageBitmap(file);
+      window.__uploads.push({ path, largura: bmp.width, tipo: file.type });
+      return "http://x/na-visita.jpg";
+    };
+    DB.addPhoto = async (photo) => { window.__fotosGravadas.push(JSON.parse(JSON.stringify(photo))); return { ...photo, id: "phv1" }; };
+    return true;
+  } catch (e) { return { erro: String(e).slice(0, 120) }; }
+});
+await p.evaluate(() => { const x = document.querySelector(".detail-close"); if (x) x.click(); });
+await p.click(".rcard");
+await p.waitForSelector('#detail-panel[aria-hidden="false"]');
+await p.click("[data-open-visit-sheet]");
+await p.waitForSelector('#visit-sheet:not(.hidden)');
+
+const temPassoFoto = await p.evaluate(() => !!document.querySelector("#visit-sheet [data-visit-foto-input]"));
+chk("a folha tem o passo da foto", temPassoFoto);
+
+if (temPassoFoto) {
+  await p.evaluate(async () => {
+    const c = document.createElement("canvas");
+    c.width = 2400; c.height = 1600;
+    c.getContext("2d").fillRect(0, 0, 2400, 1600);
+    const blob = await new Promise((r) => c.toBlob(r, "image/png"));
+    const dt = new DataTransfer();
+    dt.items.add(new File([blob], "prato.png", { type: "image/png" }));
+    const input = document.querySelector("#visit-sheet [data-visit-foto-input]");
+    input.files = dt.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await p.click('#visit-sheet .visit-star[data-star="3"]');
+  await p.click("[data-visit-submit]");
+  // O upload corre DEPOIS do registo, em segundo plano — espera-se pelo sinal.
+  await p.waitForFunction(() => window.__fotosGravadas.length > 0, null, { timeout: 6000 }).catch(() => {});
+  const gravada = await p.evaluate(() => window.__fotosGravadas[0] || null);
+  const ultima = await p.evaluate((id) => {
+    const h = UserData.getHistory(id);
+    return h.length ? UserData.visitId(h[h.length - 1]) : null;
+  }, idAlvo);
+  chk("a foto sobe depois do registo", !!gravada,
+    await p.evaluate(() => JSON.stringify({ uploads: window.__uploads.length, gravadas: window.__fotosGravadas.length })));
+  chk("… ligada à visita pelo visitId", !!(gravada && ultima && gravada.visitId === ultima),
+    JSON.stringify({ fotoVisitId: gravada && gravada.visitId, visita: ultima }));
+  chk("… e comprimida no caminho",
+    await p.evaluate(() => window.__uploads.length === 1 && window.__uploads[0].largura <= 1600 && window.__uploads[0].tipo === "image/jpeg"),
+    await p.evaluate(() => JSON.stringify(window.__uploads)));
+} else {
+  ["a foto sobe depois do registo", "… ligada à visita pelo visitId", "… e comprimida no caminho"]
+    .forEach((n) => chk(n, false, "sem passo de foto"));
+}
+
 await browser.close();
 srv.close();
 console.log(falhas ? `\nvisita: ${falhas} FALHA(S)` : "\nvisita: a unidade atómica está de pé");
