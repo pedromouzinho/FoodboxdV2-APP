@@ -14,6 +14,10 @@
   onde acontece. Ao mudar o que a app recolhe ou para onde envia, mudar aqui no
   mesmo commit.
 
+  25/08/2026: a app passou a EXIGIR conta. Saiu o cartão que dizia que se podia
+  usar sem sessão — deixou de ser verdade — e entrou a entrada por email e
+  palavra-passe, que se junta à Google e à Apple.
+
   Página autónoma de propósito: não usa o css/style.css, que é construído à
   volta da casca da app (topbar fixa, tabbar, 100dvh). Repete os tokens de que
   precisa, que são poucos.
@@ -113,10 +117,11 @@
 
 <div class="card">
   <p style="margin:0">
-    <strong>Podes usar o Foodboxd sem conta.</strong> O mapa, a lista de
-    restaurantes e as fichas de cada sítio funcionam sem iniciares sessão, e
-    nesse caso nada do que fazes sai do teu telemóvel. Só ao criares conta é que
-    passa a haver dados guardados nos nossos servidores.
+    <strong>O Foodboxd exige conta.</strong> Sem sessão iniciada não se vê nada:
+    nem o mapa, nem a lista de restaurantes, nem as fichas de cada sítio. Não há
+    modo anónimo. Entra-se de três maneiras — email e palavra-passe, a Google ou
+    a Apple — e é a partir da conta que passam a existir dados teus nos nossos
+    servidores.
   </p>
 </div>
 
@@ -129,7 +134,7 @@
 </p>
 
 <h2>O que é recolhido</h2>
-<p>Só existe se criares conta, e vem de duas origens: do teu método de entrada e do que escreves na app.</p>
+<p>Vem de duas origens: da forma como entras e do que escreves na app.</p>
 
 <div class="tabela-envolve">
 <table>
@@ -139,10 +144,18 @@
   <tbody>
     <tr>
       <td>Nome e endereço de email</td>
-      <td>Da Google ou da Apple, quando inicias sessão. Se usares o
-          <em>Ocultar o meu email</em> da Apple, recebemos um endereço de
-          reencaminhamento e nunca o teu email verdadeiro.</td>
+      <td>Do email e do nome que escreves ao criar conta, ou da Google ou da
+          Apple, se entrares por lá. Se usares o <em>Ocultar o meu email</em> da
+          Apple, recebemos um endereço de reencaminhamento e nunca o teu email
+          verdadeiro.</td>
       <td>Identificar a tua conta e mostrar quem és a quem te segue.</td>
+    </tr>
+    <tr>
+      <td>Palavra-passe</td>
+      <td>Escolhida por ti, e só se criares conta por email. Vai direta para o
+          sistema de contas da Google (Firebase Authentication).</td>
+      <td>Entrares outra vez. Não fica guardada nos dados da app e nós não a
+          conseguimos ver.</td>
     </tr>
     <tr>
       <td>Fotografia de perfil</td>
@@ -211,8 +224,10 @@
   <tbody>
     <tr>
       <td><strong>Google</strong> (Firebase)</td>
-      <td>A tua conta e tudo o que guardas nela.</td>
-      <td>É onde os dados ficam alojados.</td>
+      <td>A tua conta e tudo o que guardas nela, incluindo a palavra-passe, se
+          criares conta por email.</td>
+      <td>É onde os dados ficam alojados, e é também quem trata das contas e
+          quem envia o email para repores a palavra-passe.</td>
     </tr>
     <tr>
       <td><strong>Google</strong> (Maps, Places, Geocoding)</td>

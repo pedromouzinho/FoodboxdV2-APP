@@ -1,17 +1,5 @@
 # Metadados da App Store — rascunho para aprovar
 
-> 🔴 **DESATUALIZADO em três pontos desde 25/08**, quando a app passou a exigir
-> conta. Não colar sem corrigir:
->
-> | Campo | Diz | Devia dizer |
-> | --- | --- | --- |
-> | Sign-in required | NO | **YES**, com a conta de teste |
-> | Nota ao revisor | «NO ACCOUNT IS NEEDED» | o contrário, e entregar as credenciais |
-> | Descrição, bloco «SEM CONTA, JÁ FUNCIONA» | que se vê tudo sem conta | tirar ou reescrever |
->
-> Os screenshots, as palavras-chave, o subtítulo, as etiquetas de privacidade,
-> a classificação etária e a conformidade de exportação **continuam válidos**.
-
 > **O que é isto:** tudo o que a App Store Connect pede ao lado da build, escrito
 > para ser copiado campo a campo. Os textos são um rascunho do agente; **a
 > decisão é do dono** — sobretudo a descrição, que é a promessa que a app faz a
@@ -41,8 +29,21 @@ derivadas por ela, e por isso não é preciso tirá-las.
 nos resultados de pesquisa sem ninguém abrir a página. Por isso o mapa abre e o
 «Pergunta-me» vem logo a seguir — é o que ninguém mais faz.
 
-**Os 1, 4, 5 e 6 foram tirados sem sessão**, que é o que o revisor vê e o que a
-nota ao revisor afirma. O 2 e o 3 exigem conta, e mostram-na com dados reais.
+> 🔴 **Cinco dos seis são anteriores a 25/08 e já não mostram esta app.**
+> Verificado imagem a imagem:
+>
+> | # | O que está lá e não devia | Porquê |
+> | --- | --- | --- |
+> | 1, 3 | Barra de cima sem o botão **+** | O «+» é a única forma de acrescentar um sítio desde 25/08 |
+> | 4, 5, 6 | Barra de cima com o botão **Entrar** | Sem sessão já não se chega a ecrã nenhum — este estado deixou de existir |
+> | 4 | Os botões **Wishlist** e **Já fui** no topo da lista | Foram substituídos pelo «+» |
+>
+> Só o 2 escapa, porque é uma folha que tapa a barra toda. A diretriz **2.3.3**
+> é exatamente sobre isto: os screenshots têm de mostrar a app que se submete.
+> **Tirá-los outra vez é trabalho a fazer antes de submeter**, e não é decisão
+> nenhuma — é uma correção.
+
+O 2 e o 3 mostram a conta do dono, com dados reais.
 
 > ⚠️ **Repara no que o 2 e o 3 mostram de verdade:** restaurantes que o dono
 > visitou, e um texto da IA que cita o gosto dele por nome. É a conta real. Numa
@@ -52,6 +53,12 @@ nota ao revisor afirma. O 2 e o 3 exigem conta, e mostram-na com dados reais.
 ---
 
 ## Campos de texto
+
+> **Copia do [`submissao.html`](submissao.html), não daqui.** Nestes blocos os
+> textos estão dobrados a 78 colunas para se lerem numa página; as quebras
+> iriam com eles para o formulário. O número de caracteres é o mesmo nos dois
+> sítios — dobrar troca um espaço por uma mudança de linha, e não acrescenta
+> nada. A nota ao revisor é a exceção: as quebras dela são de propósito.
 
 ### Nome · máx. 30
 ```
@@ -63,11 +70,11 @@ Foodboxd
 O teu diário de restaurantes
 ```
 
-### Texto promocional · máx. 170
+### Texto promocional · máx. 170 (usa 153)
 Muda-se sem submeter versão nova — é o sítio para novidades sazonais.
 ```
-Um mapa dos sítios que valem a pena e um diário do que comeste. Sem conta para
-explorar; com conta para guardares o que é teu.
+Um mapa dos sítios que valem a pena e um diário do que comeste. Cria conta,
+marca onde já foste e onde queres ir, e pergunta à app o que te apetece hoje.
 ```
 
 ### Palavras-chave · máx. 100, separadas por vírgulas, sem espaços depois
@@ -76,7 +83,7 @@ Não repetir o nome da app nem a categoria: já são indexados.
 restaurantes,tascas,petiscos,onde comer,diario,mapa,marisqueira,portugal,avaliacoes,pratos
 ```
 
-### Descrição · máx. 4000
+### Descrição · máx. 4000 (usa 1590)
 
 ```
 O Foodboxd é um mapa dos restaurantes que valem a pena e um diário do que
@@ -86,29 +93,29 @@ Não é mais um agregador de avaliações anónimas. É o teu registo: onde fost
 que pediste, e o que achaste — para não voltares a olhar para uma lista de
 sítios sem saber qual deles já te correu bem.
 
-SEM CONTA, JÁ FUNCIONA
-Abre e vês o mapa inteiro, a lista, os filtros e a ficha de cada sítio, com
-avaliação, escala de preços, telefone e a especialidade da casa. Só precisas de
-conta para guardar o que é teu.
+PARA COMEÇAR
+Precisas de conta. Cria uma com email e palavra-passe, ou entra com a Apple ou
+com a Google. Não começas do zero: a lista de restaurantes já lá está, com
+avaliação, escala de preços, telefone e a especialidade da casa.
 
 O MAPA
-Todos os sítios num mapa, de Braga ao Algarve. Filtra por cozinha, por estilo —
-tasca, petiscos, casual, fine dining — por região e por preço. Ou escreve o nome
-de um prato e encontra quem o faz.
+Todos os sítios num mapa, de Braga ao Algarve. Filtra por cozinha, por estilo
+— tasca, petiscos, casual, fine dining — por região e por preço. Ou escreve o
+nome de um prato e encontra quem o faz.
 
 O DIÁRIO
-Marca como visitado, dá estrelas, escreve o que quiseres e regista os pratos que
-provaste. Junta fotografias. Da próxima vez que passares à porta, sabes o que
-pedir.
+Marca como visitado, dá estrelas, escreve o que quiseres e regista os pratos
+que provaste. Junta fotografias. Da próxima vez que passares à porta, sabes o
+que pedir.
 
 A LISTA DE DESEJOS
 Marca os sítios onde ainda queres ir. Deixa de haver aquele restaurante de que
 te lembras vagamente e nunca mais encontras.
 
 PERGUNTA-ME
-Descreve o que te apetece — «peixe fresco, barato, perto e tranquilo» — e a app
-sugere, cruzando o teu gosto, a tua lista e onde estás. A localização é pedida
-só aqui, nunca ao abrir, e a app funciona sem ela.
+Descreve o que te apetece — «peixe fresco, barato, perto e tranquilo» — e a
+app sugere, cruzando o teu gosto, a tua lista e onde estás. A localização é
+pedida só aqui, nunca ao abrir, e a app funciona sem ela.
 
 OS AMIGOS
 Segue quem quiseres acompanhar e vê onde andaram e o que acharam. Cria grupos
@@ -123,6 +130,77 @@ Feito em Portugal.
 
 ---
 
+## Nota ao revisor · *App Review Information → Notes*
+
+É o que a App Review lê antes de abrir a app. Desde 25/08 a app **exige conta**,
+e por isso esta nota tem uma tarefa concreta: dizer como se entra, antes que
+alguém conclua que não dá.
+
+**As credenciais não se escrevem aqui.** Vão nos campos *Sign-In Information*
+do mesmo formulário, ao lado deste — [[CREDENCIAIS: o dono preenche no
+formulário]]. O texto abaixo aponta para lá e cola-se tal como está, sem
+substituir nada.
+
+```
+Foodboxd is a restaurant diary for Portugal: a map of places worth
+going to, and a private log of what you ate and what you thought of it.
+
+AN ACCOUNT IS REQUIRED. The app opens on a sign-in screen and shows
+nothing until you are signed in. There are two ways in, and either one
+is enough to review the whole app.
+
+1. The demo account. Its email and password are in the Sign-In
+   Information fields of this same App Review Information section. Type
+   them into "Email" and "Palavra-passe" on the first screen, then tap
+   "Entrar".
+
+2. Your own Apple ID. Tap "Continuar com a Apple". Sign in with Apple is
+   fully supported, including "Hide My Email" - the app works normally
+   with a privaterelay.appleid.com address. "Continuar com a Google"
+   works the same way, and "Criar conta" opens an account from any email
+   and password. There is no email verification step.
+
+Once you are in, the shared list of 68 restaurants across Portugal is
+there immediately, with rating, price range, phone number and signature
+dishes. On a brand-new account the Diário and the Amigos feed start
+empty. That is intended: both are built from what you log and who you
+follow, and the empty feed offers "Descobrir pessoas" to get started.
+
+Where things are (bottom tab bar):
+  Mapa    - the map and the restaurant list; tap any pin or card
+  Diário  - your own visits, reviews and dishes
+  Amigos  - activity feed and leaderboard
+  Perfil  - your account, and "Apagar conta"
+
+Adding a place: the "+" button in the top bar. You choose "Quero ir"
+(want to go) or "Já fui" (been there); "Já fui" also marks the place as
+visited and lets you attach a photo.
+
+Location (5.1.1): asked only inside "Pergunta-me", the sparkle button in
+the top bar, and only when you ask it for a suggestion. Never at launch.
+The app works without it.
+
+Reporting and blocking (1.2): open any photo or comment posted by
+another person and use the flag icon / "Denunciar". Blocking is offered
+in the same sheet. Blocked people can be restored in Perfil, in the
+"Pessoas bloqueadas" row that appears once you have blocked someone.
+
+Account deletion (5.1.1(v)): Perfil -> "Apagar conta". It asks you to
+type APAGAR to confirm, then deletes the account for real: the Firestore
+data, the photos in Storage, and the Auth user.
+
+The app is in Portuguese.
+```
+
+Usa 2308 caracteres; o campo aceita 4000.
+
+**Porque é que a nota oferece duas entradas.** A conta de teste é a que a Apple
+pede. O Sign in with Apple com o Apple ID do próprio revisor é a rede de
+segurança: se a conta de teste falhar por alguma razão — e é a rejeição 2.1 mais
+comum — o revisor tem outra porta sem ter de nos escrever e esperar um dia.
+
+---
+
 ## Escolhas do formulário
 
 | Campo | Resposta | Porquê |
@@ -133,7 +211,13 @@ Feito em Portugal.
 | Privacy Policy URL | `https://foodboxd.pt/privacidade` | Já está no ar, verificada com HTTP 200 |
 | Support URL | `https://foodboxd.pt/ajuda` | ✅ no ar, HTTP 200 |
 | Marketing URL | `https://foodboxd.pt` | Opcional, mas já existe |
-| Sign-in required | **NO** | Medido: a app vê-se toda sem conta (secção 4.4 do handoff) |
+| Sign-in required | **YES** | Desde 25/08 a app não mostra nada sem sessão — o ecrã de entrada cobre tudo |
+
+**Sign-in required liga-se, e os campos ao lado preenchem-se.** *User Name* e
+*Password* da conta de teste — [[CREDENCIAIS: o dono preenche no formulário]].
+Não vão para este ficheiro nem para o repositório. Deixar o campo desligado com
+a app a exigir conta é a rejeição 2.1 servida em bandeja: a revisão abre, dá com
+o ecrã de entrada, e não tem por onde passar.
 
 **✅ A página de ajuda está no ar** — [`ajuda.html`](../ajuda.html), servida em
 `/ajuda`, publicada e verificada a 25/08 (HTTP 200, com o contacto e o link para
@@ -197,7 +281,11 @@ versionado como os textos de permissão, e o `scripts/ios-info.mjs` escreve-o no
 ## O que fica por decidir
 
 1. **Se os screenshots 2 e 3 podem levar dados reais** — ver o aviso lá em cima.
-2. **A descrição** — está escrita, e é a peça que mais merece ser lida devagar.
+2. **Se a descrição diz «Precisas de conta» logo à terceira linha** — diz, e é
+   deliberado. Quem descobre a exigência só depois de instalar dá uma estrela e
+   escreve porquê. Se preferires que a exigência apareça mais abaixo, muda-se —
+   o que não se faz é escondê-la.
+3. **A descrição** — está escrita, e é a peça que mais merece ser lida devagar.
    O «O QUE NÃO HÁ» no fim é uma aposta deliberada: numa loja cheia de apps que
    vivem de publicidade, dizer que não há nenhuma é o argumento mais forte que
    esta app tem. Se soar a arrogante, corta-se.

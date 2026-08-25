@@ -424,14 +424,15 @@
     <ul>
       <li>Apagar a conta funciona (5.1.1(v))</li>
       <li>Denunciar e bloquear (1.2)</li>
-      <li>Login com a Google e com a Apple</li>
+      <li>Entrar com email, com a Apple ou com a Google</li>
+      <li>A app exige conta, e há conta de teste para a revisão</li>
       <li>O nome da Apple é capturado</li>
       <li>Localização só no «Pergunta-me», uma caixa</li>
       <li>Política em <code>/privacidade</code></li>
       <li>Ajuda em <code>/ajuda</code></li>
       <li>Equipa <code>LGN8A4342T</code> no projeto</li>
       <li>Conformidade de exportação no <code>Info.plist</code></li>
-      <li>6 screenshots em 1320×2868</li>
+      <li>6 screenshots em 1320×2868 — <b>cinco por refazer</b>, ver Fase 6</li>
     </ul>
   </div>
 
@@ -672,6 +673,11 @@
             </table>
           </div>
           <div class="nota"><b>A ordem não é decorativa.</b> Os dois primeiros aparecem nos resultados de pesquisa sem ninguém abrir a página da app. Por isso o mapa abre e o «Pergunta-me» vem logo a seguir.</div>
+          <div class="trava">
+            <span class="trava-tit">Cinco dos seis são anteriores a 25/08</span>
+            <b>Já não mostram esta app.</b> O 1 e o 3 têm a barra de cima sem o botão <b>+</b>; o 4, o 5 e o 6 têm lá o botão <b>Entrar</b>, um estado a que hoje não se chega; e o 4 mostra ainda os botões <b>Wishlist</b> e <b>Já fui</b> no topo da lista, que deixaram de existir. Só o 2 escapa, porque é uma folha que tapa a barra toda.
+            <p style="margin:8px 0 0">A diretriz <b>2.3.3</b> é sobre isto. Tirá-los outra vez é trabalho a fazer <b>antes</b> de submeter — não é uma decisão de gosto.</p>
+          </div>
         </div>
       </div>
 
@@ -682,18 +688,18 @@
           <h3>Os textos</h3>
 
           <div class="campo">
-            <div class="campo-cab"><span class="campo-nome">Promotional Text</span><span class="campo-cont">126 / 170</span><button class="copiar" data-alvo="c-promo">Copiar</button></div>
-            <pre id="c-promo">Um mapa dos sítios que valem a pena e um diário do que comeste. Sem conta para explorar; com conta para guardares o que é teu.</pre>
+            <div class="campo-cab"><span class="campo-nome">Promotional Text</span><span class="campo-cont">153 / 170</span><button class="copiar" data-alvo="c-promo">Copiar</button></div>
+            <pre id="c-promo">Um mapa dos sítios que valem a pena e um diário do que comeste. Cria conta, marca onde já foste e onde queres ir, e pergunta à app o que te apetece hoje.</pre>
           </div>
 
           <div class="campo longo">
-            <div class="campo-cab"><span class="campo-nome">Description</span><span class="campo-cont">1569 / 4000</span><button class="copiar" data-alvo="c-desc">Copiar</button></div>
+            <div class="campo-cab"><span class="campo-nome">Description</span><span class="campo-cont">1590 / 4000</span><button class="copiar" data-alvo="c-desc">Copiar</button></div>
 <pre id="c-desc">O Foodboxd é um mapa dos restaurantes que valem a pena e um diário do que comeste neles.
 
 Não é mais um agregador de avaliações anónimas. É o teu registo: onde foste, o que pediste, e o que achaste — para não voltares a olhar para uma lista de sítios sem saber qual deles já te correu bem.
 
-SEM CONTA, JÁ FUNCIONA
-Abre e vês o mapa inteiro, a lista, os filtros e a ficha de cada sítio, com avaliação, escala de preços, telefone e a especialidade da casa. Só precisas de conta para guardar o que é teu.
+PARA COMEÇAR
+Precisas de conta. Cria uma com email e palavra-passe, ou entra com a Apple ou com a Google. Não começas do zero: a lista de restaurantes já lá está, com avaliação, escala de preços, telefone e a especialidade da casa.
 
 O MAPA
 Todos os sítios num mapa, de Braga ao Algarve. Filtra por cozinha, por estilo — tasca, petiscos, casual, fine dining — por região e por preço. Ou escreve o nome de um prato e encontra quem o faz.
@@ -759,12 +765,13 @@ Feito em Portugal.</pre>
         <div class="passo-marca"><div class="passo-n">15</div><div class="passo-linha"></div></div>
         <div class="passo-corpo">
           <span class="onde">App Store Connect</span>
-          <h3><i>Sign-In Required</i>: desligado</h3>
+          <h3><i>Sign-In Required</i>: ligado, com a conta de teste</h3>
           <div class="trava">
-            <span class="trava-tit">Isto é uma decisão, não um descuido</span>
-            <b>A app não esconde nada atrás de conta</b>, e isso foi medido: sem sessão vêem-se os 68 restaurantes, o mapa, a lista, os filtros e a ficha completa de cada sítio.
-            <p style="margin:8px 0 0">É o que dispensa a conta de demonstração — que <b>não existe</b>, porque a app só tem Google e Apple. Entregar credenciais de uma conta Google à revisão costuma dar «we were unable to sign in», que é rejeição.</p>
+            <span class="trava-tit">Mudou a 25/08 — era o contrário até esse dia</span>
+            <b>A app exige conta.</b> O ecrã de entrada cobre tudo enquanto não houver sessão: sem entrar não se vê mapa, nem lista, nem filtros, nem ficha nenhuma. Liga o <i>Sign-In Required</i> e preenche o <i>User Name</i> e a <i>Password</i> ao lado, com a conta de teste.
+            <p style="margin:8px 0 0">Deixá-lo desligado agora é a rejeição <b>2.1</b> servida em bandeja: a revisão abre a app, dá com o ecrã de entrada, e não tem por onde passar.</p>
           </div>
+          <div class="nota"><b>[[CREDENCIAIS: o dono preenche no formulário]]</b> — o email e a palavra-passe da conta de teste escrevem-se aqui, na consola, e não neste ficheiro nem no repositório. A nota do passo seguinte aponta para estes campos, e por isso cola-se tal como está.</div>
         </div>
       </div>
 
@@ -774,39 +781,53 @@ Feito em Portugal.</pre>
           <span class="onde">App Store Connect</span>
           <h3>A nota, em inglês</h3>
           <div class="campo longo">
-            <div class="campo-cab"><span class="campo-nome">Notes</span><button class="copiar" data-alvo="c-nota">Copiar</button></div>
-<pre id="c-nota">Foodboxd is a restaurant diary for Portugal: a map of places, and a private
-log of what you ate and what you thought of it.
+            <div class="campo-cab"><span class="campo-nome">Notes</span><span class="campo-cont">2308 / 4000</span><button class="copiar" data-alvo="c-nota">Copiar</button></div>
+<pre id="c-nota">Foodboxd is a restaurant diary for Portugal: a map of places worth
+going to, and a private log of what you ate and what you thought of it.
 
-NO ACCOUNT IS NEEDED TO REVIEW THE APP. All 68 restaurants, the map, the
-list, the filters and every restaurant page (rating, price range, phone,
-signature dishes) are fully available without signing in. Just dismiss the
-sign-in invitation with "Agora não" (= "Not now").
+AN ACCOUNT IS REQUIRED. The app opens on a sign-in screen and shows
+nothing until you are signed in. There are two ways in, and either one
+is enough to review the whole app.
 
-Signing in only adds the personal features: marking a place as visited,
-rating it, logging dishes, uploading photos, and the friends activity feed.
-If you would like to try those, please use "Iniciar sessão com a Apple"
-(Sign in with Apple) with your own Apple ID — we cannot supply a demo
-account because the app offers only Google and Apple sign-in, and no
-email/password path exists.
+1. The demo account. Its email and password are in the Sign-In
+   Information fields of this same App Review Information section. Type
+   them into "Email" and "Palavra-passe" on the first screen, then tap
+   "Entrar".
 
-A brand-new account starts with an empty Amigos tab. That is intended: the
-social feed is built from the people you choose to follow, so it fills up
-once you follow someone (Amigos -> "Descobrir pessoas"). The restaurant
-content above is not affected and needs no account at all.
+2. Your own Apple ID. Tap "Continuar com a Apple". Sign in with Apple is
+   fully supported, including "Hide My Email" - the app works normally
+   with a privaterelay.appleid.com address. "Continuar com a Google"
+   works the same way, and "Criar conta" opens an account from any email
+   and password. There is no email verification step.
 
-Where to find things:
-  Mapa    — the map and the restaurant list (tap any pin or card)
-  Diário  — your own visits, reviews and dishes
-  Amigos  — activity feed and leaderboards
-  Perfil  — your account, and "Apagar a conta" (account deletion, 5.1.1(v))
+Once you are in, the shared list of 68 restaurants across Portugal is
+there immediately, with rating, price range, phone number and signature
+dishes. On a brand-new account the Diário and the Amigos feed start
+empty. That is intended: both are built from what you log and who you
+follow, and the empty feed offers "Descobrir pessoas" to get started.
 
-Location is requested only inside "Pergunta-me" (the sparkle button in the
-header), never at launch, and the app works without granting it.
+Where things are (bottom tab bar):
+  Mapa    - the map and the restaurant list; tap any pin or card
+  Diário  - your own visits, reviews and dishes
+  Amigos  - activity feed and leaderboard
+  Perfil  - your account, and "Apagar conta"
 
-Reporting and blocking: open any photo or comment posted by another person
-and use the flag icon / "Denunciar". Blocking is offered in the same sheet,
-and blocked people can be restored in Perfil.
+Adding a place: the "+" button in the top bar. You choose "Quero ir"
+(want to go) or "Já fui" (been there); "Já fui" also marks the place as
+visited and lets you attach a photo.
+
+Location (5.1.1): asked only inside "Pergunta-me", the sparkle button in
+the top bar, and only when you ask it for a suggestion. Never at launch.
+The app works without it.
+
+Reporting and blocking (1.2): open any photo or comment posted by
+another person and use the flag icon / "Denunciar". Blocking is offered
+in the same sheet. Blocked people can be restored in Perfil, in the
+"Pessoas bloqueadas" row that appears once you have blocked someone.
+
+Account deletion (5.1.1(v)): Perfil -> "Apagar conta". It asks you to
+type APAGAR to confirm, then deletes the account for real: the Firestore
+data, the photos in Storage, and the Auth user.
 
 The app is in Portuguese.</pre>
           </div>
@@ -846,8 +867,8 @@ The app is in Portuguese.</pre>
         <tr><td><b>1.2</b></td><td>UGC sem denunciar nem bloquear</td><td>Bandeira em cada comentário alheio, <i>Denunciar</i> nas fotografias, bloquear e desbloquear. Denúncias em <code>reports</code></td></tr>
         <tr><td><b>4.8</b></td><td>Login social sem Sign in with Apple</td><td>Está lá, e o nome é capturado na primeira autorização</td></tr>
         <tr><td><b>5.1.1</b></td><td>Permissão pedida sem contexto</td><td>Localização só dentro do «Pergunta-me», nunca ao arrancar, e a app funciona sem ela</td></tr>
-        <tr><td><b>2.1</b></td><td>«Não conseguimos entrar»</td><td><i>Sign-in required</i> desligado, e a nota explica porquê</td></tr>
-        <tr><td><b>4.2</b></td><td>«A app parece vazia»</td><td>68 restaurantes visíveis sem conta, com fotos e avaliações</td></tr>
+        <tr><td><b>2.1</b></td><td>«Não conseguimos entrar»</td><td><i>Sign-in required</i> ligado, com a conta de teste; e a nota diz que também dá para entrar com o Apple ID do próprio revisor</td></tr>
+        <tr><td><b>4.2</b></td><td>«A app parece vazia»</td><td>68 restaurantes assim que se entra, com fotos e avaliações. O Diário e os Amigos é que começam vazios, e a nota diz porquê</td></tr>
       </table>
     </div>
 
