@@ -178,23 +178,34 @@ patch.set("css/style.css", css.replace("--bg: #f6f1e7;", "--bg: rgb(7, 8, 9);"))
 patch.set("sw.js", sw.replace(/foodboxd-v\d+/, "foodboxd-v1001"));
 const recarregou3 = page.waitForEvent("load", { timeout: 60000 });
 await page.evaluate(() => document.getElementById("signin-modal").classList.remove("hidden"));
-await page.evaluate(() => navigator.serviceWorker.getRegistration().then((r) => r.update()));
+// Esperar pela COR nova, não por 1500 ms — e, antes dela, pela MARCA que a
+// própria app expõe (`atualizacaoPendente`), que é o sinal de que o SW novo
+// assumiu. A versão só-com-cor voltou a falhar no CI a 25/08 com o mesmo
+// cor=rgb(4, 5, 6) da oitava lição: o update() é um pedido, não uma garantia,
+// e num runner lento pode não apanhar o SW novo à primeira. Repete-se o
+// pedido até a marca aparecer (3 tentativas), e o chk final imprime a marca
+// e o estado do SW quando falha — o próximo vermelho no CI conta a história
+// completa em vez de uma cor órfã.
+for (let tentativa = 0; tentativa < 3; tentativa++) {
+  await page.evaluate(() => navigator.serviceWorker.getRegistration().then((r) => r.update()));
+  const marcou = await page.waitForFunction(
+    () => document.documentElement.dataset.atualizacaoPendente === "1" ||
+          getComputedStyle(document.body).backgroundColor === "rgb(7, 8, 9)",
+    null, { timeout: 10000 }).then(() => true).catch(() => false);
+  if (marcou) break;
+}
 await recarregou3.catch(() => {});
-// Esperar pela COR nova, não por 1500 ms.
-//
-// É a mesma correção que o caso 1 já leva, e que aqui em baixo faltava: contar
-// milissegundos faz o ensaio correr com o browser. Apanhei-o a passar duas
-// vezes e a falhar uma, com o mesmo código, a dizer `cor=rgb(4, 5, 6)` — a cor
-// do caso anterior, ou seja, o recarregamento ainda não tinha chegado.
-//
-// O `.catch` é de propósito: se a atualização NÃO vier, isto esgota o tempo e
-// segue, e o `chk` lá em baixo falha a mostrar a cor errada. Um `await` que
-// rebentasse aqui daria um traço de pilha em vez de uma linha de FALHA.
 await page.waitForFunction(
   () => getComputedStyle(document.body).backgroundColor === "rgb(7, 8, 9)",
   null, { timeout: 20000 }).catch(() => {});
-const corConvite = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-chk("o convite de sessão não trava a atualização", corConvite === "rgb(7, 8, 9)", `cor=${corConvite}`);
+const estado3 = await page.evaluate(async () => ({
+  cor: getComputedStyle(document.body).backgroundColor,
+  marca: document.documentElement.dataset.atualizacaoPendente || null,
+  sw: await navigator.serviceWorker.getRegistration().then((r) =>
+    r ? { installing: !!r.installing, waiting: !!r.waiting, active: !!r.active } : null)
+}));
+chk("o convite de sessão não trava a atualização", estado3.cor === "rgb(7, 8, 9)",
+  JSON.stringify(estado3));
 
 await browser.close();
 srv.close();
