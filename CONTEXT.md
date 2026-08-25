@@ -395,10 +395,18 @@ npm run audit          # contraste, alvos, transbordo, ids repetidos, erros de J
                        # e o tutorial: cada passo tem de destacar alguma coisa
 npm run test:map       # enquadramento do mapa — IMPRIME em vez de afirmar, compara os números
 npm run test:update    # o service worker apanhar uma versão nova (7 casos)
+npm run test:persistencia  # node puro, sem browser: o corpo do saveUserDoc leva
+                       # tudo o que o persistNow manda (PATCH sem updateMask:
+                       # campo esquecido = campo APAGADO da nuvem), e as três
+                       # funções de privacidade (podeVerPerfil, canSeeUser,
+                       # filtro de bloqueados)
 npm run preview        # telemóvel e ecrã grande, claro e escuro
 ```
 
   No contentor o Chromium está noutro sítio: `CHROMIUM_PATH=... npm run audit`.
+  Desde 25/08 estes correm também no CI a cada push
+  (`.github/workflows/testes.yml`) — o audit e o test:map lá dão visibilidade
+  mas não travam (não afirmam); os outros travam.
 
 - **E há um quinto, que mede o que o dedo faz** — nenhum dos outros toca em
   eventos de toque, e um clique não tem direção nem duração:

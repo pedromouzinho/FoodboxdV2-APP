@@ -75,15 +75,23 @@ npm run audit          # contraste, alvos de toque, transbordo, ids repetidos
 npm run test:map
 npm run test:update
 npm run test:gesto     # os gestos; mede toque, e não cliques
+npm run test:persistencia  # o contrato da gravação do userData + privacidade; node puro
 npm run test:apagar    # apagar conta — precisa do emulador (npm run emu:start)
 ```
 
-**São cinco, e cada um vê uma coisa que os outros não veem.** O `audit` percorre
+**São seis, e cada um vê uma coisa que os outros não veem.** O `audit` percorre
 os ecrãs e mede desenho — e desde 25/08 também **percorre o tutorial** e afirma
 que cada passo destaca alguma coisa. O `test:gesto` é o único que despacha
 eventos de toque: os outros conduzem a app com cliques, e um clique não tem
-direção nem duração. O `test:apagar` é o único que corre a cascata destrutiva,
-e é o único que precisa do emulador.
+direção nem duração. O `test:persistencia` é o único sem browser: corre o
+config+db+userdata reais num vm de node e guarda dois contratos — o corpo do
+`saveUserDoc` leva TUDO o que o `persistNow` manda (o PATCH vai sem updateMask;
+um campo esquecido não "fica como estava", é apagado da nuvem — foi assim que
+a lista de bloqueados se perdeu durante semanas), e as três funções de
+privacidade (`podeVerPerfil`, `canSeeUser`, filtro de bloqueados). O
+`test:apagar` é o único que corre a cascata destrutiva, e é o único que
+precisa do emulador. Desde 25/08 os de browser + o de persistência correm
+também no CI a cada push (`.github/workflows/testes.yml`).
 
 Se mexeres em ficheiros que a app corre, corre-os. Se só mexeres em documentação,
 diz que não os correste e porquê — não os dês por corridos.
