@@ -19,6 +19,12 @@
   com.apple.developer.applesignin — o entitlement do Sign in with Apple. Só tem
   efeito num build assinado com a equipa (Bloco 4.1); num build de simulador sem
   equipa é ignorado sem estorvar.
+
+  aps-environment — push (F3, 25/08). "development" é o valor certo AQUI: o
+  build de distribuição promove-o a "production" na assinatura, sozinho. Só
+  funciona depois de o dono ligar a capability Push Notifications no App ID e
+  carregar a APNs key na consola do Firebase — sem isso o registo devolve erro
+  e a app segue sem push, que é o comportamento desenhado.
 -->
 <plist version="1.0">
 <dict>
@@ -30,5 +36,7 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<key>aps-environment</key>
+	<string>development</string>
 </dict>
 </plist>

@@ -71,6 +71,74 @@ equipaDeAssinatura();
 alvoDeImplantacao();
 versaoENumeroDeBuild();
 familiaDeDispositivos();
+modosDeBackground();
+appDelegatePush();
+
+// O push precisa do modo de background remote-notification no Info.plist.
+// É um ARRAY, e o laço principal só sabe strings/bools — função própria, com
+// o valor fixo: não é configuração, é requisito.
+function modosDeBackground() {
+  let atual = "";
+  try { atual = pb(["-c", "Print :UIBackgroundModes"]); } catch { /* não existe ainda */ }
+  if (atual.includes("remote-notification")) return;
+  if (!atual) pb(["-c", "Add :UIBackgroundModes array"]);
+  pb(["-c", "Add :UIBackgroundModes:0 string remote-notification"]);
+  const lido = pb(["-c", "Print :UIBackgroundModes"]);
+  if (!lido.includes("remote-notification")) {
+    console.error("ios-info: UIBackgroundModes ficou sem remote-notification");
+    process.exit(1);
+  }
+  console.log("ios-info: UIBackgroundModes com remote-notification");
+}
+
+// O glue nativo do push. A pasta ios/ é gitignored, portanto ISTO é a fonte
+// versionada do patch — a mesma armadilha dos entitlements, quinta vez. O que
+// o patch faz: FirebaseApp.configure() no arranque (o FirebaseMessaging
+// precisa), e os dois callbacks de registo remoto — o token APNs entra no
+// Messaging, o token FCM sai, e é ESSE que se entrega ao evento do Capacitor
+// (o plugin aceita String; é o padrão documentado para FCM). Contar em vez de
+// confiar: cada âncora verificada, exit 1 se o template do Capacitor mudou.
+function appDelegatePush() {
+  const caminho = join(ROOT, "ios/App/App/AppDelegate.swift");
+  if (!existsSync(caminho)) return;
+  let t = readFileSync(caminho, "utf8");
+  if (t.includes("// foodboxd:push")) {
+    console.log("ios-info: AppDelegate já tem o glue do push");
+    return;
+  }
+  const ancoraImport = "import Capacitor\n";
+  const ancoraArranque = "        // Override point for customization after application launch.\n";
+  const ancoraAntes = "    func application(_ app: UIApplication, open url: URL";
+  for (const [nome, a] of [["import", ancoraImport], ["arranque", ancoraArranque], ["open url", ancoraAntes]]) {
+    if (!t.includes(a)) {
+      console.error(`ios-info: não encontrei a âncora "${nome}" no AppDelegate — o template do Capacitor mudou`);
+      process.exit(1);
+    }
+  }
+  t = t.replace(ancoraImport, ancoraImport + "import FirebaseCore\nimport FirebaseMessaging\n");
+  t = t.replace(ancoraArranque, ancoraArranque +
+    "        // foodboxd:push — o FirebaseMessaging precisa do configure(); o guard\n" +
+    "        // evita configurar duas vezes se outro plugin o fizer primeiro.\n" +
+    "        if FirebaseApp.app() == nil { FirebaseApp.configure() }\n");
+  t = t.replace(ancoraAntes,
+    "    // foodboxd:push — o token APNs entra no Messaging e sai o token FCM,\n" +
+    "    // que é o que o servidor (admin.messaging) sabe usar. O plugin do\n" +
+    "    // Capacitor aceita a String no evento de registo.\n" +
+    "    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {\n" +
+    "        Messaging.messaging().apnsToken = deviceToken\n" +
+    "        Messaging.messaging().token { token, _ in\n" +
+    "            if let token = token {\n" +
+    "                NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: token)\n" +
+    "            }\n" +
+    "        }\n" +
+    "    }\n\n" +
+    "    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {\n" +
+    "        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)\n" +
+    "    }\n\n" +
+    ancoraAntes);
+  writeFileSync(caminho, t);
+  console.log("ios-info: AppDelegate com o glue do push (FCM)");
+}
 
 // A versão e o número de build, do ios-build.json para o projeto.
 //
@@ -279,6 +347,7 @@ if (existsSync(join(ROOT, GS))) {
   registarNoXcode();
   urlSchemeDaGoogle();
   subspecDaGoogle();
+  podDeMessaging();
 } else {
   console.log(`ios-info: sem ${GS} na raiz — o login nativo fica por ligar (bloco 1 do handoff)`);
 }
@@ -389,6 +458,36 @@ function subspecDaGoogle() {
     cocoapods(["update", "GTMSessionFetcher"]);
   }
   console.log("ios-info: GoogleSignIn ligado");
+}
+
+// O FirebaseMessaging (F3): converte o token APNs no token FCM que o servidor
+// sabe usar. Mesmo padrão do subspec da Google — a linha vai para o corpo do
+// target (o `def capacitor_pods` é regenerado e apagá-la-ia), e o pod install
+// só corre quando a linha entra de novo.
+function podDeMessaging() {
+  const podfile = join(ROOT, "ios/App/Podfile");
+  if (!existsSync(podfile)) return;
+  const antes = readFileSync(podfile, "utf8");
+  if (/pod 'FirebaseMessaging'/.test(antes)) return; // já lá está
+  const marca = "  # Add your Pods here";
+  if (!antes.includes(marca)) {
+    console.error("ios-info: o Podfile não tem a marca '# Add your Pods here' — o Capacitor mudou o template");
+    process.exit(1);
+  }
+  writeFileSync(podfile, antes.replace(marca, `  pod 'FirebaseMessaging'\n${marca}`));
+  console.log("ios-info: Podfile com o FirebaseMessaging — a correr pod install");
+  try {
+    execFileSync("/usr/bin/env", ["pod", "install"], {
+      cwd: join(ROOT, "ios/App"),
+      encoding: "utf8",
+      env: { ...process.env, LANG: "en_US.UTF-8", LC_ALL: "en_US.UTF-8" }
+    });
+  } catch (e) {
+    console.error("ios-info: o pod install do FirebaseMessaging falhou:");
+    console.error((String((e && e.stdout) || "") + String((e && e.stderr) || "")).split("\n").filter(Boolean).slice(-15).join("\n"));
+    process.exit(1);
+  }
+  console.log("ios-info: FirebaseMessaging ligado");
 }
 
 // O login nativo com a Google volta para a app por um URL scheme, e o scheme é

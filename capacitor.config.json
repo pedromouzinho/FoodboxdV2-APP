@@ -21,6 +21,9 @@
         "google.com"
       ]
     },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    },
     "Keyboard": {
       "resize": "none"
     }
