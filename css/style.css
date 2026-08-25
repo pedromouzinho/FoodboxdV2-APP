@@ -606,7 +606,13 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 }
 .detail-panel[aria-hidden="false"] .detail-card { transform: translateX(0); }
 .detail-close {
-  position: absolute; top: var(--sp-3); right: var(--sp-3); z-index: 2;
+  /* sticky, não absolute: o card é o scroller e o X desaparecia ao rolar —
+     quem estava fundo na ficha só saía rolando tudo para cima. O margin-bottom
+     negativo devolve ao fluxo a altura do botão, para o hero não descer. */
+  position: sticky; top: var(--sp-3); z-index: 20;
+  display: block;
+  margin-left: auto; margin-right: var(--sp-3);
+  margin-bottom: -36px;
   background: rgba(255, 255, 255, 0.9);
   color: #2b2620;
 }

@@ -127,6 +127,28 @@ await abrirFicha();
 await caminho([600, 604, 400], 0);
 ok("e o conteúdo rola", (await rolou()) > 0, `scrollTop=${await rolou()}`);
 
+// O X de fechar tem de ficar À VISTA quando se rola (F5): antes era absolute
+// dentro do scroller e desaparecia — quem estava fundo na ficha só saía
+// rolando tudo para cima ou acertando no gesto.
+const xVisivel = await p.evaluate(() => {
+  const x = document.querySelector("#detail-panel .detail-close");
+  if (!x) return { erro: "sem botão" };
+  const r = x.getBoundingClientRect();
+  const cs = getComputedStyle(x);
+  const card = document.querySelector("#detail-panel .detail-card");
+  const cardTop = card ? card.getBoundingClientRect().top : 0;
+  // Mede-se contra o CARD, não contra a viewport: no telemóvel a ficha é uma
+  // folha que começa ~100px abaixo do topo, e a primeira versão desta
+  // afirmação acusava um sticky que estava perfeitamente colado.
+  return {
+    top: r.top, doCard: r.top - cardTop,
+    visivel: r.height > 0 && (r.top - cardTop) >= 0 && (r.top - cardTop) < 80,
+    pos: cs.position, scrollTop: card ? card.scrollTop : null
+  };
+});
+ok("o X de fechar continua à vista com a ficha rolada", xVisivel.visivel === true,
+  JSON.stringify(xVisivel));
+
 // ---- 3. o gesto legítimo continua a fechar ------------------------------
 // Sem isto, a correção podia ser "nunca fechar", que passa os dois de cima e
 // estraga a funcionalidade.
