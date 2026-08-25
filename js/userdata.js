@@ -543,9 +543,9 @@ const UserData = (() => {
       Storage.setVisited(id, on);
     }
   }
-  function visitedCount(ids) {
-    return ids.filter((id) => isVisited(id)).length;
-  }
+  // (o visitedCount e o lastVisit saíram a 25/08: exportados desde o início e
+  // nunca chamados por ninguém — quem precisava recalculava à mão. Menos duas
+  // portas para o redesenho da visita ter de manter.)
 
   // ---- priority / ratings / history (cloud only) ----
   function isPriority(id) {
@@ -600,10 +600,6 @@ const UserData = (() => {
     if (list.length) mine.history[id] = list;
     else delete mine.history[id];
     scheduleSave();
-  }
-  function lastVisit(id) {
-    const h = getHistory(id);
-    return h.length ? visitDate(h[h.length - 1]) : null;
   }
 
   // ---- group queries ----
@@ -686,7 +682,6 @@ const UserData = (() => {
     reloadGroup,
     isVisited,
     setVisited,
-    visitedCount,
     isPriority,
     setPriority,
     getRating,
@@ -696,7 +691,6 @@ const UserData = (() => {
     visitWith,
     addVisit,
     removeVisit,
-    lastVisit,
     others,
     everyone,
     visitedBy,
