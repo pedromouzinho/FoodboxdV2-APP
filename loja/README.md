@@ -16,20 +16,26 @@
 Max), que é a que a App Store exige hoje para iPhone. As restantes medidas são
 derivadas por ela, e por isso não é preciso tirá-las.
 
-| Ficheiro | O que mostra | Porquê este |
-| --- | --- | --- |
-| `01-mapa.png` | Portugal inteiro, com os pins espalhados de Braga ao Algarve | É o que a app é à primeira vista, e mostra que não está vazia |
-| `02-lista.png` | «68 RESTAURANTES», cartões com foto, avaliação, preço e especialidade | Prova densidade e qualidade de informação sem ser preciso ler |
-| `03-ficha.png` | Monte d'Açorda: foto, 4.6 (759), €€€, telefone, especialidade | Mostra o que se ganha ao tocar num sítio |
-| `04-filtros.png` | Cozinha, estilo, região, preço | Mostra que a lista se dobra ao que apetece hoje |
+| # | Ficheiro | O que mostra | Porquê este, e por esta ordem |
+| --- | --- | --- | --- |
+| 1 | `01-mapa.png` | Portugal inteiro, pins de Braga ao Algarve, alguns já marcados | É o que a app é à primeira vista, e os pins preenchidos mostram que é *um diário*, não um directório |
+| 2 | `02-pergunta-me.png` | A IA a responder: «Maria Catita · 4.7 (8558) · €€€ · 2 km», a citar o gosto de quem pergunta | **É o que mais distingue a app.** Cita o perfil de gosto e dá distâncias reais |
+| 3 | `03-diario.png` | «16 restaurantes · 10 críticas · 18 pratos», com as fotos | A metade pessoal do produto, e a razão para voltar |
+| 4 | `04-lista.png` | «68 RESTAURANTES», cartões com foto, nota, preço e especialidade | Densidade de informação sem ser preciso ler |
+| 5 | `05-ficha.png` | Monte d'Açorda: foto, 4.6 (759), €€€, telefone, especialidade | O que se ganha ao tocar num sítio |
+| 6 | `06-filtros.png` | Cozinha, estilo, região, preço | A lista dobra-se ao que apetece hoje |
 
-**Todos foram tirados sem sessão iniciada**, de propósito: é o que o revisor vai
-ver, e é o argumento da nota ao revisor — a app vê-se toda sem conta.
+**A ordem não é decorativa:** na App Store, os dois primeiros são os que aparecem
+nos resultados de pesquisa sem ninguém abrir a página. Por isso o mapa abre e o
+«Pergunta-me» vem logo a seguir — é o que ninguém mais faz.
 
-> **O que falta, e é uma escolha:** um quinto ecrã com o diário ou o
-> «Pergunta-me» a responder mostraria a parte pessoal, que é metade do produto.
-> Exige sessão com dados dentro, portanto exige o dono. **Vale a pena** — é o que
-> distingue a app de um directório de restaurantes.
+**Os 1, 4, 5 e 6 foram tirados sem sessão**, que é o que o revisor vê e o que a
+nota ao revisor afirma. O 2 e o 3 exigem conta, e mostram-na com dados reais.
+
+> ⚠️ **Repara no que o 2 e o 3 mostram de verdade:** restaurantes que o dono
+> visitou, e um texto da IA que cita o gosto dele por nome. É a conta real. Numa
+> montra pública isso é uma escolha, não um detalhe — se preferires ecrãs com
+> dados neutros, é preciso uma conta de demonstração povoada de propósito.
 
 ---
 
@@ -113,15 +119,20 @@ Feito em Portugal.
 | Categoria secundária | **Travel** | Apanha quem procura onde comer numa viagem |
 | Idioma principal | **Português (Portugal)** | A app é toda em português |
 | Privacy Policy URL | `https://foodboxd.pt/privacidade` | Já está no ar, verificada com HTTP 200 |
-| Support URL | ⚠️ **por definir** | Ver abaixo |
+| Support URL | `https://foodboxd.pt/ajuda` | Escrita, ver abaixo |
 | Marketing URL | `https://foodboxd.pt` | Opcional, mas já existe |
 | Sign-in required | **NO** | Medido: a app vê-se toda sem conta (secção 4.4 do handoff) |
 
-> ⚠️ **O Support URL é obrigatório e ainda não existe.** Tem de ser uma página
-> onde alguém consiga pedir ajuda. As saídas, por ordem de esforço: apontar para
-> `foodboxd.pt/privacidade`, que já tem o email de contacto (aceite, mas é
-> estranho); ou uma página `foodboxd.pt/ajuda` com três linhas e o mesmo email.
-> **A segunda é meia hora e fica melhor.**
+**✅ A página de ajuda existe** — [`ajuda.html`](../ajuda.html), servida em
+`/ajuda`. O dono deixou a decisão ao agente, e a decisão foi não usar o atalho:
+apontar o *Support* para a política de privacidade é obrigar quem tem um
+problema a ler um texto legal, e nota-se.
+
+Responde ao que uma pessoa presa realmente pergunta — preciso de conta, entrei
+pela Google e perdi o que tinha na Apple, porque me pede a localização, quem vê o
+que escrevo, como denuncio, como apago a conta — e tem o email em cima, antes de
+tudo. Faz de caminho um segundo serviço: **a diretriz 1.2 exige contacto
+publicado**, e agora há um.
 
 ---
 
@@ -157,24 +168,23 @@ Isso cai na isenção habitual. Na prática responde-se que a app usa encriptaç
 e a seguir que é **só encriptação padrão do sistema** (HTTPS/TLS), o que dispensa
 a documentação de exportação.
 
-**Para não ter de responder isto em cada versão**, acrescenta-se ao `Info.plist`:
+**✅ E já não é preciso responder em cada versão.** O
+`ITSAppUsesNonExemptEncryption = false` está no [`ios-info.json`](../ios-info.json),
+versionado como os textos de permissão, e o `scripts/ios-info.mjs` escreve-o no
+`Info.plist` a cada `npm run sync`.
 
-```xml
-<key>ITSAppUsesNonExemptEncryption</key>
-<false/>
-```
-
-> Se o dono quiser, o agente põe isto no `ios-info.json` para ficar versionado,
-> como os textos de permissão — o `Info.plist` é gerado e descartável, e à mão
-> desaparecia no clone seguinte.
+> **O tipo importava, e quase passava.** O script escrevia tudo como *string*, e
+> `"false"` num plist é um valor presente que a Apple lê como verdadeiro — a
+> pergunta voltaria em cada versão, que é o oposto do que a chave existe para
+> fazer. Passou a escrever `bool` quando o valor é booleano. Confirmado com
+> `plutil -p`: `"ITSAppUsesNonExemptEncryption" => false`, sem aspas.
 
 ---
 
 ## O que fica por decidir
 
-1. **O Support URL** — a página de ajuda, ou o atalho para a de privacidade.
-2. **O quinto screenshot** — o diário ou o «Pergunta-me», que exige sessão.
-3. **A descrição** — está escrita, e é a peça que mais merece ser lida devagar.
+1. **Se os screenshots 2 e 3 podem levar dados reais** — ver o aviso lá em cima.
+2. **A descrição** — está escrita, e é a peça que mais merece ser lida devagar.
    O «O QUE NÃO HÁ» no fim é uma aposta deliberada: numa loja cheia de apps que
    vivem de publicidade, dizer que não há nenhuma é o argumento mais forte que
    esta app tem. Se soar a arrogante, corta-se.

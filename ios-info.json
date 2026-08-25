@@ -6,9 +6,14 @@
     "de App Review: a Apple rejeita justificações genéricas.",
     "",
     "Escritos no Info.plist por scripts/ios-info.mjs, que corre no npm run sync.",
-    "Editar aqui, nunca no Info.plist — o que lá estiver é sobrescrito."
+    "Editar aqui, nunca no Info.plist — o que lá estiver é sobrescrito.",
+    "",
+    "O ITSAppUsesNonExemptEncryption=false dispensa responder a pergunta da",
+    "conformidade de exportacao em CADA versao submetida. A app so usa HTTPS,",
+    "que e encriptacao padrao do sistema e cai na isencao."
   ],
   "NSLocationWhenInUseUsageDescription": "Para encontrar a morada do sítio que estás a adicionar, e para te dizer a que distância ficam os restaurantes da tua lista.",
   "NSCameraUsageDescription": "Para tirares uma fotografia ao prato e a guardares na tua experiência.",
-  "NSPhotoLibraryUsageDescription": "Para escolheres uma fotografia que já tiraste e a juntares a uma experiência ou ao teu perfil."
+  "NSPhotoLibraryUsageDescription": "Para escolheres uma fotografia que já tiraste e a juntares a uma experiência ou ao teu perfil.",
+  "ITSAppUsesNonExemptEncryption": false
 }

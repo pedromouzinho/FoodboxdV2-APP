@@ -56,6 +56,10 @@
       {
         "source": "/privacidade",
         "destination": "/privacidade.html"
+      },
+      {
+        "source": "/ajuda",
+        "destination": "/ajuda.html"
       }
     ],
     "headers": [

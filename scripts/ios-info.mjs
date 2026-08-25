@@ -41,15 +41,20 @@ const pb = (args) => execFileSync(PB, [...args, PLIST], { encoding: "utf8", stdi
 let escritas = 0;
 for (const chave of chaves) {
   const valor = fonte[chave];
+  // O tipo importa. O `ITSAppUsesNonExemptEncryption` tem de ser um BOOLEANO no
+  // plist — escrito como a string "false" fica um valor que a Apple lê como
+  // presente-e-verdadeiro, e a pergunta da conformidade de exportação volta a
+  // aparecer em cada versão, que é exatamente o que ele existe para evitar.
+  const tipo = typeof valor === "boolean" ? "bool" : "string";
   // Set falha se a chave não existir; nesse caso Add. Idempotente nos dois
   // sentidos, para o sync poder correr as vezes que forem precisas.
   try {
     pb(["-c", `Set :${chave} ${valor}`]);
   } catch {
-    pb(["-c", `Add :${chave} string ${valor}`]);
+    pb(["-c", `Add :${chave} ${tipo} ${valor}`]);
   }
   const lido = pb(["-c", `Print :${chave}`]).trim();
-  if (lido !== valor) {
+  if (lido !== String(valor)) {
     console.error(`ios-info: ${chave} ficou diferente do que devia`);
     console.error(`  esperado: ${valor}`);
     console.error(`  no plist: ${lido}`);
