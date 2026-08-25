@@ -16,7 +16,7 @@
    iOS. É a ordem de trabalhos, com a tabela "O que falta, por ordem" no fim, que
    **é o estado** e é lá que se atualiza.
 
-**O que está no ar agora:** `foodboxd.pt`, service worker `foodboxd-v86`, oito
+**O que está no ar agora:** `foodboxd.pt`, service worker `foodboxd-v87`, oito
 pessoas com dados lá dentro. Nada vai a produção sem pedir.
 
 **O que a app é, em duas linhas:** vanilla JS sem framework nem build — um

@@ -119,12 +119,13 @@ Feito em Portugal.
 | Categoria secundária | **Travel** | Apanha quem procura onde comer numa viagem |
 | Idioma principal | **Português (Portugal)** | A app é toda em português |
 | Privacy Policy URL | `https://foodboxd.pt/privacidade` | Já está no ar, verificada com HTTP 200 |
-| Support URL | `https://foodboxd.pt/ajuda` | Escrita, ver abaixo |
+| Support URL | `https://foodboxd.pt/ajuda` | ✅ no ar, HTTP 200 |
 | Marketing URL | `https://foodboxd.pt` | Opcional, mas já existe |
 | Sign-in required | **NO** | Medido: a app vê-se toda sem conta (secção 4.4 do handoff) |
 
-**✅ A página de ajuda existe** — [`ajuda.html`](../ajuda.html), servida em
-`/ajuda`. O dono deixou a decisão ao agente, e a decisão foi não usar o atalho:
+**✅ A página de ajuda está no ar** — [`ajuda.html`](../ajuda.html), servida em
+`/ajuda`, publicada e verificada a 25/08 (HTTP 200, com o contacto e o link para
+a privacidade). O dono deixou a decisão ao agente, e a decisão foi não usar o atalho:
 apontar o *Support* para a política de privacidade é obrigar quem tem um
 problema a ler um texto legal, e nota-se.
 
