@@ -5,6 +5,10 @@
 //     offline fallback only).
 //   - Other static files -> stale-while-revalidate (fast, self-healing).
 //   - Cross-origin (Google Maps/Places/Directions, Firebase) -> network only.
+//
+// PUSH: a PWA web NÃO recebe push nesta v1 — só a app nativa (js/push.js).
+// Este service worker não tem handler de push de propósito; quando a web
+// entrar, é aqui que ele nasce.
 
 const CACHE = "foodboxd-v93";
 const ASSETS = [
