@@ -68,6 +68,51 @@ console.log(`ios-info: ${escritas} textos de permissão escritos no Info.plist`)
 
 entitlements();
 equipaDeAssinatura();
+alvoDeImplantacao();
+
+// O mínimo de iOS, no projeto E no Podfile.
+//
+// O Capacitor 6 gera 13.0. O upload de 25/08/2026 passou, mas com aviso: a
+// partir da primavera de 2027 a App Store Connect recusa qualquer app com menos
+// de 15.0. Subir agora, na fonte versionada, é o que evita que isto seja uma
+// surpresa para quem estiver a submeter nesse dia.
+//
+// Os dois sítios têm de concordar: o projeto manda na app, o Podfile manda nas
+// dependências, e um Podfile mais baixo faz o CocoaPods avisar em cada pod.
+function alvoDeImplantacao() {
+  const fonte = join(ROOT, "ios-build.json");
+  if (!existsSync(fonte)) return;
+  const alvo = (JSON.parse(readFileSync(fonte, "utf8")).deploymentTarget || "").trim();
+  if (!alvo) return;
+
+  const pbx = join(ROOT, "ios/App/App.xcodeproj/project.pbxproj");
+  let t = readFileSync(pbx, "utf8");
+  const existentes = [...t.matchAll(/IPHONEOS_DEPLOYMENT_TARGET = ([^;]+);/g)].map((m) => m[1].trim());
+  if (!existentes.length) {
+    console.error("ios-info: não encontrei nenhuma linha `IPHONEOS_DEPLOYMENT_TARGET` no projeto");
+    process.exit(1);
+  }
+  if (!existentes.every((e) => e === alvo)) {
+    t = t.replace(/IPHONEOS_DEPLOYMENT_TARGET = [^;]+;/g, `IPHONEOS_DEPLOYMENT_TARGET = ${alvo};`);
+    writeFileSync(pbx, t);
+    console.log(`ios-info: mínimo de iOS ${alvo} no projeto (${existentes.length} configurações)`);
+  }
+
+  // O Podfile é regenerado pelo `cap sync` a cada corrida — daí ser reposto
+  // aqui e não uma vez à mão.
+  const podfile = join(ROOT, "ios/App/Podfile");
+  if (!existsSync(podfile)) return;
+  const antes = readFileSync(podfile, "utf8");
+  const m = antes.match(/platform :ios, '([^']+)'/);
+  if (!m) {
+    console.error("ios-info: o Podfile não tem `platform :ios` — o Capacitor mudou o template");
+    process.exit(1);
+  }
+  if (m[1] !== alvo) {
+    writeFileSync(podfile, antes.replace(m[0], `platform :ios, '${alvo}'`));
+    console.log(`ios-info: mínimo de iOS ${alvo} no Podfile (era ${m[1]}) — é preciso pod install`);
+  }
+}
 
 // A equipa de assinatura, pelo mesmo motivo dos entitlements: escolhe-se no
 // Xcode, vive no project.pbxproj, e o project.pbxproj é gerado e descartável.
@@ -77,7 +122,7 @@ equipaDeAssinatura();
 // O Team ID não é segredo (vai dentro de todos os perfis de aprovisionamento),
 // por isso mora em ios-signing.json, versionado.
 function equipaDeAssinatura() {
-  const fonte = join(ROOT, "ios-signing.json");
+  const fonte = join(ROOT, "ios-build.json");
   if (!existsSync(fonte)) return;
   const equipa = (JSON.parse(readFileSync(fonte, "utf8")).developmentTeam || "").trim();
   if (!equipa) return;

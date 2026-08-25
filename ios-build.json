@@ -1,0 +1,19 @@
+{
+  "_porque": [
+    "Definições do projeto iOS que se escolhem no Xcode e vivem no project.pbxproj",
+    "ou no Podfile — os dois gerados e no .gitignore. O que se escolhe à mão",
+    "desaparece no clone seguinte, por isso mora aqui e é reposto pelo",
+    "scripts/ios-info.mjs a cada npm run sync.",
+    "",
+    "developmentTeam: sem ela não há build para dispositivo nem upload. Não é",
+    "segredo — vai dentro de todos os perfis de aprovisionamento.",
+    "",
+    "deploymentTarget: o mínimo de iOS. O Capacitor 6 gera 13.0, e o upload de",
+    "25/08/2026 devolveu o aviso 'MinimumOSVersion too low: a partir da primavera",
+    "de 2027 tem de ser 15.0 ou superior'. Subiu-se para 15.0 agora, na fonte, em",
+    "vez de ficar para quem tropeçar nisso em 2027. Não custa alcance nenhum:",
+    "o iPhone 6s e tudo o que veio depois chega ao iOS 15."
+  ],
+  "developmentTeam": "LGN8A4342T",
+  "deploymentTarget": "15.0"
+}

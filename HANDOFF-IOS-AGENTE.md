@@ -646,7 +646,7 @@ final. O plugin devolve-o noutro sítio.
 ### 4.1 Assinatura — ✅ a equipa já está no projeto (25/08)
 
 **Não é preciso abrir o Xcode para isto.** O Team ID vive em
-[`ios-signing.json`](ios-signing.json), versionado, e o `scripts/ios-info.mjs`
+[`ios-build.json`](ios-build.json), versionado, e o `scripts/ios-info.mjs`
 escreve-o no `project.pbxproj` a cada `npm run sync` — pelo mesmo motivo dos
 textos de permissão e dos entitlements: a pasta `ios/` é gerada e descartável, e
 o que se escolhe à mão no Xcode desaparece no clone seguinte.
@@ -1197,7 +1197,7 @@ Verificado a seguir, do lado de fora:
 ```
 GET /privacidade            -> HTTP 200, <title>Privacidade · Foodboxd</title>
 GET /sw.js                  -> const CACHE = "foodboxd-v87"    (estava v84)
-GET /ios-signing.json       -> HTTP 404                        (deixou de ser publicado)
+GET /ios-build.json       -> HTTP 404                        (deixou de ser publicado)
 ```
 
 > **O que isto ainda NÃO prova:** que uma denúncia é aceite. Uma escrita
@@ -1599,7 +1599,7 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | Apple ID nas Definições do simulador | dono | ✅ feito |
 | — | A ponte da Apple: `rawNonce` e `signInWithCredential` | agente | ✅ medidos |
 | — | **A captura do nome da Apple** numa primeira autorização | dono destrancou, agente mediu | ✅ **fechado 25/08** — `nome="Pedro Mouzinho"` |
-| — | Equipa de assinatura no projeto (4.1) | agente | ✅ `LGN8A4342T`, versionada em `ios-signing.json` |
+| — | Equipa de assinatura no projeto (4.1) | agente | ✅ `LGN8A4342T`, versionada em `ios-build.json` |
 | 2 | Capacidade *Sign in with Apple* — só se o build para dispositivo a pedir | dono, se preciso | por confirmar |
 | — | "Pergunta-me" + permissão de localização (4.2) | agente | ✅ medido |
 | — | Carregar foto para um sítio (4.2) | agente | ✅ sobe e aparece |
@@ -1777,6 +1777,37 @@ instrumento — e agora há um.
 Amigos antes de fazer seja o que for.** É a única oportunidade de confirmar o que
 a 4.4 afirma a partir do código — que uma conta acabada de criar não aparece
 vazia.
+
+#### O upload de 25/08 passou, com um aviso — e o aviso tem data
+
+```
+App Store Connect Warning
+MinimumOSVersion too low. This app has a MinimumOSVersion of 13.0. Starting in
+Spring 2027, all iOS apps must have a MinimumOSVersion of 15.0 or later in
+order to be uploaded to App Store Connect or submitted for distribution.
+```
+
+**Não bloqueou nada** — a build subiu e é submissível. O 13.0 é o que o
+Capacitor 6 gera.
+
+**Resolvido na fonte, e não à mão**, porque à mão desaparecia no clone seguinte:
+o `deploymentTarget` passou a viver em [`ios-build.json`](ios-build.json) (o
+antigo `ios-signing.json`, renomeado agora que guarda mais do que assinatura), e
+o `scripts/ios-info.mjs` escreve-o **nos dois sítios que têm de concordar**: o
+`project.pbxproj`, que manda na app, e o `Podfile`, que manda nas dependências.
+Um Podfile mais baixo faz o CocoaPods avisar em cada pod.
+
+```
+ios-info: mínimo de iOS 15.0 no projeto (4 configurações)
+ios-info: mínimo de iOS 15.0 no Podfile (era 13.0) — é preciso pod install
+```
+
+Confirmado com `pod install` e `npm run ios:build` a passar. **Não custa alcance
+nenhum:** o iPhone 6s e tudo o que veio depois chega ao iOS 15.
+
+> **Não vale a pena voltar a arquivar por causa disto.** A build que está lá em
+> cima serve para esta submissão; a mudança entra sozinha na próxima, porque
+> corre a cada `npm run sync`.
 
 **Nos metadados da loja:** esta tabela sempre tratou do que faz a app funcionar,
 e nunca do que a App Store Connect pede ao lado. São coisas diferentes e ambas
