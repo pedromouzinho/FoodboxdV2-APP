@@ -4665,31 +4665,34 @@ const App = (() => {
     paintFeed(el, ftr(merged));
   }
 
-  // ----- Amigos leaderboard: rank everyone by number of visits (no network) -----
+  // ----- Amigos leaderboard: rank everyone by places + visits (no network) -----
+  //
+  // O "Sempre" mostra AS DUAS contagens (decisão do dono, 25/08): sítios
+  // (flags de visitado — cobre o toggle manual e o legado sem datas) e
+  // visitas (entradas datadas). Antes mostrava só a primeira com o rótulo da
+  // segunda — "2 visitas" que eram flags — e foi por isso que remover uma
+  // visita não mexia no pódio: a flag ficava acesa. Com o removeVisit a
+  // desligar a flag da última visita, ambas as contagens descem agora.
   function computeAmigosLeaderboard(period) {
     const ym = new Date().toISOString().slice(0, 7);
     const inPeriod = (iso) => period === "all" || (iso || "").slice(0, 7) === ym;
     return UserData.everyone()
       .map((g) => {
-        // All-time: number of restaurants marked visited (covers the toggle,
-        // not only dated history). Monthly: dated visits in the current month.
-        let visits;
-        if (period === "all") {
-          visits = (g.visited || []).length;
-        } else {
-          visits = 0;
-          Object.values(g.history || {}).forEach((dates) =>
-            (dates || []).forEach((d) => { if (inPeriod(UserData.visitDate(d))) visits++; })
-          );
-        }
+        let visits = 0;
+        Object.values(g.history || {}).forEach((dates) =>
+          (dates || []).forEach((d) => { if (inPeriod(UserData.visitDate(d))) visits++; })
+        );
+        const sitios = period === "all" ? (g.visited || []).length : null;
         let ratings = 0, starSum = 0;
         Object.values(g.ratings || {}).forEach((rt) => {
           if (!rt || !rt.stars) return;
           if (period === "all" || inPeriod(rt.updatedAt)) { ratings++; starSum += rt.stars; }
         });
-        return { g, visits, ratings, avgStars: ratings ? starSum / ratings : 0 };
+        return { g, sitios, visits, ratings, avgStars: ratings ? starSum / ratings : 0 };
       })
-      .sort((a, b) => b.visits - a.visits || b.ratings - a.ratings);
+      .sort((a, b) => (period === "all"
+        ? (b.sitios - a.sitios || b.visits - a.visits || b.ratings - a.ratings)
+        : (b.visits - a.visits || b.ratings - a.ratings)));
   }
 
   function lbRankLabel(rank) {
@@ -4697,6 +4700,11 @@ const App = (() => {
   }
 
   function lbAmigoRow(item, rank) {
+    // No "Sempre" as duas contagens; no mês só as visitas (sitios vem null).
+    const score = item.sitios !== null && item.sitios !== undefined
+      ? `<strong>${item.sitios}</strong> <span class="lb-unit">${item.sitios === 1 ? "sítio" : "sítios"}</span>` +
+        ` · <strong>${item.visits}</strong> <span class="lb-unit">${item.visits === 1 ? "visita" : "visitas"}</span>`
+      : `<strong>${item.visits}</strong> <span class="lb-unit">${item.visits === 1 ? "visita" : "visitas"}</span>`;
     return `<div class="lb-row">
       ${lbRankLabel(rank)}
       ${avatar(item.g.displayName, item.g.photoURL)}
@@ -4704,7 +4712,7 @@ const App = (() => {
         <span class="lb-name">${esc(item.g.displayName || "Amigo")}</span>
         <span class="lb-stats muted">${icon("star")} ${item.ratings}${item.avgStars ? ` (${item.avgStars.toFixed(1)})` : ""}</span>
       </div>
-      <span class="lb-score"><strong>${item.visits}</strong> <span class="lb-unit">${item.visits === 1 ? "visita" : "visitas"}</span></span>
+      <span class="lb-score">${score}</span>
     </div>`;
   }
 

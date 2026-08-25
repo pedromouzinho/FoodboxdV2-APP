@@ -509,6 +509,22 @@ const soVisitas = await p.evaluate((rid) =>
 chk("o cartão unificado responde ao filtro Avaliações", soAvaliacoes === 1, `viu ${soAvaliacoes}`);
 chk("… e ao filtro Visitas", soVisitas === 1, `viu ${soVisitas}`);
 
+// ---------------------------------------------------------------------------
+// 10. Leaderboard "Sempre": sítios E visitas, lado a lado
+// ---------------------------------------------------------------------------
+// A Amiga tem 2 sítios visitados e 2 visitas registadas (uma nova, uma
+// legada). O "Sempre" antigo mostrava "2 visitas" a contar FLAGS — foi assim
+// que remover uma visita não mexia no pódio, medido na app real a 25/08.
+await p.click('[data-atab="leaderboard"]');
+await p.waitForSelector("#amigos-leaderboard .lb-row", { timeout: 6000 }).catch(() => {});
+const linhaAmiga = await p.evaluate(() => {
+  const row = [...document.querySelectorAll("#amigos-leaderboard .lb-row")]
+    .find((r) => /Amiga Feed/.test(r.textContent));
+  return row ? row.textContent.replace(/\s+/g, " ").trim() : null;
+});
+chk("o Sempre mostra os sítios", !!(linhaAmiga && /2\s*sítios/.test(linhaAmiga)), `linha: ${linhaAmiga}`);
+chk("… e as visitas, lado a lado", !!(linhaAmiga && /2\s*visitas/.test(linhaAmiga)), `linha: ${linhaAmiga}`);
+
 await browser.close();
 srv.close();
 console.log(falhas ? `\nvisita: ${falhas} FALHA(S)` : "\nvisita: a unidade atómica está de pé");
