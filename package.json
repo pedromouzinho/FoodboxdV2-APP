@@ -5,7 +5,7 @@
   "description": "Foodboxd — diário de restaurantes (PWA + casca iOS via Capacitor).",
   "scripts": {
     "build:www": "node scripts/build-www.js",
-    "sync": "npm run build:www && npx cap sync ios && node scripts/ios-info.mjs",
+    "sync": "npm run build:www && npx cap sync ios && npx capacitor-assets generate --ios && node scripts/ios-info.mjs",
     "ios": "npm run sync && npx cap open ios",
     "preview": "node scripts/preview.mjs",
     "emu:start": "node scripts/emu.mjs",
