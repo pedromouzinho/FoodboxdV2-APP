@@ -18,6 +18,7 @@ const ASSETS = [
   "js/userdata.js",
   "js/filtro.js",
   "js/erros.js",
+  "js/push.js",
   "js/auth.js",
   "js/map.js",
   "js/geocode.js",

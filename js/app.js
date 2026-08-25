@@ -1701,8 +1701,21 @@ const App = (() => {
     avatarEl.innerHTML = avatar(perfil.displayName || nomeConhecido || "", perfil.photoURL);
 
     const sigo = UserData.isFollowing(uid);
+    // O seletor de notificações vive AQUI, na pessoa (F3, decisão do dono):
+    // "customizável" quer dizer por pessoa seguida — Tudo / Só avaliações /
+    // Nada — e não um interruptor global escondido (esse também existe, no
+    // Perfil, e corta tudo).
+    const pref = UserData.getFollowPref(uid);
+    const blocoPush = sigo ? `
+      <div class="pessoa-bloco" data-push-prefs>
+        <span class="detail-section-title">${icon("sparkles")} Notificações desta pessoa</span>
+        <div class="seg">
+          ${[["all", "Tudo"], ["ratings", "Só avaliações"], ["none", "Nada"]].map(([v, rotulo]) =>
+            `<button type="button" class="seg-btn${pref === v ? " active" : ""}" data-push-pref="${v}">${rotulo}</button>`).join("")}
+        </div>
+      </div>` : "";
     const botaoSeguir = `<button type="button" class="btn ${sigo ? "btn-ghost" : "btn-primary"} btn-block"
-      data-pessoa-seguir="${esc(uid)}">${sigo ? "A seguir" : "Seguir"}</button>`;
+      data-pessoa-seguir="${esc(uid)}">${sigo ? "A seguir" : "Seguir"}</button>${blocoPush}`;
 
     if (!UserData.podeVerPerfil(perfil, souSeguidor)) {
       subEl.textContent = perfil.visibilidade === "ninguem"
@@ -1758,11 +1771,21 @@ const App = (() => {
       try {
         if (sigo) await UserData.unfollow(perfil.uid);
         else await UserData.follow(perfil.uid);
+        // Acabou de seguir a primeira pessoa? É AGORA que faz sentido pedir a
+        // licença de notificações — nunca no arranque, quando ainda não há
+        // relação nenhuma que as justifique.
+        if (!sigo && typeof Push !== "undefined") Push.talvezAtivar();
         // Reabrir: seguir pode destrancar os destaques, e ficar com o botão
         // trocado e o conteúdo antigo seria mentira.
         abrirPerfilDe(perfil.uid, perfil.displayName);
       } catch (e) { b.disabled = false; }
     });
+    // O seletor por pessoa (F3): Tudo / Só avaliações / Nada.
+    sheet.querySelectorAll("[data-push-pref]").forEach((seg) => seg.addEventListener("click", () => {
+      UserData.setFollowPref(perfil.uid, seg.dataset.pushPref);
+      sheet.querySelectorAll("[data-push-pref]").forEach((x) =>
+        x.classList.toggle("active", x.dataset.pushPref === seg.dataset.pushPref));
+    }));
   }
 
   function fecharPerfilDe() {
@@ -2541,6 +2564,11 @@ const App = (() => {
         <button type="button" class="perfil-row" data-perfil="pessoas">${icon("users")}<span>Descobrir pessoas</span>${icon("chevron-right")}</button>
         <button type="button" class="perfil-row" data-perfil="tutorial">${icon("info")}<span>Rever tutorial</span>${icon("chevron-right")}</button>
         <button type="button" class="perfil-row" data-perfil="publico">${icon("user")}<span>O meu perfil público</span>${icon("chevron-right")}</button>
+        ${window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() ? `
+        <button type="button" class="perfil-row" data-perfil="push" aria-pressed="${UserData.isPushEnabled()}">
+          ${icon("sparkles")}<span>Notificações</span>
+          <span class="muted">${UserData.isPushEnabled() ? "Ligadas" : "Desligadas"}</span>
+        </button>` : ""}
         <button type="button" class="perfil-row" data-perfil="privacidade">${icon("info")}<span>Privacidade</span>${icon("chevron-right")}</button>
         <button type="button" class="perfil-row" data-perfil="termos">${icon("info")}<span>Termos de utilização</span>${icon("chevron-right")}</button>
         ${UserData.getBlocked().length ? `<button type="button" class="perfil-row" data-perfil="bloqueados">${icon("flag")}<span>Pessoas bloqueadas (${UserData.getBlocked().length})</span>${icon("chevron-right")}</button>` : ""}
@@ -2558,6 +2586,12 @@ const App = (() => {
       if (what === "apagar") abrirApagarConta();
       else if (what === "privacidade") abrirPrivacidade();
       else if (what === "termos") abrirTermos();
+      else if (what === "push") {
+        // O interruptor geral: corta tudo, acima das preferências por pessoa.
+        UserData.setPushEnabled(!UserData.isPushEnabled());
+        if (UserData.isPushEnabled() && typeof Push !== "undefined") Push.talvezAtivar();
+        renderPerfil();
+      }
       else if (what === "publico") abrirMeuPerfilPublico();
       else if (what === "bloqueados") abrirBloqueados();
       else if (what === "gosto") showTasteProfile();
@@ -5264,6 +5298,10 @@ const App = (() => {
       // ready to power suggestions (once restaurants are loaded).
       setTimeout(maybeAutoTasteProfile, 2000);
       loadPendingInvites(); // badge shows up without opening Amigos
+      // Push (F3): para quem JÁ segue gente, este é o momento mais perto de
+      // "a relação existe" — quem ainda não segue só ouve falar de push
+      // depois do primeiro follow. No-op fora do nativo.
+      if (typeof Push !== "undefined") Push.talvezAtivar();
       if (!inviteRefreshWired) {
         inviteRefreshWired = true;
         document.addEventListener("visibilitychange", () => {

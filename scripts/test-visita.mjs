@@ -750,6 +750,38 @@ chk("… e o ficheiro",
   await p.evaluate(() => window.__ficheirosApagados.includes("restaurants/x/eu-arnes-9.jpg")),
   await p.evaluate(() => JSON.stringify(window.__ficheirosApagados)));
 
+// ---------------------------------------------------------------------------
+// 15. A preferência de push por pessoa, na folha do perfil dela
+// ---------------------------------------------------------------------------
+await p.evaluate(() => {
+  DB.fetchProfile = async (uid) => ({ uid, displayName: "Amiga Feed", photoURL: "", destaques: [], favoritos: [], visibilidade: "todos" });
+  DB.fetchFollowers = async () => [];
+});
+await p.evaluate(() => { const x = document.querySelector(".detail-close"); if (x) x.click(); });
+await p.evaluate(() => {
+  // abre a folha do perfil da pessoa seguida pelo caminho real do feed
+  const b = document.createElement("button");
+  b.className = "person-abrir"; b.dataset.abrirPessoa = "amigo-feed"; b.dataset.abrirNome = "Amiga Feed";
+  document.body.appendChild(b); b.click(); b.remove();
+});
+const temPrefs = await p.waitForSelector("[data-push-pref]", { timeout: 4000 }).then(() => true).catch(() => false);
+chk("a folha da pessoa seguida tem o seletor de notificações", temPrefs);
+if (temPrefs) {
+  await p.evaluate(() => { document.querySelector('[data-push-pref="ratings"]').click(); });
+  await p.waitForTimeout(700);
+  chk("escolher 'só avaliações' fica na preferência",
+    await p.evaluate(() => UserData.getFollowPref("amigo-feed") === "ratings"));
+  chk("… e chega ao payload gravado",
+    await p.evaluate(() => {
+      const s = window.__saves[window.__saves.length - 1];
+      return !!(s && s.followPrefs && s.followPrefs["amigo-feed"] === "ratings");
+    }),
+    await p.evaluate(() => JSON.stringify((window.__saves[window.__saves.length - 1] || {}).followPrefs)));
+} else {
+  ["escolher 'só avaliações' fica na preferência", "… e chega ao payload gravado"]
+    .forEach((n) => chk(n, false, "sem seletor"));
+}
+
 await browser.close();
 srv.close();
 console.log(falhas ? `\nvisita: ${falhas} FALHA(S)` : "\nvisita: a unidade atómica está de pé");
