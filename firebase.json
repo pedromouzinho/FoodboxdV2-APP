@@ -39,7 +39,8 @@
       "SETUP_IOS.md",
       "HANDOFF-IOS-AGENTE.md",
       "ios-signing.json",
-      "ios-entitlements.plist"
+      "ios-entitlements.plist",
+      "loja/**"
     ],
     "rewrites": [
       {

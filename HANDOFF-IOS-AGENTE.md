@@ -1616,7 +1616,7 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | Conta de teste (4.4) | — | ✅ **não é precisa** — a app vê-se toda sem conta (medido) |
 | — | ⚠️ **Contas Apple e Google separadas — já em produção** | dono decide o quê, agente executa | ver abaixo |
 | 7 | A procura numa porta, o ecrã de entrada, o perfil público | decisão do dono | por decidir |
-| — | ⚠️ **Metadados da loja** — screenshots, descrição, subtítulo, palavras-chave, classificação etária, conformidade de exportação | nunca foram listados aqui; ver a nota | **por levantar** |
+| 6 | **Metadados da loja** — rascunhados em [`loja/README.md`](loja/README.md), com os 4 screenshots em 1320×2868 | agente escreveu; **dono lê, decide o Support URL e cola** | por aprovar |
 
 ### ⚠️ Duas contas para a mesma pessoa — e já está no ar
 
