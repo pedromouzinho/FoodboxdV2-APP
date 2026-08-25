@@ -134,6 +134,13 @@
           <input id="entrada-palavra" type="password" autocomplete="current-password" required />
         </label>
         <p class="entrada-estado" data-entrada-estado role="status" aria-live="polite"></p>
+        <!-- Só aparece quando o vigia do portão conclui que o serviço de
+             contas não veio (rede à Google em baixo). Recarregar é a única
+             ação que faz sentido: o SDK vem por import estático e não se
+             volta a tentar sem recomeçar a página. -->
+        <button type="button" id="entrada-reload" class="btn btn-ghost btn-block" data-entrada-reload hidden>
+          Tentar de novo
+        </button>
         <button type="submit" id="entrada-submit" class="btn btn-primary btn-block">Entrar</button>
       </form>
 

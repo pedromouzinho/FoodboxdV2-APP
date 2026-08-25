@@ -62,6 +62,9 @@ await p.waitForTimeout(2500);
 
 // A app pede conta. O que se mede aqui são gestos, que não dependem de sessão.
 await p.evaluate(() => {
+  // Desarma o vigia do portão: num ambiente sem rede à Google ele levantava a
+  // entrada aos 6s POR CIMA da cena, a meio de um gesto.
+  window.__semPortao = true;
   const e = document.getElementById("entrada");
   if (e) e.hidden = true;
   document.body.classList.remove("sem-sessao");

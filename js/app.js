@@ -2049,6 +2049,10 @@ const App = (() => {
     const form = document.getElementById("entrada-form");
     if (!form) return;
     form.addEventListener("submit", submeterEntrada);
+    // O "Tentar de novo" do vigia do portão: o SDK vem por import estático e
+    // não há segunda tentativa sem recomeçar a página.
+    const reload = document.querySelector("#entrada [data-entrada-reload]");
+    if (reload) reload.addEventListener("click", () => window.location.reload());
     const troca = document.querySelector("#entrada [data-entrada-modo]");
     if (troca) troca.addEventListener("click", () => {
       entradaModo = entradaModo === "criar" ? "entrar" : "criar";
@@ -4865,7 +4869,35 @@ const App = (() => {
   }
 
   // Called by AuthModule when the signed-in user changes.
+  // O vigia do portão. O SDK do Firebase vem por import estático de um módulo:
+  // se o gstatic não responder (hotel, cativo, firewall), o módulo inteiro
+  // morre em silêncio, o firebase-auth-ready nunca dispara e o onAuthChange
+  // nunca corre — e a app abria INTEIRA sem sessão, medido em produção a
+  // 25/08 com o gstatic bloqueado. O portão que só fecha quando o autenticador
+  // chega é um portão que a rede escolhe deixar aberto.
+  //
+  // Fail-closed: se ao fim do prazo ninguém respondeu (nem user nem null), o
+  // ecrã de entrada levanta-se com o aviso e um recarregar. Se o SDK ainda
+  // vier depois — ligação lenta, não morta — o onAuthChange corre e ou esconde
+  // a entrada (há sessão) ou a deixa, já funcional. Auto-cura nos dois sentidos.
+  let autenticacaoRespondeu = false;
+  const PRAZO_DO_PORTAO_MS = 6000;
+  function vigiarPortao() {
+    setTimeout(() => {
+      // __semPortao: os arneses que ENCENAM uma sessão (audit, test:gesto,
+      // test:map) põem isto antes do prazo. Sem o interruptor, num contentor
+      // sem rede à Google o vigia levantava a entrada POR CIMA das cenas — e
+      // o arnês passava no Mac e falhava lá, que é a doença das nove lições.
+      if (autenticacaoRespondeu || window.__semPortao) return;
+      mostrarEntrada();
+      entradaEstado("Não consegui ligar ao serviço de contas. Vê a ligação à internet e tenta de novo.", "erro");
+      const b = document.querySelector("#entrada [data-entrada-reload]");
+      if (b) b.hidden = false;
+    }, PRAZO_DO_PORTAO_MS);
+  }
+
   async function onAuthChange(user, getToken) {
+    autenticacaoRespondeu = true;
     if (user) {
       esconderEntrada();
       hideSigninModal(true); // a sessão expirou e voltou: fecha o que estiver aberto
@@ -4923,6 +4955,7 @@ const App = (() => {
     // O botão "Entrar" da barra abre o ecrã com as duas opções em vez de ir
     // direto para a Google — ver a nota sobre a diretriz 4.8 em js/auth.js.
     AuthModule.init({ onUser: onAuthChange, onSignInRequest: showSigninModal });
+    vigiarPortao(); // fail-closed: sem resposta do autenticador, a entrada levanta-se
 
     const curated = await (await fetch("data/restaurants.json")).json();
     state.curated = curated; // kept for pull-to-refresh rebuilds

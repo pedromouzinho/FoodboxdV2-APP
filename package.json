@@ -15,6 +15,7 @@
     "preview:pwa": "PWA_SAFE=1 node scripts/preview.mjs",
     "test:map": "node scripts/test-map.mjs",
     "test:persistencia": "node scripts/test-persistencia.mjs",
+    "test:portao": "node scripts/test-portao.mjs",
     "test:update": "node scripts/test-update.mjs",
     "ai:diff": "node scripts/ai-diff.mjs",
     "test:taste": "node scripts/test-taste.mjs",

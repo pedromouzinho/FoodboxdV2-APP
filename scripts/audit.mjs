@@ -43,6 +43,9 @@ const SEED = () => {
   const amigos=[{uid:"a1",displayName:"Leonor Carvalho",photoURL:"",town:"Évora"},
                 {uid:"a2",displayName:"Miguel",photoURL:"",town:"Porto"},
                 {uid:"a3",displayName:"Rita Nunes Pereira da Silva",photoURL:"",town:"Faro"}];
+  // Desarma o vigia do portão: as cenas escondem/mostram a entrada à mão, e
+  // num ambiente sem rede à Google o vigia levantava-a aos 6s por cima delas.
+  window.__semPortao = true;
   const seg=new Set(["a1","a2"]);
   const ids=window.__ids||[];
   const rat={};

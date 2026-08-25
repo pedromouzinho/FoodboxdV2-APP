@@ -53,3 +53,6 @@ jobs:
 
       - name: test:gesto
         run: npm run test:gesto
+
+      - name: test:portao
+        run: npm run test:portao

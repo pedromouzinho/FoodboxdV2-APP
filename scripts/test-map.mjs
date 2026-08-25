@@ -28,6 +28,9 @@ const p=await c.newPage(); p.setDefaultTimeout(4000);
 // dependência de ambiente que saiu do test-update.
 await p.addInitScript(() => {
   try { sessionStorage.setItem("rp.signinPrompt", "off"); } catch (e) {}
+  // Desarma o vigia do portão: este ensaio mede o enquadramento do mapa, e num
+  // ambiente sem rede à Google a entrada levantava-se aos 6s sobre a cena.
+  window.__semPortao = true;
 });
 
 // Google Maps a fingir, só o suficiente para o MapModule se considerar
