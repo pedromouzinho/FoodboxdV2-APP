@@ -1170,14 +1170,51 @@ deixa submeter vazio. Não há como contornar, e não há versão curta que sirv
 levantamento ficheiro a ficheiro, com o sítio de cada dado e os quatro destinos
 externos — é exatamente o conteúdo de uma política, por escrever em prosa.
 
+**✅ Escrita a 25/08** — [`privacidade.html`](privacidade.html), servida em
+`/privacidade` por um rewrite no `firebase.json` (sem ligar `cleanUrls` global,
+que mudaria o comportamento de todos os endereços).
+
+Não é texto genérico: sai da tabela da 4.3, linha a linha. Diz o que a maioria
+das políticas esconde — que a localização precisa **é** partilhada com a
+Anthropic pelas distâncias, e que o `tasteNote` vai inteiro no pedido.
+
+**Duas afirmações minhas estavam erradas e foram apanhadas antes de publicar**,
+a ler o código em vez de confiar no que eu próprio tinha escrito:
+
+- escrevi que as notas de visita eram privadas. **Não são:** o
+  `buildFriendsFeed()` mete o `note` nos itens do feed, portanto quem te segue
+  lê-as. A página diz agora isso, e diz que não é um caderno privado.
+- escrevi que o perfil de gosto nunca sai. Sai — vai à Anthropic no
+  «Pergunta-me», e viaja dentro do documento da conta para quem te segue
+  (ver a nota abaixo).
+
+> **A ficar para decidir, e é de minimização de dados:** o `fetchUsersByIds`
+> traz o documento inteiro de cada pessoa que segues, e o `js/db.js:268`
+> descodifica lá o `tasteNote`. Nada na interface o mostra, mas ele chega ao
+> dispositivo de quem te segue. Ninguém o vê; simplesmente não devia lá ir.
+> Tirá-lo da descodificação de terceiros é pequeno — mas é código, e fica para
+> o dono decidir se entra antes ou depois da submissão.
+
+**O link na app está feito e o mecanismo está medido.** Perfil → *Privacidade*
+chama `window.open(..., "_blank")`, e no simulador isso abre a página **fora**
+da WKWebView, numa vista do Safari com barra de endereço e com «◀ Foodboxd»
+para voltar. Era o risco: dentro da webview não há barra nem botão de recuar, e
+a pessoa ficaria presa numa página estática sem saída a não ser matar a app.
+
+> Na medição a página deu **Page Not Found** do Firebase Hosting, e isso é o
+> resultado certo: a página existe no repositório e ainda não foi publicada. O
+> que se estava a medir era para onde o toque leva, não o que lá está.
+
 **O que falta, e de quem é:**
 
-| Passo | De quem |
-| --- | --- |
-| Escrever o texto a partir da tabela da 4.3 | agente prepara |
-| **Ler e assumir o que lá está** — é um compromisso legal, não um ficheiro | **dono, e só o dono** |
-| Publicar em `foodboxd.pt/privacidade` (é hosting estático, sai no mesmo deploy) | agente dispara, dono autoriza |
-| Colar o URL na App Store Connect | dono |
+| Passo | De quem | Estado |
+| --- | --- | --- |
+| Escrever o texto a partir da tabela da 4.3 | agente | ✅ feito |
+| Link na app, a abrir fora da webview | agente | ✅ feito e medido |
+| **Dar o nome do responsável e o email de contacto** — a página tem `[[NOME DO RESPONSÁVEL]]` e `[[EMAIL DE CONTACTO]]` por preencher, e não os invento: são dados pessoais que vão para uma página pública | **dono** | por fazer |
+| **Ler e assumir o que lá está** — é um compromisso legal, não um ficheiro | **dono, e só o dono** | por fazer |
+| Publicar em `foodboxd.pt/privacidade` | agente dispara, dono autoriza | por fazer |
+| Colar o URL na App Store Connect | dono | por fazer |
 
 > Vale a pena um link no ecrã Perfil, ao lado do "Apagar a conta". Não é exigido
 > pela App Store, mas é onde as pessoas o procuram, e o RGPD aplica-se — há oito
@@ -1426,7 +1463,7 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | O 2.º pedido de localização diz "localhost" (3b) | dono decidiu, agente fez | ✅ resolvido e medido 24/08 |
 | — | Etiquetas de privacidade (4.3) | agente | ✅ levantadas do código |
 | **0** | ⛔ **Diretriz 1.2 — sem denunciar nem bloquear** (4.0). Risco de rejeição, e é o único item que exige código novo | agente faz, dono decide se agora | **por decidir** |
-| **0** | ⛔ **Política de privacidade — não existe** (4.3b). Bloqueia a submissão: o campo é obrigatório | agente escreve, dono assume, dono autoriza publicar | **por fazer** |
+| **0** | ⛔ **Política de privacidade** (4.3b) — escrita, com dois campos por preencher e por publicar | agente escreveu; **dono dá nome+email, lê e autoriza publicar** | **por decidir** |
 | 4 | **Submeter** as etiquetas na App Store Connect (4.3) | dono | por fazer |
 | 5 | Nota ao revisor (4.4) — **já escrita**, falta colar e confirmar | dono | por fazer |
 | — | Conta de teste (4.4) | — | ✅ **não é precisa** — a app vê-se toda sem conta (medido) |

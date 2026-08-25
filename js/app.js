@@ -1728,6 +1728,7 @@ const App = (() => {
         ${AIModule.available() ? `<button type="button" class="perfil-row" data-perfil="gosto">${icon("sparkles")}<span>O meu perfil de gosto</span>${icon("chevron-right")}</button>` : ""}
         <button type="button" class="perfil-row" data-perfil="pessoas">${icon("users")}<span>Descobrir pessoas</span>${icon("chevron-right")}</button>
         <button type="button" class="perfil-row" data-perfil="tutorial">${icon("info")}<span>Rever tutorial</span>${icon("chevron-right")}</button>
+        <button type="button" class="perfil-row" data-perfil="privacidade">${icon("info")}<span>Privacidade</span>${icon("chevron-right")}</button>
         <button type="button" class="perfil-row perfil-row-danger" data-perfil="sair">${icon("log-in")}<span>Terminar sessão</span></button>
         <button type="button" class="perfil-row perfil-row-danger" data-perfil="apagar">${icon("trash")}<span>Apagar conta</span></button>
       </div>
@@ -1740,11 +1741,28 @@ const App = (() => {
     el.querySelectorAll("[data-perfil]").forEach((b) => b.addEventListener("click", () => {
       const what = b.dataset.perfil;
       if (what === "apagar") abrirApagarConta();
+      else if (what === "privacidade") abrirPrivacidade();
       else if (what === "gosto") showTasteProfile();
       else if (what === "pessoas") openPeopleModal();
       else if (what === "tutorial") showTour();
       else if (what === "sair") AuthModule.signOut();
     }));
+  }
+
+  // A política de privacidade abre-se FORA da app, e é de propósito.
+  //
+  // Na web um link normal chegava. No nativo não: a app corre numa WKWebView
+  // sem barra de endereço nem botão de retroceder — abrir a página dentro dela
+  // deixaria a pessoa numa página estática sem forma de voltar, e a única saída
+  // seria matar a app. O `_blank` faz o Capacitor entregá-la ao browser do
+  // sistema, que tem os dois.
+  //
+  // O endereço é absoluto pelo mesmo motivo do `CONFIG.API_BASE`: em
+  // `capacitor://localhost` um caminho relativo resolve para o handler local de
+  // ficheiros. Aqui até existiria (a página vai dentro do bundle), mas abria
+  // dentro da webview — que é exatamente o que não se quer.
+  function abrirPrivacidade() {
+    window.open("https://foodboxd.pt/privacidade", "_blank", "noopener");
   }
 
   function wireProfileUpload() {

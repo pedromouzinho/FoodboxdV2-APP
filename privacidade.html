@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<!--
+  Política de privacidade do Foodboxd.
+
+  Porque existe: o campo *Privacy Policy URL* da App Store Connect é obrigatório
+  e não deixa submeter vazio. Mas a razão a sério é outra: as etiquetas de
+  privacidade que se submetem à Apple dizem que se recolhe localização precisa e
+  que ela é partilhada com terceiros. Se esta página não disser o mesmo, são duas
+  declarações em contradição sobre a mesma app — e é dos itens que a Apple
+  confere.
+
+  O conteúdo não é genérico: sai do levantamento ficheiro a ficheiro que está na
+  secção 4.3 do HANDOFF-IOS-AGENTE.md, onde cada linha tem o sítio do código
+  onde acontece. Ao mudar o que a app recolhe ou para onde envia, mudar aqui no
+  mesmo commit.
+
+  Página autónoma de propósito: não usa o css/style.css, que é construído à
+  volta da casca da app (topbar fixa, tabbar, 100dvh). Repete os tokens de que
+  precisa, que são poucos.
+-->
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Privacidade · Foodboxd</title>
+<meta name="description" content="O que o Foodboxd recolhe, para que serve, com quem é partilhado e como apagar tudo." />
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" />
+<style>
+  :root {
+    --bg: #f6f1e7;
+    --surface: #fffefb;
+    --surface-2: #f0e8d8;
+    --text: #29231b;
+    --text-muted: #6b6152;
+    --border: #e3d8c3;
+    --primary: #b04a1c;
+    --font-body: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17130d;
+      --surface: #211b13;
+      --surface-2: #2b241a;
+      --text: #f2ece0;
+      --text-muted: #b5aa96;
+      --border: #3a3125;
+      --primary: #e8825a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap {
+    max-width: 42rem;
+    margin: 0 auto;
+    padding: max(24px, env(safe-area-inset-top)) 20px calc(48px + env(safe-area-inset-bottom));
+  }
+  header { padding: 8px 0 24px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+  .brand-mark { width: 22px; height: 22px; border-radius: 6px 2px 2px 6px; background: var(--primary); flex: none; }
+  .brand-name { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; }
+  h1 { font-family: var(--font-display); font-size: 2rem; line-height: 1.15; margin: 24px 0 4px; }
+  h2 { font-family: var(--font-display); font-size: 1.3rem; margin: 40px 0 8px; }
+  h3 { font-size: 1rem; margin: 24px 0 4px; }
+  .sub { color: var(--text-muted); margin: 0 0 8px; }
+  p, li { color: var(--text); }
+  a { color: var(--primary); }
+  ul { padding-left: 1.25rem; }
+  li { margin: 6px 0; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px 18px;
+    margin: 20px 0;
+  }
+  .tabela-envolve { overflow-x: auto; margin: 16px 0; }
+  table { border-collapse: collapse; width: 100%; min-width: 30rem; font-size: 0.94rem; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-weight: 700; background: var(--surface-2); }
+  tr:last-child td { border-bottom: 0; }
+  footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.92rem; }
+  code { background: var(--surface-2); padding: 1px 5px; border-radius: 5px; font-size: 0.9em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <a class="brand" href="/"><span class="brand-mark"></span><span class="brand-name">Foodboxd</span></a>
+</header>
+
+<h1>Política de privacidade</h1>
+<p class="sub">Última atualização: 25 de agosto de 2026</p>
+
+<p>
+  O Foodboxd é um diário de restaurantes: um mapa de sítios e um registo do que
+  comeste e do que achaste. Esta página diz, sem rodeios, o que é guardado, para
+  que serve, para onde vai e como se apaga.
+</p>
+
+<div class="card">
+  <p style="margin:0">
+    <strong>Podes usar o Foodboxd sem conta.</strong> O mapa, a lista de
+    restaurantes e as fichas de cada sítio funcionam sem iniciares sessão, e
+    nesse caso nada do que fazes sai do teu telemóvel. Só ao criares conta é que
+    passa a haver dados guardados nos nossos servidores.
+  </p>
+</div>
+
+<h2>Quem é responsável</h2>
+<p>
+  O Foodboxd é um projeto pessoal de <strong>[[NOME DO RESPONSÁVEL]]</strong>,
+  em Portugal. Para qualquer questão sobre privacidade, ou para exerceres os
+  direitos descritos mais abaixo:
+  <a href="mailto:[[EMAIL DE CONTACTO]]">[[EMAIL DE CONTACTO]]</a>.
+</p>
+
+<h2>O que é recolhido</h2>
+<p>Só existe se criares conta, e vem de duas origens: do teu método de entrada e do que escreves na app.</p>
+
+<div class="tabela-envolve">
+<table>
+  <thead>
+    <tr><th>Dado</th><th>De onde vem</th><th>Para que serve</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Nome e endereço de email</td>
+      <td>Da Google ou da Apple, quando inicias sessão. Se usares o
+          <em>Ocultar o meu email</em> da Apple, recebemos um endereço de
+          reencaminhamento e nunca o teu email verdadeiro.</td>
+      <td>Identificar a tua conta e mostrar quem és a quem te segue.</td>
+    </tr>
+    <tr>
+      <td>Fotografia de perfil</td>
+      <td>Do teu método de entrada, ou uma que carregues.</td>
+      <td>Aparecer ao lado do teu nome.</td>
+    </tr>
+    <tr>
+      <td>Fotografias de pratos e de restaurantes</td>
+      <td>Carregadas por ti.</td>
+      <td>Ficarem na tua experiência e na ficha do restaurante.</td>
+    </tr>
+    <tr>
+      <td>Avaliações, críticas, pratos, datas de visita e notas</td>
+      <td>Escritas por ti.</td>
+      <td>São o teu diário, e é o que a app faz.</td>
+    </tr>
+    <tr>
+      <td>O teu perfil de gosto (texto livre)</td>
+      <td>Escrito por ti, se quiseres.</td>
+      <td>Afinar as sugestões que a app te dá.</td>
+    </tr>
+    <tr>
+      <td>Quem segues e de que grupos fazes parte</td>
+      <td>Das tuas escolhas na app.</td>
+      <td>Montar a atividade e os rankings que vês.</td>
+    </tr>
+    <tr>
+      <td><strong>Localização precisa</strong></td>
+      <td>Do telemóvel, <strong>só quando usas o «Pergunta-me»</strong>, e só se
+          deres permissão. Nunca ao abrir a app, e nunca em segundo plano.</td>
+      <td>Saber o que está perto de ti. A app funciona sem isto — apenas não
+          consegue dizer «perto».</td>
+    </tr>
+    <tr>
+      <td>Identificador de conta</td>
+      <td>Gerado quando a conta é criada.</td>
+      <td>Ligar tudo o que é teu à tua conta.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h3>O que <em>não</em> é recolhido</h3>
+<ul>
+  <li>Não há publicidade, nem seguimento para publicidade, nem partilha de dados
+      com corretores de dados.</li>
+  <li>Não há ferramentas de análise de utilização: nada conta ecrãs vistos nem
+      constrói um perfil do teu comportamento.</li>
+  <li>Não é lida a tua lista de contactos, nem o teu calendário, nem as tuas
+      fotografias — só a imagem que escolhes, no momento em que a escolhes.</li>
+  <li>Não é usado o teu identificador de publicidade, e a app não pede
+      autorização para te seguir entre aplicações.</li>
+</ul>
+
+<h2>Com quem é partilhado</h2>
+<p>
+  Nada é vendido nem cedido a quem queira comprar. Há quatro serviços que fazem
+  parte do funcionamento da app, e o que cada um recebe é isto:
+</p>
+
+<div class="tabela-envolve">
+<table>
+  <thead>
+    <tr><th>Quem</th><th>O que recebe</th><th>Porquê</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Google</strong> (Firebase)</td>
+      <td>A tua conta e tudo o que guardas nela.</td>
+      <td>É onde os dados ficam alojados.</td>
+    </tr>
+    <tr>
+      <td><strong>Google</strong> (Maps, Places, Geocoding)</td>
+      <td>A tua localização precisa, quando a partilhas, e os nomes de sítios
+          que procuras.</td>
+      <td>Desenhar o mapa e encontrar moradas.</td>
+    </tr>
+    <tr>
+      <td><strong>Anthropic</strong></td>
+      <td>Quando usas o «Pergunta-me»: a tua pergunta, o teu perfil de gosto, os
+          restaurantes da tua lista com os pratos e as notas que escreveste, o
+          teu nome, e <strong>a distância a que estás de cada restaurante</strong>.</td>
+      <td>Gerar a sugestão. Só acontece quando carregas no botão.</td>
+    </tr>
+    <tr>
+      <td><strong>OpenStreetMap</strong> (Nominatim)</td>
+      <td>Apenas o texto que escreves ao procurar uma localidade. <strong>Não</strong>
+          recebe a tua localização.</td>
+      <td>Encontrar localidades quando o Google não responde.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Sobre a localização e o «Pergunta-me»</h3>
+  <p style="margin-bottom:0">
+    Vale a pena ser explícito, porque não é evidente: ao usares o «Pergunta-me»,
+    a tua posição exata não é enviada como coordenadas, mas <strong>é enviada a
+    distância a que estás de cada restaurante da lista</strong>. Várias
+    distâncias a pontos conhecidos permitem, em teoria, deduzir onde estás. Por
+    isso consideramos que a tua localização precisa <strong>é partilhada</strong>
+    com a Anthropic, e é assim que está declarado à Apple. Preferimos dizê-lo do
+    que escondê-lo atrás de um detalhe técnico.
+  </p>
+</div>
+
+<h2>O que outras pessoas veem</h2>
+<ul>
+  <li>As tuas <strong>críticas e fotografias</strong> aparecem na ficha do
+      restaurante e são visíveis a quem usa a app.</li>
+  <li>O teu <strong>nome e a tua fotografia de perfil</strong> aparecem ao lado
+      delas.</li>
+  <li>As tuas <strong>visitas e avaliações</strong> aparecem a quem te segue, e
+      contam para os rankings. Podes restringir isso no Perfil, em
+      <em>Quem vê a minha atividade</em>.</li>
+  <li><strong>As notas que escreves numa visita e os pratos que registas
+      aparecem também a quem te segue</strong>, ao lado das estrelas. Não são
+      um caderno privado — se preferires guardar um pensamento só para ti, não
+      o escrevas aqui.</li>
+  <li>O teu <strong>perfil de gosto</strong> não é mostrado a ninguém dentro da
+      app: serve para afinar as sugestões e é enviado à Anthropic quando usas o
+      «Pergunta-me».</li>
+</ul>
+
+<h2>Quanto tempo fica</h2>
+<p>
+  Fica enquanto tiveres conta. Quando apagas a conta, é apagado — não fica
+  arquivado nem anonimizado para outros fins.
+</p>
+
+<h2>Apagar tudo</h2>
+<p>
+  Na app: <strong>Perfil → Apagar conta</strong>. Confirma-se escrevendo
+  <code>APAGAR</code>, e apaga de uma vez:
+</p>
+<ul>
+  <li>a tua conta e o teu perfil;</li>
+  <li>as tuas críticas, avaliações, pratos, visitas e notas;</li>
+  <li>as tuas fotografias, incluindo os ficheiros;</li>
+  <li>quem segues e quem te segue, e os convites que trocaste.</li>
+</ul>
+<p>
+  Os grupos de que fazias parte não desaparecem se lá ficar mais alguém — passam
+  para outra pessoa. Os <strong>restaurantes</strong> que acrescentaste
+  continuam na lista partilhada, porque passaram a ser de toda a gente; deixam é
+  de estar associados a ti. É imediato e não tem volta.
+</p>
+
+<h2>Os teus direitos</h2>
+<p>
+  Se estiveres na União Europeia, o RGPD dá-te o direito de aceder aos teus
+  dados, corrigi-los, apagá-los, limitar o que se faz com eles, opor-te a esse
+  tratamento e levá-los contigo. O tratamento assenta no teu consentimento
+  (que retiras apagando a conta ou revogando a permissão de localização) e na
+  execução do serviço que pediste.
+</p>
+<p>
+  Escreve para <a href="mailto:[[EMAIL DE CONTACTO]]">[[EMAIL DE CONTACTO]]</a>
+  e respondemos. Se achares que os teus dados foram mal tratados, podes
+  reclamar junto da <a href="https://www.cnpd.pt" rel="noopener">CNPD</a>.
+</p>
+
+<h2>Crianças</h2>
+<p>
+  O Foodboxd não se destina a menores de 13 anos e não recolhe conscientemente
+  dados de crianças. Se souberes que uma criança criou conta, escreve-nos e
+  apagamo-la.
+</p>
+
+<h2>Alterações</h2>
+<p>
+  Se isto mudar, muda-se aqui e a data no topo passa a ser outra. Se a mudança
+  for significativa, é avisada dentro da app.
+</p>
+
+<footer>
+  Foodboxd · <a href="/">foodboxd.pt</a>
+</footer>
+
+</div>
+</body>
+</html>

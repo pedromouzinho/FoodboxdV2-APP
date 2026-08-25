@@ -16,8 +16,10 @@
       "firebase/**",
       "functions/**",
       "README.md",
-      "CONTEXT.md", "CLAUDE.md",
-      "DESIGN-BRIEF.md", "DESIGN-BRIEF-MARCA.md",
+      "CONTEXT.md",
+      "CLAUDE.md",
+      "DESIGN-BRIEF.md",
+      "DESIGN-BRIEF-MARCA.md",
       "DESIGN-HANDOFF.md",
       "design/**",
       "AI_SETUP.md",
@@ -31,8 +33,13 @@
       "scripts/**",
       "package.json",
       "package-lock.json",
-      "capacitor.config.json", "GoogleService-Info.plist", "ios-info.json",
-      "SETUP_IOS.md", "HANDOFF-IOS-AGENTE.md"
+      "capacitor.config.json",
+      "GoogleService-Info.plist",
+      "ios-info.json",
+      "SETUP_IOS.md",
+      "HANDOFF-IOS-AGENTE.md",
+      "ios-signing.json",
+      "ios-entitlements.plist"
     ],
     "rewrites": [
       {
@@ -44,6 +51,10 @@
         "source": "/api/conta",
         "function": "conta",
         "region": "europe-west1"
+      },
+      {
+        "source": "/privacidade",
+        "destination": "/privacidade.html"
       }
     ],
     "headers": [
