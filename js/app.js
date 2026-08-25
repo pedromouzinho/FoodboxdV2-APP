@@ -1684,7 +1684,7 @@ const App = (() => {
     const mine = me ? photos.filter((p) => p.uid === me.uid) : [];
     // SEC-001: only show photos from people I'm actually allowed to see.
     const others = me ? photos.filter((p) => p.uid !== me.uid && UserData.canSeeUser(p.uid)) : [];
-    if (myGrid) paintPhotoGrid(myGrid, mine, me ? "Ainda não adicionou fotos." : "Inicie sessão para adicionar fotos.");
+    if (myGrid) paintPhotoGrid(myGrid, mine, me ? "Ainda não juntaste fotos." : "Inicie sessão para adicionar fotos.");
     if (friendsGrid) paintPhotoGrid(friendsGrid, others, "Ainda não há fotos de amigos.");
 
     if (canUpload && myGrid) {
@@ -1693,7 +1693,7 @@ const App = (() => {
       const statusEl = mineEl.querySelector("[data-photo-status]");
       const handleFile = async (file) => {
         if (!file) return;
-        if (!/^image\//.test(file.type)) { statusEl.textContent = "Selecione uma imagem."; return; }
+        if (!/^image\//.test(file.type)) { statusEl.textContent = "Isso não é uma imagem."; return; }
         if (file.size > 6 * 1024 * 1024) { statusEl.textContent = "Imagem demasiado grande (máx. 6 MB)."; return; }
         statusEl.textContent = "A enviar foto…";
         try {
@@ -2352,7 +2352,7 @@ const App = (() => {
         if (status) status.textContent = "Inicie sessão para mudar a foto.";
         return;
       }
-      if (!/^image\//.test(file.type)) { if (status) status.textContent = "Selecione uma imagem."; return; }
+      if (!/^image\//.test(file.type)) { if (status) status.textContent = "Isso não é uma imagem."; return; }
       if (file.size > 6 * 1024 * 1024) { if (status) status.textContent = "Imagem demasiado grande (máx. 6 MB)."; return; }
       if (status) status.textContent = "A enviar…";
       try {
@@ -2758,7 +2758,7 @@ const App = (() => {
     const m = document.getElementById("cover-modal");
     const status = m.querySelector("[data-cover-status]");
     if (!r || !file || !UserData.isCloud() || !(window.FirebaseStorage && window.FirebaseStorage.configured)) return;
-    if (!/^image\//.test(file.type)) { status.textContent = "Selecione uma imagem."; return; }
+    if (!/^image\//.test(file.type)) { status.textContent = "Isso não é uma imagem."; return; }
     if (file.size > 6 * 1024 * 1024) { status.textContent = "Imagem demasiado grande (máx. 6 MB)."; return; }
     status.textContent = "A enviar…";
     try {
@@ -3552,7 +3552,7 @@ const App = (() => {
       const status = document.getElementById("planner-status");
       const results = document.getElementById("planner-results");
       results.innerHTML = "";
-      if (!from || !to) { status.textContent = "Indique o ponto de partida e o destino."; return; }
+      if (!from || !to) { status.textContent = "Escreve o ponto de partida e o destino."; return; }
       if (!PlannerModule.isAvailable()) { status.textContent = "O planeador não está disponível de momento."; return; }
       status.textContent = "A calcular rota…";
       try {

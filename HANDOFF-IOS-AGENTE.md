@@ -1196,7 +1196,7 @@ Verificado a seguir, do lado de fora:
 
 ```
 GET /privacidade            -> HTTP 200, <title>Privacidade · Foodboxd</title>
-GET /sw.js                  -> const CACHE = "foodboxd-v87"    (estava v84)
+GET /sw.js                  -> const CACHE = "foodboxd-v88"    (estava v84)
 GET /ios-build.json       -> HTTP 404                        (deixou de ser publicado)
 ```
 

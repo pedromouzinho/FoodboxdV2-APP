@@ -288,6 +288,32 @@ for (const scheme of ["light","dark"]) {
     if(r.transbordo) problemas.transbordo.add(`${nome}: ${r.transbordo}`);
     r.cortado.forEach(x=>add(problemas.cortado, x.cls+"|"+x.txt, {...x, cena:nome}));
   }
+  // AS DUAS PÁGINAS PUBLICADAS.
+  //
+  // A /privacidade e a /ajuda estão no ar em foodboxd.pt e nunca tinham passado
+  // por aqui — nem contraste, nem alvos de toque, nem tema escuro. São
+  // documentos à parte, com os tokens no próprio ficheiro, portanto uma
+  // regressão no tema escuro de uma delas não aparecia em mais lado nenhum.
+  //
+  // Apanhado por um agente a rever os textos, não por este arnês. A zona cega
+  // era permanente e existia desde que as páginas foram escritas.
+  for (const [nome, ficheiro] of [["Privacidade", "privacidade.html"], ["Ajuda", "ajuda.html"]]) {
+    try {
+      await p.goto(`http://127.0.0.1:8799/${ficheiro}`, { waitUntil: "domcontentloaded", timeout: 30000 });
+      await p.waitForTimeout(600);
+      const r = await p.evaluate(CHECKS);
+      r.contraste.forEach(x=>add(problemas.contraste, x.cls+"|"+x.r, {...x, cena:nome, tema:scheme}));
+      r.alvos.forEach(x=>add(problemas.alvos, x.cls+"|"+x.d, {...x, cena:nome}));
+      r.campos.forEach(x=>problemas.campos.add(`${nome}: ${x}`));
+      r.semNome.forEach(x=>problemas.semNome.add(`${nome}: ${x}`));
+      r.semAlt.forEach(x=>problemas.semAlt.add(`${nome}: ${x}`));
+      r.idsRepetidos.forEach(x=>problemas.idsRepetidos.add(x));
+      if(r.transbordo) problemas.transbordo.add(`${nome}: ${r.transbordo}`);
+    } catch(e) {
+      problemas.erros.add(`${scheme}: página "${nome}" falhou — ${String(e.message).split("\n")[0].slice(0,70)}`);
+    }
+  }
+
   await c.close();
 }
 await b.close(); srv.close();

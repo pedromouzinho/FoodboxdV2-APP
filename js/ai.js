@@ -20,7 +20,7 @@ const AIModule = (() => {
 
   async function call(action, payload) {
     const t = await token();
-    if (!t) throw new Error("Inicie sessão para usar a IA.");
+    if (!t) throw new Error("Entra para usares a IA.");
     const res = await fetch(endpoint(), {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + t },

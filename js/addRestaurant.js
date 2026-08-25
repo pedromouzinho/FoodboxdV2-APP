@@ -104,7 +104,7 @@ const AddRestaurantModule = (() => {
   }
 
   async function aiSuggest() {
-    if (!nameInput.value.trim()) { locateStatus.textContent = "Indique o nome primeiro."; return; }
+    if (!nameInput.value.trim()) { locateStatus.textContent = "Escreve o nome primeiro."; return; }
     if (typeof UserData === "undefined" || !UserData.isCloud()) return;
     aiSuggestBtn.disabled = true;
     const prev = aiSuggestBtn.innerHTML;
@@ -251,7 +251,7 @@ const AddRestaurantModule = (() => {
   // user can see/adjust them before saving.
   async function manualLocate() {
     if (!nameInput.value || !townInput.value) {
-      locateStatus.textContent = "Indique o nome e a localidade primeiro.";
+      locateStatus.textContent = "Escreve o nome e a localidade primeiro.";
       return;
     }
     locateStatus.textContent = "A procurar...";
@@ -304,7 +304,7 @@ const AddRestaurantModule = (() => {
   async function onSubmit(e) {
     e.preventDefault();
     if (!nameInput.value.trim() || !townInput.value.trim()) {
-      setStatus("Indique o nome e a localidade.", "error");
+      setStatus("Escreve o nome e a localidade.", "error");
       return;
     }
 
@@ -401,7 +401,7 @@ const AddRestaurantModule = (() => {
         App.onRestaurantAdded(restaurant, opts);
         setStatus(
           DB.isAvailable()
-            ? "Guardado só neste navegador. Inicie sessão para partilhar com todos."
+            ? "Guardado só neste navegador."
             : "Adicionado (guardado só neste navegador).",
           "success"
         );
