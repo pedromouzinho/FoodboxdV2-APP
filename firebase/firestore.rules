@@ -113,6 +113,23 @@ service cloud.firestore {
                     && request.resource.data.status in ['accepted', 'declined'];
       allow delete: if request.auth != null && request.auth.uid == resource.data.fromUid;
     }
+    // Content reports (App Store guideline 1.2). Write-only from the client:
+    // anyone signed in can file one about someone else's content, and nobody
+    // can read, edit or delete them from the app. They are reviewed in the
+    // Firestore console.
+    //
+    // `denuncianteUid` has to be the caller so a report can't be filed in
+    // someone else's name; `alvoUid` can't be the caller so the collection
+    // can't be used as free storage against oneself.
+    match /reports/{doc} {
+      allow read: if false;
+      allow update, delete: if false;
+      allow create: if request.auth != null
+                    && request.resource.data.denuncianteUid == request.auth.uid
+                    && request.resource.data.alvoUid != request.auth.uid
+                    && request.resource.data.tipo in ['comentario', 'foto'];
+    }
+
     // Photo metadata per restaurant (the file itself lives in Cloud Storage).
     // Anyone can read; only signed-in users can add, and only the uploader can
     // remove their own.

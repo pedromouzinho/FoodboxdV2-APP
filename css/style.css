@@ -801,6 +801,21 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 .comment-who .name { font-size: var(--fs-base); font-weight: 600; }
 .comment-who .when { font-size: var(--fs-xs); color: var(--text-faint); }
 .comment-body p { font-size: var(--fs-base); color: var(--text); margin: 2px 0 0; line-height: 1.45; }
+/* Denunciar/bloquear (diretriz 1.2). Discreto até se tocar nele: é uma saída de
+   emergência, não uma ação do dia a dia — mas tem de estar à vista de quem a
+   procura, que é o que a App Review faz. Alvo de 44px como todos os outros. */
+.comment-flag {
+  flex: none;
+  width: var(--h-control);
+  height: var(--h-control);
+  color: var(--text-faint);
+  align-self: flex-start;
+}
+.comment-flag:hover, .comment-flag:focus-visible { color: var(--text); }
+#mod-sheet .sheet-body { display: flex; flex-direction: column; gap: var(--sp-3); }
+#mod-sheet [data-mod-status] { display: flex; flex-direction: column; gap: var(--sp-3); }
+#mod-sheet [data-mod-status] .comment { align-items: center; }
+
 .comment-form { display: flex; flex-direction: column; gap: var(--sp-2); }
 .comment-form .btn { align-self: flex-end; }
 

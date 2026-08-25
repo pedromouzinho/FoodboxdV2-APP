@@ -1130,7 +1130,50 @@ diretriz **1.2 (Safety — User-Generated Content)** aplica-se por inteiro.
 > trás. Não adianta argumentar que são oito pessoas conhecidas — a app está numa
 > loja aberta a toda a gente, e é assim que é avaliada.
 
-**O menor caminho que cumpre**, e é mesmo pequeno:
+#### ✅ Construído a 25/08 — e o que falta é medi-lo
+
+| Peça | Onde |
+| --- | --- |
+| Denunciar um comentário | botão de bandeira em cada comentário de outra pessoa |
+| Denunciar uma fotografia | *Denunciar* no visualizador, só em fotos de outra pessoa |
+| Bloquear uma pessoa | na mesma folha do denunciar |
+| Desbloquear | Perfil → *Pessoas bloqueadas*, que só aparece havendo alguma |
+| Onde vão as denúncias | `reports/{id}` no Firestore, consultado na consola |
+| Onde vivem os bloqueios | `blocked[]` no meu `userData`, filtrado no cliente |
+
+**Decisões que valem a pena não reabrir:**
+
+- **O filtro dos bloqueados é no `applyGroupFilter`**, e não em cada sítio que
+  usa o grupo. O feed, os rankings, os contadores e os «visitado por N» passam
+  todos por `group` — filtrar num sítio só é o que evita esquecer um deles. O
+  `canSeeUser` fecha a segunda porta, a das fotos.
+- **Bloquear também deixa de seguir.** Sem isso a pessoa continuava a ser
+  descarregada a cada arranque só para ser filtrada a seguir.
+- **As denúncias são só de escrita.** As regras deixam criar e mais nada:
+  ninguém as lê, edita ou apaga pela app. Uma interface de gestão que ninguém
+  abre é pior do que uma coleção que se consulta quando é preciso.
+- **Bloquear não avisa ninguém e não apaga nada.** Não há mensagens diretas
+  nesta app, portanto não há nada a impedir — só a esconder.
+
+> ⚠️ **O que NÃO está medido, e é preciso ser claro:** o percurso de ponta a
+> ponta nunca correu. O botão só existe em conteúdo de **outra** pessoa, e a
+> conta que está no simulador é nova — as fichas que abri não tinham
+> comentários de ninguém. O que está verificado é: sintaxe das três camadas, o
+> `audit` sem erros de JavaScript, o `test:update` 7/7, o build a passar e a
+> app a arrancar sem exceções novas no log.
+>
+> **Como se mede, e são três minutos:** abrir um restaurante onde outra pessoa
+> tenha comentado, confirmar a bandeira ao lado do comentário dela, tocar,
+> *Denunciar* → aparece «Denúncia recebida» e nasce um documento em `reports`;
+> voltar atrás, tocar outra vez, *Bloquear* → o comentário desaparece na hora e
+> o Perfil passa a ter *Pessoas bloqueadas*. Depois *Desbloquear* e confirmar
+> que volta.
+>
+> **E há um passo que não é da app:** publicar as regras novas do Firestore
+> (`firebase deploy --only firestore:rules`). Sem elas a coleção `reports` não
+> aceita escritas e o *Denunciar* falha com permissão negada.
+
+**O caminho que se seguiu**, e é o mesmo que estava escrito aqui antes:
 
 1. **Denunciar** — um item no menu de cada crítica e de cada foto que escreve
    em `reports/{id}` `{ tipo, alvoId, autorUid, denuncianteUid, quando }` e
@@ -1462,7 +1505,7 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | Publicar a função `conta` (1b) | dono autorizou, agente disparou | ✅ publicada 24/08 |
 | — | O 2.º pedido de localização diz "localhost" (3b) | dono decidiu, agente fez | ✅ resolvido e medido 24/08 |
 | — | Etiquetas de privacidade (4.3) | agente | ✅ levantadas do código |
-| **0** | ⛔ **Diretriz 1.2 — sem denunciar nem bloquear** (4.0). Risco de rejeição, e é o único item que exige código novo | agente faz, dono decide se agora | **por decidir** |
+| **0** | ⛔ **Diretriz 1.2 — denunciar e bloquear** (4.0) | agente construiu | ⚠️ **feito, por medir** — e faltam publicar as regras |
 | **0** | ⛔ **Política de privacidade** (4.3b) — escrita, com dois campos por preencher e por publicar | agente escreveu; **dono dá nome+email, lê e autoriza publicar** | **por decidir** |
 | 4 | **Submeter** as etiquetas na App Store Connect (4.3) | dono | por fazer |
 | 5 | Nota ao revisor (4.4) — **já escrita**, falta colar e confirmar | dono | por fazer |

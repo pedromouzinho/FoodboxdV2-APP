@@ -41,6 +41,13 @@ const UserData = (() => {
   let shareGroupIds = []; // when not global, the group ids I chose to share with
   let visibleTo = []; // legacy: kept so older docs aren't broken by a rewrite
   let following = []; // uids I follow — the source of my feed from now on
+  // Pessoas bloqueadas. Exigido pela diretriz 1.2 da App Store: uma app com
+  // conteúdo de utilizadores tem de deixar bloquear quem é abusivo.
+  //
+  // Vive no meu próprio documento e o filtro é no cliente, que é onde o resto
+  // do social já é filtrado. Nunca chega a mais ninguém: o `fetchUsersByIds`
+  // pede só os campos da vista social, e este não é um deles.
+  let blocked = [];
 
   let onChange = null; // called after async loads complete
   let saveTimer = null;
@@ -123,6 +130,7 @@ const UserData = (() => {
       audienceGlobal = doc.audienceGlobal !== false; // default + legacy: global
       shareGroupIds = Array.isArray(doc.shareGroups) ? doc.shareGroups : [];
       visibleTo = Array.isArray(doc.visibleTo) ? doc.visibleTo : [];
+      blocked = Array.isArray(doc.blocked) ? doc.blocked : [];
       const legacyAudience = doc.audienceGlobal === undefined; // stamp it so others can query me
       // First sign-in: fold in whatever was marked locally before logging in.
       if (firstTime) {
@@ -164,6 +172,7 @@ const UserData = (() => {
     createdAt = "";
     audienceGlobal = true;
     shareGroupIds = [];
+    blocked = [];
     visibleTo = [];
     following = [];
     if (onChange) onChange();
@@ -195,6 +204,11 @@ const UserData = (() => {
   }
 
   // Narrow `allUsers` down to the active group's members (or show everyone).
+  //
+  // Nota sobre o nome: `allUsers` **não** são todos os utilizadores da app — é
+  // `fetchUsersByIds(followIds)`, ou seja quem eu sigo mais eu. Portanto "sem
+  // grupo ativo" quer dizer "sem filtro de grupo por cima de quem sigo", e não
+  // "toda a gente". O nome ficou do modelo anterior ao follow.
   function applyGroupFilter() {
     const grp = activeGroupId ? myGroups.find((g) => g.id === activeGroupId) : null;
     if (grp) {
@@ -202,6 +216,13 @@ const UserData = (() => {
       group = allUsers.filter((u) => ids.has(u.uid));
     } else {
       group = allUsers.slice();
+    }
+    // Bloqueados saem daqui e não de cada sítio que usa o grupo: o feed, os
+    // rankings, os contadores e os "visitado por N" passam todos por `group`,
+    // e filtrar num sítio só é o que evita esquecer um deles.
+    if (blocked.length) {
+      const fora = new Set(blocked);
+      group = group.filter((u) => !fora.has(u.uid));
     }
     syncMineToGroup();
   }
@@ -264,7 +285,8 @@ const UserData = (() => {
         tasteNote: tasteNote || "",
         audienceGlobal,
         visibleTo: computeVisibleTo(),
-        shareGroups: shareGroupIds
+        shareGroups: shareGroupIds,
+        blocked
       },
       token
     );
@@ -280,6 +302,35 @@ const UserData = (() => {
     myGroups.forEach((g) => { if (ids.has(g.id)) (g.members || []).forEach((m) => uids.add(m)); });
     return [...uids];
   }
+  // ---- bloquear pessoas (diretriz 1.2) ----
+  //
+  // Bloquear é uma decisão minha sobre o que EU vejo. Não avisa ninguém, não
+  // apaga nada, e não impede a outra pessoa de continuar a usar a app — só a
+  // tira de tudo o que me aparece. É o que a Apple exige e é o que faz sentido
+  // aqui: não há mensagens diretas, portanto não há nada a impedir.
+  function isBlocked(u) { return !!u && blocked.includes(u); }
+  function getBlocked() { return blocked.slice(); }
+  function blockUser(u) {
+    if (!u || u === uid || blocked.includes(u)) return false;
+    blocked.push(u);
+    // Deixar de seguir também, senão a pessoa continuava a ser descarregada a
+    // cada arranque só para ser filtrada a seguir.
+    if (following.includes(u)) unfollow(u).catch(() => {});
+    applyGroupFilter();
+    persistNow().catch(() => {});
+    if (onChange) onChange();
+    return true;
+  }
+  function unblockUser(u) {
+    const i = blocked.indexOf(u);
+    if (i < 0) return false;
+    blocked.splice(i, 1);
+    applyGroupFilter();
+    persistNow().catch(() => {});
+    if (onChange) onChange();
+    return true;
+  }
+
   function getSharing() { return { global: audienceGlobal, groupIds: shareGroupIds.slice() }; }
   async function setSharing(opts) {
     if (!cloud) return;
@@ -523,6 +574,10 @@ const UserData = (() => {
   function canSeeUser(targetUid) {
     if (!cloud || !targetUid) return false;
     if (targetUid === uid) return true;
+    // Bloqueado é bloqueado mesmo que continue a ser seguido. O `blockUser`
+    // também deixa de seguir, mas essa chamada é assíncrona e pode falhar — e
+    // esta é a porta única por onde passam as fotos de outras pessoas.
+    if (blocked.includes(targetUid)) return false;
     return following.includes(targetUid);
   }
   // Ratings from the group (incl. me) for this restaurant.
@@ -588,6 +643,10 @@ const UserData = (() => {
     markTasteGen,
     getSharing,
     setSharing,
+    isBlocked,
+    getBlocked,
+    blockUser,
+    unblockUser,
     leaveGroup,
     canSeeUser,
     getFollowing,

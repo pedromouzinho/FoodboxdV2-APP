@@ -378,16 +378,57 @@ const DB = (() => {
   const fetchFollowers = (uid, token) => queryFollows("targetUid", uid, token).then((l) => l.map((f) => f.followerUid).filter(Boolean));
 
   // One `get` per person — allowed by the rules, and cheap for a follow list.
+  // Só os campos que a vista social usa. Os mesmos que o `decodeUserDoc`
+  // escolhe — a diferença é que a máscara faz o **servidor** não os mandar, em
+  // vez de o cliente os deitar fora depois de os receber.
+  //
+  // O documento de uma pessoa tem mais coisas lá dentro: o `tasteNote`, que é
+  // texto que ela escreveu sobre si, o `blocked`, e as definições de partilha.
+  // Nada disso aparecia na interface, porque o decode já filtrava — mas
+  // atravessava a rede e chegava ao dispositivo de quem a segue. Não devia lá
+  // ir, e agora não vai.
+  const CAMPOS_DA_VISTA_SOCIAL = ["displayName", "photoURL", "visited", "priority", "priorityAt", "ratings", "history"];
+  const mascaraSocial = CAMPOS_DA_VISTA_SOCIAL.map((c) => `mask.fieldPaths=${c}`).join("&");
+
   async function fetchUsersByIds(uids, token) {
     if (!ready || !uids || !uids.length) return [];
     const out = await Promise.all(uids.map(async (uid) => {
       try {
-        const res = await fetch(`${docsBase}/userData/${encodeURIComponent(uid)}?${keyQ()}`, { headers: authHeaders(token) });
+        const res = await fetch(`${docsBase}/userData/${encodeURIComponent(uid)}?${keyQ()}&${mascaraSocial}`, { headers: authHeaders(token) });
         if (!res.ok) return null; // not followed / no doc yet
         return decodeUserDoc(await res.json());
       } catch (e) { return null; }
     }));
     return out.filter(Boolean);
+  }
+
+  // Denúncias de conteúdo. Exigidas pela diretriz 1.2 da App Store, que obriga
+  // qualquer app com conteúdo de utilizadores a ter forma de denunciar o que é
+  // ofensivo — e a App Review testa-o à mão, a abrir uma crítica de outra
+  // pessoa e a procurar o botão.
+  //
+  // Escreve-se e nunca mais se lê do cliente: as regras deixam criar e mais
+  // nada. Quem trata delas vê-as na consola do Firestore. Não é elegante, mas é
+  // o que oito pessoas precisam, e uma interface de gestão que ninguém abre é
+  // pior do que uma coleção que se consulta quando é preciso.
+  async function addReport(report, token) {
+    if (!ready) throw new Error("Cloud database not configured.");
+    const fields = encodeFields({
+      tipo: report.tipo,               // "comentario" | "foto"
+      alvoId: report.alvoId || "",     // id do documento denunciado
+      alvoUid: report.alvoUid || "",   // de quem é o conteúdo
+      restaurantId: report.restaurantId || "",
+      motivo: report.motivo || "",
+      denuncianteUid: report.denuncianteUid
+    });
+    fields.createdAt = { timestampValue: new Date().toISOString() };
+    const res = await fetch(`${docsBase}/reports?${keyQ()}`, {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify({ fields })
+    });
+    if (!res.ok) throw new Error(`Could not send report (${res.status}).`);
+    return true;
   }
 
   function decodeProfile(doc) {
@@ -405,6 +446,23 @@ const DB = (() => {
     });
     return res.ok;
   }
+  // Nomes e fotos de uma lista de uids, do `profiles` (que é público a quem
+  // tem sessão). Serve a lista de bloqueados: depois de bloquear deixa-se de
+  // seguir a pessoa, portanto o `userData` dela já não vem — e sem isto a
+  // lista mostrava identificadores em vez de nomes, que não serve para
+  // ninguém decidir quem desbloquear.
+  async function fetchProfilesByIds(uids, token) {
+    if (!ready || !uids || !uids.length) return [];
+    const out = await Promise.all(uids.map(async (uid) => {
+      try {
+        const res = await fetch(`${docsBase}/profiles/${encodeURIComponent(uid)}?${keyQ()}`, { headers: authHeaders(token) });
+        if (!res.ok) return { uid, displayName: "", photoURL: "" };
+        return decodeProfile(await res.json());
+      } catch (e) { return { uid, displayName: "", photoURL: "" }; }
+    }));
+    return out;
+  }
+
   // Small user base: fetch the page and filter client-side (Firestore has no
   // substring search).
   async function searchProfiles(term, token) {
@@ -842,6 +900,7 @@ const DB = (() => {
     fetchUsersByIds,
     upsertProfile,
     searchProfiles,
+    fetchProfilesByIds,
     createVisitInvite,
     fetchVisitInvites,
     respondVisitInvite,
@@ -855,6 +914,7 @@ const DB = (() => {
     addComment,
     fetchPhotos,
     fetchRecentPhotos,
-    addPhoto
+    addPhoto,
+    addReport
   };
 })();

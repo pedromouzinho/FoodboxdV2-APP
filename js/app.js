@@ -1186,12 +1186,16 @@ const App = (() => {
       }`;
 
     const listEl = el.querySelector("[data-comments-list]");
-    const comments = await DB.fetchComments(r.id);
+    const todos = await DB.fetchComments(r.id);
     // guard against the user navigating to another restaurant meanwhile
     if (state.currentDetail !== r) return;
+    // Quem está bloqueado desaparece daqui. Não se diz que foi escondido: quem
+    // bloqueia quer deixar de ver a pessoa, não um aviso a lembrá-lo dela.
+    const comments = todos.filter((c) => !UserData.isBlocked(c.uid));
     listEl.innerHTML = comments.length
-      ? comments.map(renderComment).join("")
+      ? comments.map((c) => renderComment(c, r)).join("")
       : `<p class="muted">Ainda não há comentários.</p>`;
+    ligarModeracao(listEl, r);
 
     if (signedIn) {
       const textEl = el.querySelector("[data-comment-text]");
@@ -1228,14 +1232,116 @@ const App = (() => {
     }
   }
 
-  function renderComment(c) {
+  function renderComment(c, r) {
+    // O botão só aparece no que é dos outros: denunciar-se a si próprio não faz
+    // sentido, e a diretriz 1.2 é sobre conteúdo alheio.
+    const meu = UserData.isCloud() && c.uid && c.uid === UserData.me().uid;
+    const acoes = !meu && UserData.isCloud()
+      ? `<button type="button" class="icon-btn comment-flag" aria-label="Denunciar ou bloquear"
+                 data-moderar="${esc(c.id || "")}" data-mod-uid="${esc(c.uid || "")}"
+                 data-mod-quem="${esc(c.author || "")}">${icon("flag")}</button>`
+      : "";
     return `<div class="comment">
       ${avatar(c.author, c.photoURL)}
       <div class="comment-body">
         <span class="comment-who"><span class="name">${esc(c.author)}</span><span class="when">${esc(fmtDate(c.createdAt))}</span></span>
         <p>${esc(c.text)}</p>
       </div>
+      ${acoes}
     </div>`;
+  }
+
+  // ---------- Moderação: denunciar e bloquear (diretriz 1.2) ----------
+  //
+  // A App Store exige as duas coisas a qualquer app com conteúdo de
+  // utilizadores, e testa-as à mão: abre conteúdo de outra pessoa e procura o
+  // botão. Sem isto é rejeição por Guideline 1.2, e não vale argumentar que são
+  // oito pessoas conhecidas — a app está numa loja aberta a toda a gente.
+  //
+  // São dois gestos diferentes de propósito:
+  //   denunciar → é sobre ESTE conteúdo, e vai para quem trata disso;
+  //   bloquear  → é sobre AQUELA pessoa, e é imediato e só meu.
+  function ligarModeracao(host, r) {
+    if (!host) return;
+    host.querySelectorAll("[data-moderar]").forEach((b) => b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      abrirModeracao({
+        tipo: "comentario",
+        alvoId: b.dataset.moderar,
+        alvoUid: b.dataset.modUid,
+        quem: b.dataset.modQuem || "esta pessoa",
+        restaurantId: r ? r.id : ""
+      });
+    }));
+  }
+
+  // Um alvo de cada vez: a folha é uma só no markup, como as outras.
+  let modAlvo = null;
+
+  function abrirModeracao(alvo) {
+    const sheet = document.getElementById("mod-sheet");
+    if (!sheet || !UserData.isCloud()) return;
+    modAlvo = alvo;
+    const quem = alvo.quem || "esta pessoa";
+    sheet.querySelector("#mod-title").textContent =
+      alvo.tipo === "foto" ? "Esta fotografia" : "Este comentário";
+    sheet.querySelector("[data-mod-de]").textContent = `De ${quem}.`;
+    sheet.querySelector("[data-mod-bloquear-label]").textContent = `Bloquear ${quem}`;
+    const status = sheet.querySelector("[data-mod-status]");
+    if (status) status.textContent = "";
+    // A lista de bloqueados usa a mesma folha e esconde estes dois. Repô-los
+    // aqui é o que evita a folha aparecer vazia na vez seguinte.
+    sheet.querySelector("[data-mod-denunciar]").hidden = false;
+    sheet.querySelector("[data-mod-bloquear]").hidden = false;
+    sheet.classList.remove("hidden");
+    sheet.setAttribute("aria-hidden", "false");
+  }
+
+  function fecharModeracao() {
+    const sheet = document.getElementById("mod-sheet");
+    if (!sheet) return;
+    sheet.classList.add("hidden");
+    sheet.setAttribute("aria-hidden", "true");
+    modAlvo = null;
+  }
+
+  function bloquearDaModeracao() {
+    if (!modAlvo || !modAlvo.alvoUid) return;
+    const quem = modAlvo.quem || "esta pessoa";
+    UserData.blockUser(modAlvo.alvoUid);
+    fecharModeracao();
+    // Redesenhar já: quem bloqueia espera que a pessoa desapareça agora, não
+    // no próximo arranque.
+    if (state.currentDetail) {
+      renderComments(state.currentDetail);
+      renderPhotos(state.currentDetail);
+    }
+    render();
+    haptico("sucesso");
+    console.log("moderacao: bloqueado", quem);
+  }
+
+  async function denunciarDaModeracao() {
+    if (!modAlvo) return;
+    const sheet = document.getElementById("mod-sheet");
+    const status = sheet && sheet.querySelector("[data-mod-status]");
+    const alvo = modAlvo;
+    if (status) status.textContent = "A enviar…";
+    try {
+      const token = await window.FirebaseAuth.getIdToken();
+      await DB.addReport({
+        tipo: alvo.tipo,
+        alvoId: alvo.alvoId,
+        alvoUid: alvo.alvoUid,
+        restaurantId: alvo.restaurantId,
+        denuncianteUid: UserData.me().uid
+      }, token);
+      if (status) status.textContent = "Denúncia recebida. Vamos analisar.";
+      haptico("sucesso");
+      setTimeout(fecharModeracao, 1400);
+    } catch (e) {
+      if (status) status.textContent = "Não consegui enviar. Tenta outra vez.";
+    }
   }
 
   // ---------- User-uploaded photos (Cloud Storage) ----------
@@ -1729,6 +1835,7 @@ const App = (() => {
         <button type="button" class="perfil-row" data-perfil="pessoas">${icon("users")}<span>Descobrir pessoas</span>${icon("chevron-right")}</button>
         <button type="button" class="perfil-row" data-perfil="tutorial">${icon("info")}<span>Rever tutorial</span>${icon("chevron-right")}</button>
         <button type="button" class="perfil-row" data-perfil="privacidade">${icon("info")}<span>Privacidade</span>${icon("chevron-right")}</button>
+        ${UserData.getBlocked().length ? `<button type="button" class="perfil-row" data-perfil="bloqueados">${icon("flag")}<span>Pessoas bloqueadas (${UserData.getBlocked().length})</span>${icon("chevron-right")}</button>` : ""}
         <button type="button" class="perfil-row perfil-row-danger" data-perfil="sair">${icon("log-in")}<span>Terminar sessão</span></button>
         <button type="button" class="perfil-row perfil-row-danger" data-perfil="apagar">${icon("trash")}<span>Apagar conta</span></button>
       </div>
@@ -1742,6 +1849,7 @@ const App = (() => {
       const what = b.dataset.perfil;
       if (what === "apagar") abrirApagarConta();
       else if (what === "privacidade") abrirPrivacidade();
+      else if (what === "bloqueados") abrirBloqueados();
       else if (what === "gosto") showTasteProfile();
       else if (what === "pessoas") openPeopleModal();
       else if (what === "tutorial") showTour();
@@ -1763,6 +1871,46 @@ const App = (() => {
   // dentro da webview — que é exatamente o que não se quer.
   function abrirPrivacidade() {
     window.open("https://foodboxd.pt/privacidade", "_blank", "noopener");
+  }
+
+  // A lista de bloqueados, e a única forma de desfazer um bloqueio.
+  //
+  // Existe porque um bloqueio sem volta é uma armadilha: a pessoa desaparece de
+  // tudo e não há onde a ir buscar. Os nomes vêm do `profiles` e não do
+  // `userData` — depois de bloquear deixa-se de seguir, portanto o `userData`
+  // dessa pessoa já não é descarregado.
+  async function abrirBloqueados() {
+    const uids = UserData.getBlocked();
+    const sheet = document.getElementById("mod-sheet");
+    if (!sheet || !uids.length) return;
+    sheet.querySelector("#mod-title").textContent = "Pessoas bloqueadas";
+    sheet.querySelector("[data-mod-de]").textContent = "Não veem que estão bloqueadas.";
+    // Esta folha é a mesma da denúncia; aqui as duas ações não fazem sentido.
+    sheet.querySelector("[data-mod-denunciar]").hidden = true;
+    sheet.querySelector("[data-mod-bloquear]").hidden = true;
+    const status = sheet.querySelector("[data-mod-status]");
+    status.textContent = "A carregar…";
+    sheet.classList.remove("hidden");
+    sheet.setAttribute("aria-hidden", "false");
+
+    let perfis = uids.map((uid) => ({ uid, displayName: "", photoURL: "" }));
+    try {
+      const token = await window.FirebaseAuth.getIdToken();
+      perfis = await DB.fetchProfilesByIds(uids, token);
+    } catch (e) { /* sem nomes, mostram-se os identificadores */ }
+
+    status.innerHTML = perfis.map((p) => `
+      <span class="comment">
+        ${avatar(p.displayName || "Bloqueado", p.photoURL)}
+        <span class="comment-body"><span class="name">${esc(p.displayName || p.uid)}</span></span>
+        <button type="button" class="btn btn-ghost btn-sm" data-desbloquear="${esc(p.uid)}">Desbloquear</button>
+      </span>`).join("");
+    status.querySelectorAll("[data-desbloquear]").forEach((b) => b.addEventListener("click", () => {
+      UserData.unblockUser(b.dataset.desbloquear);
+      fecharModeracao();
+      render();
+      renderPerfil();
+    }));
   }
 
   function wireProfileUpload() {
@@ -1936,14 +2084,24 @@ const App = (() => {
 
   // ---------- Photo viewer (in-app lightbox: download / share) ----------
   let viewerUrl = "";
+  // Quem publicou a foto que está aberta. Serve para o "Denunciar" do
+  // visualizador saber sobre quem é — as fotos da Google não têm dono nosso, e
+  // as minhas não se denunciam a si próprias.
+  let viewerDono = { uid: "", quem: "" };
   function viewerOpen() {
     const m = document.getElementById("photo-viewer");
     return m && !m.classList.contains("hidden");
   }
-  function openPhotoViewer(url, source) {
+  function openPhotoViewer(url, source, dono) {
     const m = document.getElementById("photo-viewer");
     if (!m || !url) return;
     viewerUrl = url;
+    viewerDono = dono || { uid: "", quem: "" };
+    const meuUid = UserData.isCloud() ? UserData.me().uid : "";
+    const denBtn = m.querySelector("[data-viewer-denunciar]");
+    // Só em fotos de outra pessoa, e só com sessão: a diretriz 1.2 é sobre
+    // conteúdo alheio, e sem conta não há quem denuncie.
+    if (denBtn) denBtn.hidden = !(meuUid && viewerDono.uid && viewerDono.uid !== meuUid);
     const img = m.querySelector("[data-viewer-img]");
     if (img) img.src = url;
     // "Foto do restaurante" only from a restaurant's gallery, signed in, and never
@@ -3956,6 +4114,14 @@ const App = (() => {
     }
     document.querySelectorAll("[data-close-ai]").forEach((el) => el.addEventListener("click", hideAi));
 
+    // Moderação (diretriz 1.2). Ligada uma vez aqui, e não a cada render da
+    // lista de comentários — a folha é uma só e os botões dela não mudam.
+    document.querySelectorAll("[data-close-mod]").forEach((el) => el.addEventListener("click", fecharModeracao));
+    const modBloq = document.querySelector("[data-mod-bloquear]");
+    if (modBloq) modBloq.addEventListener("click", bloquearDaModeracao);
+    const modDen = document.querySelector("[data-mod-denunciar]");
+    if (modDen) modDen.addEventListener("click", denunciarDaModeracao);
+
     // Groups: modal close / confirm (the create/join buttons are wired per-render
     // in renderGroupBar).
     document.querySelectorAll("[data-close-group]").forEach((el) => el.addEventListener("click", hideGroupModal));
@@ -4080,13 +4246,28 @@ const App = (() => {
     // Photo viewer: open on any [data-photo-url] tap; wire its actions.
     document.addEventListener("click", (e) => {
       const t = e.target.closest("[data-photo-url]");
-      if (t) { e.preventDefault(); openPhotoViewer(t.dataset.photoUrl, t.dataset.photoSource); }
+      if (t) {
+        e.preventDefault();
+        openPhotoViewer(t.dataset.photoUrl, t.dataset.photoSource,
+          { uid: t.dataset.photoUid || "", quem: t.dataset.photoBadge || t.title || "esta pessoa" });
+      }
     });
     document.querySelectorAll("[data-close-viewer]").forEach((el) => el.addEventListener("click", hidePhotoViewer));
     const vDl = document.querySelector("[data-viewer-download]");
     const vSh = document.querySelector("[data-viewer-share]");
     if (vDl) vDl.addEventListener("click", () => downloadPhoto(viewerUrl));
     if (vSh) vSh.addEventListener("click", () => sharePhoto(viewerUrl));
+    const vDen = document.querySelector("[data-viewer-denunciar]");
+    if (vDen) vDen.addEventListener("click", () => {
+      hidePhotoViewer();
+      abrirModeracao({
+        tipo: "foto",
+        alvoId: viewerUrl,
+        alvoUid: viewerDono.uid,
+        quem: viewerDono.quem,
+        restaurantId: state.currentDetail ? state.currentDetail.id : ""
+      });
+    });
     const vCover = document.querySelector("[data-viewer-cover]");
     if (vCover) vCover.addEventListener("click", () => setRestaurantCover(viewerUrl));
     document.querySelectorAll("[data-close-people]").forEach((el) => el.addEventListener("click", hidePeopleModal));
