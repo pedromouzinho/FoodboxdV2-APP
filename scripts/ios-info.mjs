@@ -69,6 +69,72 @@ console.log(`ios-info: ${escritas} textos de permissão escritos no Info.plist`)
 entitlements();
 equipaDeAssinatura();
 alvoDeImplantacao();
+versaoENumeroDeBuild();
+familiaDeDispositivos();
+
+// A versão e o número de build, do ios-build.json para o projeto.
+//
+// A 1.0 (1) já foi carregada na App Store Connect, e um segundo upload com o
+// mesmo par é recusado com "redundant binary upload" — um erro que só aparece
+// DEPOIS de todo o trabalho de arquivar. O número tem de viver em fonte
+// versionada: no Xcode vive no pbxproj, que é gerado e descartável, e o clone
+// seguinte voltava ao (1) sem ninguém dar por isso.
+//
+// A rotina de subir versão passa a ser: mudar o buildNumber no ios-build.json,
+// commit, npm run sync, arquivar.
+function versaoENumeroDeBuild() {
+  const fonte = join(ROOT, "ios-build.json");
+  if (!existsSync(fonte)) return;
+  const cfg = JSON.parse(readFileSync(fonte, "utf8"));
+  const versao = String(cfg.marketingVersion || "").trim();
+  const build = String(cfg.buildNumber || "").trim();
+  if (!versao || !build) return;
+
+  const pbx = join(ROOT, "ios/App/App.xcodeproj/project.pbxproj");
+  let t = readFileSync(pbx, "utf8");
+  const versoes = [...t.matchAll(/MARKETING_VERSION = ([^;]+);/g)].map((m) => m[1].trim());
+  const builds = [...t.matchAll(/CURRENT_PROJECT_VERSION = ([^;]+);/g)].map((m) => m[1].trim());
+  // Contar em vez de confiar: se o template mudar a forma das linhas, isto
+  // rebenta aqui, e não no upload com uma mensagem sobre binários repetidos.
+  if (!versoes.length || !builds.length) {
+    console.error("ios-info: não encontrei MARKETING_VERSION/CURRENT_PROJECT_VERSION no projeto");
+    process.exit(1);
+  }
+  if (versoes.every((v) => v === versao) && builds.every((b) => b === build)) {
+    console.log(`ios-info: versão já era ${versao} (${build})`);
+    return;
+  }
+  t = t.replace(/MARKETING_VERSION = [^;]+;/g, `MARKETING_VERSION = ${versao};`);
+  t = t.replace(/CURRENT_PROJECT_VERSION = [^;]+;/g, `CURRENT_PROJECT_VERSION = ${build};`);
+  writeFileSync(pbx, t);
+  console.log(`ios-info: versão ${versao} (${build}) no projeto (${versoes.length} configurações)`);
+}
+
+// Só iPhone, por decisão do dono (25/08). O default do Capacitor é "1,2" —
+// iPad declarado — e com o iPad declarado a App Store Connect exige
+// screenshots de 13" e a revisão testa lá, numa app desenhada para telemóvel.
+// Reverter é mudar o deviceFamily no ios-build.json para "1,2".
+function familiaDeDispositivos() {
+  const fonte = join(ROOT, "ios-build.json");
+  if (!existsSync(fonte)) return;
+  const familia = String(JSON.parse(readFileSync(fonte, "utf8")).deviceFamily || "").trim();
+  if (!familia) return;
+
+  const pbx = join(ROOT, "ios/App/App.xcodeproj/project.pbxproj");
+  let t = readFileSync(pbx, "utf8");
+  const existentes = [...t.matchAll(/TARGETED_DEVICE_FAMILY = "?([^";]+)"?;/g)].map((m) => m[1].trim());
+  if (!existentes.length) {
+    console.error("ios-info: não encontrei TARGETED_DEVICE_FAMILY no projeto");
+    process.exit(1);
+  }
+  if (existentes.every((e) => e === familia)) {
+    console.log(`ios-info: família de dispositivos já era "${familia}"`);
+    return;
+  }
+  t = t.replace(/TARGETED_DEVICE_FAMILY = "?[^";]+"?;/g, `TARGETED_DEVICE_FAMILY = "${familia}";`);
+  writeFileSync(pbx, t);
+  console.log(`ios-info: família de dispositivos "${familia}" no projeto (${existentes.length} configurações)`);
+}
 
 // O mínimo de iOS, no projeto E no Podfile.
 //
