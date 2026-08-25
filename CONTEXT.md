@@ -349,7 +349,8 @@ nos recursos do Xcode, o URL scheme do login com a Google, e o subspec
   testes"):
 
 ```bash
-npm run audit          # contraste, alvos de toque, transbordo, ids repetidos, erros de JS
+npm run audit          # contraste, alvos, transbordo, ids repetidos, erros de JS,
+                       # e o tutorial: cada passo tem de destacar alguma coisa
 npm run test:map       # enquadramento do mapa — IMPRIME em vez de afirmar, compara os números
 npm run test:update    # o service worker apanhar uma versão nova (7 casos)
 npm run preview        # telemóvel e ecrã grande, claro e escuro

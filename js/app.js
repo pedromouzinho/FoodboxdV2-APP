@@ -1803,30 +1803,66 @@ const App = (() => {
     }
   }
   // ---------- Guided tour (spotlight) ----------
+  // Os passos só apontam a coisas que estão SEMPRE à vista — a barra de cima e a
+  // barra de baixo. O tutorial abre-se a partir do Perfil e não sabe navegar,
+  // portanto um passo que aponte à pesquisa ou aos filtros destacaria um
+  // retângulo por trás do ecrã do Perfil: o elemento existe e tem medidas, mas
+  // está tapado. O mecanismo não muda; muda o que ele aponta.
+  //
+  // Os dois passos antigos apontavam a `[data-tab-nav="memorias"]` e
+  // `"criticas"` — separadores que deixaram de existir quando as Memórias e as
+  // Críticas se fundiram no Diário. Não davam erro: o destaque desaparecia e o
+  // balão centrava-se, e ninguém reparava que dois dos cinco passos falavam de
+  // um sítio que não há.
   const TOUR_STEPS = [
-    { title: "Bem-vindo", text: "Esta é a sua app de restaurantes. No mapa explora sítios por todo o Portugal — toque num para ver os detalhes." },
-    { target: '[data-tab-nav="memorias"]', title: "Memórias", text: "Aqui ficam os sítios que avaliou, anotou ou visitou — com as estrelas, notas e pratos que registou." },
-    { target: '[data-tab-nav="criticas"]', title: "Críticas", text: "As suas críticas e o ranking de restaurantes por estrelas do grupo." },
-    { target: '[data-tab-nav="amigos"]', title: "Amigos", text: "A atividade dos amigos e o leaderboard de quem mais explora." },
-    { target: "#user-chip", title: "A sua conta", text: "Com sessão iniciada, tudo fica guardado e sincronizado. Pode rever esta visita no ícone das estrelas." }
+    { title: "Bem-vindo ao Foodboxd",
+      text: "Um mapa dos sítios que valem a pena e um diário do que comeste neles. São dois minutos a ver onde está cada coisa." },
+    { target: '[data-tab-nav="mapa"]', title: "O mapa",
+      text: "Todos os sítios, de Braga ao Algarve. Aqui trocas entre mapa e lista, filtras por cozinha, estilo, região e preço, ou procuras pelo nome de um prato." },
+    { target: "#add-open-btn", title: "Acrescentar um sítio",
+      text: "É por aqui, venhas do mapa ou da lista. Escreves o nome, e no fim dizes se é um sítio onde queres ir ou onde já foste." },
+    { target: "#ai-suggest-btn", title: "Pergunta-me",
+      text: "Descreve o que te apetece — «peixe fresco, barato, perto e tranquilo» — e eu sugiro, com o teu gosto e a tua lista à frente." },
+    { target: '[data-tab-nav="diario"]', title: "O teu diário",
+      text: "Onde foste, o que pediste e o que achaste. Enche-se sozinho à medida que registas visitas." },
+    { target: '[data-tab-nav="amigos"]', title: "Os amigos",
+      text: "A atividade de quem segues e os rankings. Começa vazio: enche quando seguires alguém." },
+    { target: '[data-tab-nav="perfil"]', title: "A tua conta",
+      text: "Quem vê a tua atividade, o teu perfil de gosto, e apagar a conta — que apaga mesmo tudo." }
   ];
-  const TOUR_DONE_KEY = "portugalRestaurants.tourDone";
   let tourIdx = 0;
-  function tourDone() { try { return localStorage.getItem(TOUR_DONE_KEY) === "1"; } catch (e) { return false; } }
-  function markTourDone() { try { localStorage.setItem(TOUR_DONE_KEY, "1"); } catch (e) {} }
+
+  // Os passos que este arranque vai mostrar.
+  //
+  // Nem todos os alvos existem sempre: o "Pergunta-me" desaparece da barra
+  // quando o backend de IA não responde. Mostrar um passo a explicar um botão
+  // que não está lá é pior do que não o mostrar — a pessoa procura-o e não
+  // encontra. Os passos sem alvo (o de boas-vindas) ficam sempre.
+  let passosDoTour = TOUR_STEPS;
+  function calcularPassos() {
+    passosDoTour = TOUR_STEPS.filter((s) => {
+      if (!s.target) return true;
+      const el = document.querySelector(s.target);
+      if (!el) return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    });
+  }
 
   function paintTourSlide() {
-    const step = TOUR_STEPS[tourIdx];
+    const step = passosDoTour[tourIdx];
+    if (!step) return;
     document.getElementById("tour-title").textContent = step.title;
     document.getElementById("tour-text").textContent = step.text;
-    document.getElementById("tour-dots").innerHTML = TOUR_STEPS
+    document.getElementById("tour-dots").innerHTML = passosDoTour
       .map((_, i) => `<span class="tour-dot${i === tourIdx ? " on" : ""}"></span>`).join("");
     document.getElementById("tour-prev").style.visibility = tourIdx === 0 ? "hidden" : "visible";
-    document.getElementById("tour-next").textContent = tourIdx === TOUR_STEPS.length - 1 ? "Começar" : "Próximo";
+    document.getElementById("tour-next").textContent = tourIdx === passosDoTour.length - 1 ? "Começar" : "Próximo";
     positionTour();
   }
   function positionTour() {
-    const step = TOUR_STEPS[tourIdx];
+    const step = passosDoTour[tourIdx];
+    if (!step) return;
     const hl = document.getElementById("tour-highlight");
     const dim = document.querySelector("#tour .tour-dim");
     const balloon = document.getElementById("tour-balloon");
@@ -1872,6 +1908,7 @@ const App = (() => {
     const el = document.getElementById("tour");
     if (!el) return;
     tourIdx = 0;
+    calcularPassos();
     el.classList.remove("hidden");
     el.setAttribute("aria-hidden", "false");
     paintTourSlide();
@@ -1881,7 +1918,6 @@ const App = (() => {
   function hideTour() {
     const el = document.getElementById("tour");
     if (el) { el.classList.add("hidden"); el.setAttribute("aria-hidden", "true"); }
-    markTourDone();
     window.removeEventListener("resize", positionTour);
     window.removeEventListener("orientationchange", positionTour);
   }
@@ -4366,7 +4402,7 @@ const App = (() => {
     document.querySelectorAll("[data-tour-skip]").forEach((el) => el.addEventListener("click", hideTour));
     const tourNext = document.getElementById("tour-next");
     if (tourNext) tourNext.addEventListener("click", () => {
-      if (tourIdx >= TOUR_STEPS.length - 1) hideTour();
+      if (tourIdx >= passosDoTour.length - 1) hideTour();
       else { tourIdx++; paintTourSlide(); }
     });
     const tourPrev = document.getElementById("tour-prev");

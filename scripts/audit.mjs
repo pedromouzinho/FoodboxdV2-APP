@@ -219,6 +219,43 @@ for (const scheme of ["light","dark"]) {
     ["Perfil", async()=>{ await p.click('[data-tab-nav="perfil"]'); }],
     ["Seguir pessoas", async()=>{ await p.click('[data-perfil="pessoas"]'); }],
     ["fechar pessoas", async()=>{ await p.click(".sheet-close[data-close-people]"); }],
+    // O TUTORIAL, passo a passo.
+    //
+    // Um passo cujo seletor não casa NÃO dá erro: o destaque desaparece, o balão
+    // centra-se, e ninguém repara. Foi assim que dois dos cinco passos passaram
+    // meses a apontar a separadores que já não existiam. Aqui percorre-se o
+    // tutorial inteiro e afirma-se que cada passo com alvo destaca mesmo alguma
+    // coisa — o primeiro é centrado de propósito e é o único isento.
+    ["Tutorial", async()=>{
+      await p.click('[data-tab-nav="perfil"]');
+      await p.click('[data-perfil="tutorial"]');
+      await p.waitForTimeout(400);
+    }],
+    ["Tutorial · todos os passos apontam a algo", async()=>{
+      const r = await p.evaluate(async () => {
+        const falhas = [];
+        const hl = document.getElementById("tour-highlight");
+        const total = document.querySelectorAll("#tour-dots .tour-dot").length;
+        for (let i = 1; i < total; i++) {
+          document.getElementById("tour-next").click();
+          await new Promise((r) => setTimeout(r, 120));
+          const visivel = hl && getComputedStyle(hl).display !== "none";
+          if (!visivel) falhas.push(document.getElementById("tour-title").textContent);
+        }
+        return { falhas, total };
+      });
+      if (r.falhas.length) throw new Error("passos sem destaque: " + r.falhas.join(", "));
+      // O tutorial esconde passos cujo alvo não existe — o "Pergunta-me"
+      // desaparece quando o backend de IA não responde, e neste ensaio não
+      // responde. Sem um mínimo, um seletor partido faria o passo desaparecer
+      // em silêncio e a afirmação de cima passava na mesma.
+      //
+      // Seis é o que está sempre lá: boas-vindas + os quatro separadores + a
+      // porta de adicionar.
+      if (r.total < 6) throw new Error(`só ${r.total} passos — algum alvo deixou de existir`);
+    }],
+    ["fechar tutorial", async()=>{ await p.click("#tour .tour-x[data-tour-skip]"); }],
+
     ["Ficha (O sítio)", async()=>{ await p.click('[data-tab-nav="mapa"]'); await p.click('[data-map-mode="lista"]'); await p.click("#restaurant-list .card"); }],
     ["Ficha (experiência)", async()=>{ await p.click('[data-tab="experiencia"]'); }],
     ["Registar visita", async()=>{ await p.click("[data-open-visit-sheet]").catch(async()=>{ await p.click("[data-open-visit]"); }); }],
