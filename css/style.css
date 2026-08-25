@@ -2746,3 +2746,29 @@ body.ob-open { overflow: hidden; }
 body.sem-sessao .topbar,
 body.sem-sessao .tabbar,
 body.sem-sessao .screen { pointer-events: none; }
+
+/* O campo de foto do formulário de adicionar, visível só no "Já fui". */
+.form-foto { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
+.form-foto[hidden] { display: none; }
+.form-foto-acoes { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.form-foto-previa {
+  position: relative;
+  align-self: flex-start;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  line-height: 0;
+}
+.form-foto-previa[hidden] { display: none; }
+.form-foto-previa img { width: 96px; height: 96px; object-fit: cover; display: block; }
+.form-foto-previa .icon-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+  background: var(--overlay-scrim);
+  color: var(--overlay-ink);
+  border-radius: var(--r-pill);
+}
+.form-foto-previa .icon-btn .icon { width: 14px; height: 14px; }

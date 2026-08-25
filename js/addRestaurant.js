@@ -7,10 +7,15 @@
 const AddRestaurantModule = (() => {
   let modal, form, closeBtn, locateBtn, locateStatus, copyJsonBtn, submitBtn, statusEl, aiSuggestBtn, titleEl, introEl;
   let nameInput, townInput, regionInput, categorySelect, notesInput, latInput, lngInput, stylesWrap;
-  // "wishlist" = um sítio onde quero ir (fica prioritário); "experience" = já fui
-  // (abre logo a experiência para avaliar). Define o comportamento pós-adição.
-  // "quero" | "fui" — o último passo do formulário.
+  // "quero" = um sítio onde quero ir (fica prioritário); "fui" = já lá fui
+  // (fica marcado como visitado e abre a experiência para avaliar). É o último
+  // passo do formulário, e não uma bifurcação à entrada.
   let escolha = "quero";
+  // A foto fica em memória até o restaurante existir: o `id` do documento só
+  // nasce na gravação, e é dele que depende o caminho no Storage. Guardar o
+  // ficheiro e enviá-lo a seguir é mais simples do que inventar um id antes.
+  let fotoEscolhida = null;
+  let fotoPreviaUrl = "";
   let pendingGeoConfirm = false; // second submit click confirms an out-of-region pin
 
   function slugify(text) {
@@ -65,6 +70,25 @@ const AddRestaurantModule = (() => {
     if (abrir) abrir.addEventListener("click", () => open());
     document.querySelectorAll("#add-restaurant-modal [data-escolha]").forEach((b) =>
       b.addEventListener("click", () => { escolha = b.dataset.escolha; pintarEscolha(); }));
+
+    const fotoIn = modal.querySelector("[data-foto-input]");
+    const camIn = modal.querySelector("[data-foto-camara-input]");
+    const btnGal = modal.querySelector("[data-foto-galeria]");
+    const btnCam = modal.querySelector("[data-foto-camara]");
+    const btnTirar = modal.querySelector("[data-foto-tirar]");
+    if (btnGal && fotoIn) btnGal.addEventListener("click", () => fotoIn.click());
+    if (btnCam && camIn) btnCam.addEventListener("click", () => camIn.click());
+    [fotoIn, camIn].forEach((el) => {
+      if (!el) return;
+      el.addEventListener("change", () => {
+        const f = el.files && el.files[0];
+        // Limpar o valor: sem isto, escolher a MESMA foto duas vezes seguidas
+        // não dispara o `change` na segunda.
+        el.value = "";
+        escolherFoto(f);
+      });
+    });
+    if (btnTirar) btnTirar.addEventListener("click", limparFoto);
     modal.querySelectorAll("[data-close-modal]").forEach((el) => el.addEventListener("click", close));
 
     locateBtn.addEventListener("click", manualLocate);
@@ -136,6 +160,7 @@ const AddRestaurantModule = (() => {
     form.reset();
     pendingGeoConfirm = false;
     escolha = "quero";
+    limparFoto();
     pintarEscolha();
     regionInput.value = "";
     locateStatus.textContent = "";
@@ -147,8 +172,64 @@ const AddRestaurantModule = (() => {
   // escolha, e o aviso do GeoValidate (que troca o botão para "Guardar mesmo
   // assim" e ficava pendurado até ao open() seguinte). Recalcular num sítio só
   // é o que evita as duas ficarem a discutir.
+  function limparFoto() {
+    fotoEscolhida = null;
+    // Revogar sempre: um object URL por foto escolhida, sem revogar, é memória
+    // que só sai quando a página sair.
+    if (fotoPreviaUrl) { URL.revokeObjectURL(fotoPreviaUrl); fotoPreviaUrl = ""; }
+    const previa = document.querySelector("#add-restaurant-modal [data-foto-previa]");
+    if (previa) previa.hidden = true;
+  }
+
+  function escolherFoto(file) {
+    if (!file) return;
+    if (!/^image\//.test(file.type)) { setStatus("Isso não é uma imagem.", "error"); return; }
+    if (file.size > 6 * 1024 * 1024) { setStatus("Imagem demasiado grande (máx. 6 MB).", "error"); return; }
+    limparFoto();
+    fotoEscolhida = file;
+    fotoPreviaUrl = URL.createObjectURL(file);
+    const previa = document.querySelector("#add-restaurant-modal [data-foto-previa]");
+    const img = document.querySelector("#add-restaurant-modal [data-foto-img]");
+    if (img) img.src = fotoPreviaUrl;
+    if (previa) previa.hidden = false;
+    setStatus("");
+  }
+
+  // O mesmo slug que a app usa nos caminhos do Storage. Duplicado de propósito
+  // e não importado: o `slugifyId` vive dentro do IIFE do App e não é
+  // exportado, e abrir a fronteira dos dois módulos por uma linha era pior.
+  function slugParaStorage(texto) {
+    return String(texto || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  }
+
+  // A foto sobe DEPOIS de o restaurante estar gravado, porque é o id do
+  // documento que dá o caminho no Storage. Falhar aqui não desfaz nada: o sítio
+  // já está adicionado, e uma foto que não subiu é menos mau do que uma adição
+  // perdida — daí devolver o erro em vez de o atirar.
+  async function enviarFoto(restaurante) {
+    if (!fotoEscolhida || !window.FirebaseStorage) return null;
+    if (typeof UserData === "undefined" || !UserData.isCloud()) return null;
+    const me = UserData.me();
+    const file = fotoEscolhida;
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const caminho = `restaurants/${slugParaStorage(restaurante.id)}/${me.uid}-${Date.now()}.${ext}`;
+      const url = await window.FirebaseStorage.upload(caminho, file);
+      const fb = window.FirebaseAuth;
+      const token = fb ? await fb.getToken() : null;
+      await DB.addPhoto({ restaurantId: restaurante.id, uid: me.uid, author: me.displayName, url, path: caminho }, token);
+      return null;
+    } catch (e) {
+      return "O sítio foi adicionado, mas a foto não subiu. Podes juntá-la na ficha.";
+    }
+  }
+
   function pintarEscolha() {
     const fui = escolha === "fui";
+    const bloco = document.querySelector("#add-restaurant-modal [data-foto-bloco]");
+    if (bloco) bloco.hidden = !fui;
+    if (!fui) limparFoto();
     document.querySelectorAll("#add-restaurant-modal [data-escolha]").forEach((b) => {
       b.setAttribute("aria-pressed", String(b.dataset.escolha === escolha));
     });
@@ -309,8 +390,12 @@ const AddRestaurantModule = (() => {
       if (DB.isAvailable() && signedIn) {
         setStatus("A guardar para todos...", "info");
         const saved = await DB.add(restaurant, token);
+        // A foto ANTES do onRestaurantAdded: esse abre a ficha do sítio, e uma
+        // foto que chega depois de a ficha estar pintada não aparece lá.
+        const avisoFoto = await enviarFoto(saved);
         App.onRestaurantAdded(saved, opts);
-        setStatus(escolha === "fui" ? "Adicionado. Avalia a tua experiência." : "Adicionado à tua lista.", "success");
+        setStatus(avisoFoto || (escolha === "fui" ? "Adicionado. Avalia a tua experiência." : "Adicionado à tua lista."),
+          avisoFoto ? "warning" : "success");
       } else {
         Storage.addCustomRestaurant(restaurant);
         App.onRestaurantAdded(restaurant, opts);

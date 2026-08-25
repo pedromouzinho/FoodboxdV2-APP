@@ -385,6 +385,33 @@
             </button>
           </div>
           <p class="field-hint" data-escolha-hint>Fica marcado como prioritário no mapa.</p>
+
+          <!-- A foto só aparece no "Já fui", e é aí que faz sentido: estás a
+               registar um sítio onde acabaste de comer, com o telemóvel na mão.
+               Ir buscá-la depois, à ficha, é um passo a mais no pior momento.
+
+               Nota de desenho: a auditoria de UX tinha tirado as fotos do fluxo
+               de REGISTAR VISITA de propósito ("registar é rápido, fotografar é
+               depois"). Isto é outro fluxo — o de acrescentar um sítio — e a
+               decisão de as pôr aqui é do dono, 25/08. -->
+          <div class="form-foto" data-foto-bloco hidden>
+            <div class="form-foto-acoes">
+              <button type="button" class="btn btn-ghost btn-sm" data-foto-galeria>
+                <svg class="icon"><use href="#i-plus"/></svg> Juntar foto
+              </button>
+              <button type="button" class="btn btn-ghost btn-sm" data-foto-camara>
+                <svg class="icon"><use href="#i-camera"/></svg> Tirar foto
+              </button>
+              <input type="file" accept="image/*" data-foto-input hidden />
+              <input type="file" accept="image/*" capture="environment" data-foto-camara-input hidden />
+            </div>
+            <div class="form-foto-previa" data-foto-previa hidden>
+              <img alt="" data-foto-img />
+              <button type="button" class="icon-btn" data-foto-tirar aria-label="Remover a foto">
+                <svg class="icon"><use href="#i-x"/></svg>
+              </button>
+            </div>
+          </div>
         </div>
 
         <button type="submit" class="btn btn-primary btn-block" id="form-submit-btn">Adicionar ao mapa</button>
