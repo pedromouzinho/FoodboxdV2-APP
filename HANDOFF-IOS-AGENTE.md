@@ -1183,7 +1183,31 @@ nenhum arnês:
 3. **A dica «Bloquear esconde tudo o que esta pessoa publica» aparecia na lista
    de bloqueados**, a explicar a bloquear a quem já tinha bloqueado.
 
-> ⚠️ **O que continua por medir:** denunciar **um comentário** (a foto já foi
+#### ✅ Publicado em produção a 25/08
+
+```
+firebase deploy --only hosting,firestore:rules --project app-restaurantes-499400
+  ✔ cloud.firestore: rules file firebase/firestore.rules compiled successfully
+  ✔ firestore: released rules to cloud.firestore
+  ✔ hosting: release complete        (48 ficheiros)
+```
+
+Verificado a seguir, do lado de fora:
+
+```
+GET /privacidade            -> HTTP 200, <title>Privacidade · Foodboxd</title>
+GET /sw.js                  -> const CACHE = "foodboxd-v85"    (estava v84)
+GET /ios-signing.json       -> HTTP 404                        (deixou de ser publicado)
+```
+
+> **O que isto ainda NÃO prova:** que uma denúncia é aceite. Uma escrita
+> **sem** sessão era recusada antes e continua a ser recusada agora — o
+> resultado é o mesmo com regra e sem regra, portanto não distingue nada. A
+> única prova é uma escrita **autenticada**, ou seja tocar em *Denunciar*
+> dentro da app com sessão. Fica por fazer, e é o passo seguinte.
+
+> ⚠️ **O que continua por medir:** o *Denunciar* a resultar depois das regras
+> irem para produção, denunciar **um comentário** (a foto já foi
 > exercitada), e o percurso de ponta a
 > ponta nunca correu. O botão só existe em conteúdo de **outra** pessoa, e a
 > conta que está no simulador é nova — as fichas que abri não tinham
