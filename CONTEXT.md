@@ -415,7 +415,7 @@ npm run preview        # telemóvel e ecrã grande, claro e escuro
   eventos de toque, e um clique não tem direção nem duração:
 
 ```bash
-npm run test:gesto     # 5 afirmações sobre o gesto de fechar a ficha
+npm run test:gesto     # 10 afirmações: fechar a ficha, o X à vista, a pega da folha
 ```
 
   Os eventos vão pelo CDP (`Input.dispatchTouchEvent`) para se controlar o
