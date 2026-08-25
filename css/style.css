@@ -2332,19 +2332,6 @@ body.ob-open { overflow: hidden; }
 .state-text { margin: 0; font-size: var(--fs-base); line-height: 1.5; color: var(--text-muted); max-width: 34ch; }
 .state-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-2); margin-top: var(--sp-2); }
 
-/* Formas em vez de ilustração: três cadernos tombados, três avatares
-   sobrepostos. Custam zero bytes e dizem de que ecrã se trata. */
-.state-art { display: flex; align-items: flex-end; justify-content: center; }
-.state-art-books { gap: var(--sp-2); }
-.state-art-books .ph { width: 52px; height: 66px; border-radius: var(--r-sm); display: block; }
-.state-art-books .ph:first-child { transform: rotate(-8deg); }
-.state-art-books .ph:last-child { transform: rotate(8deg); }
-.state-art-people span {
-  width: 44px; height: 44px; border-radius: var(--r-pill);
-  background: var(--surface-3); border: 3px solid var(--surface);
-}
-.state-art-people span + span { margin-left: -14px; }
-
 /* Erro em linha: falhou algo pequeno e há conteúdo à volta. */
 .state-inline {
   display: flex; align-items: center; gap: var(--sp-2);

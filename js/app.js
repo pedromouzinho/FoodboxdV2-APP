@@ -781,13 +781,15 @@ const App = (() => {
   //
   //   art     "livros" | "pessoas" | nada
   //   actions [{ label, action, kind }]  — action é o nome de um data-state-action
-  function stateHtml({ art, title, text, actions, tone }) {
-    const shapes = {
-      livros: `<div class="state-art state-art-books">${[0, 1, 2].map(() => `<span class="ph"></span>`).join("")}</div>`,
-      pessoas: `<div class="state-art state-art-people">${[0, 1, 2].map(() => `<span></span>`).join("")}</div>`
-    };
+  // Sem ilustração, de propósito.
+  //
+  // Havia três blocos cinzentos por cima de cada estado vazio — placeholders que
+  // nunca chegaram a ser desenho nenhum. Num ecrã que já está vazio, o que eles
+  // faziam era ocupar o espaço onde devia estar a frase que explica o que fazer
+  // a seguir, e empurrar o botão para baixo. O `art` sai da assinatura: quem o
+  // passar deixa de ter efeito, em vez de ficar a pensar que passou.
+  function stateHtml({ title, text, actions, tone }) {
     return `<div class="state${tone ? " state-" + tone : ""}">
-      ${art && shapes[art] ? shapes[art] : ""}
       <h3 class="state-title">${esc(title)}</h3>
       ${text ? `<p class="state-text">${esc(text)}</p>` : ""}
       ${(actions || []).length ? `<div class="state-actions">${actions.map((a) => `
@@ -3478,7 +3480,6 @@ const App = (() => {
     listEl.innerHTML = "";
     if (!mems.length) {
       listEl.innerHTML = stateHtml({
-        art: "livros",
         title: "O teu diário começa na primeira refeição",
         text: "Regista onde já foste e o que comeste. Fica só para ti até decidires partilhar.",
         actions: [{ label: "Ver o mapa", action: "mapa" }]
@@ -3507,7 +3508,6 @@ const App = (() => {
 
     if (!byCuisine.size) {
       el.innerHTML = stateHtml({
-        art: "livros",
         title: "Ainda não anotaste nenhum prato",
         text: "Ao registar uma visita podes dizer o que comeste — fica tudo aqui.",
         actions: [{ label: "Ver o mapa", action: "mapa" }]
@@ -3711,7 +3711,6 @@ const App = (() => {
     } catch (e) { people = []; }
     if (!people.length) {
       list.innerHTML = stateHtml({
-        art: "pessoas",
         title: term ? "Ninguém com esse nome" : "Ainda não há ninguém para seguir",
         text: term ? "" : "Convida quem quiseres — a app é mais interessante a dois."
       });
@@ -3944,7 +3943,6 @@ const App = (() => {
   function paintFeed(el, feed) {
     if (!feed.length) {
       el.innerHTML = stateHtml({
-        art: "pessoas",
         title: "Sozinho sabe pior",
         text: "Segue quem quiseres acompanhar e a atividade deles aparece aqui.",
         actions: [{ label: "Descobrir pessoas", action: "seguir" }]
