@@ -297,7 +297,7 @@ for (const scheme of ["light","dark"]) {
   //
   // Apanhado por um agente a rever os textos, não por este arnês. A zona cega
   // era permanente e existia desde que as páginas foram escritas.
-  for (const [nome, ficheiro] of [["Privacidade", "privacidade.html"], ["Ajuda", "ajuda.html"]]) {
+  for (const [nome, ficheiro] of [["Privacidade", "privacidade.html"], ["Ajuda", "ajuda.html"], ["Termos", "termos.html"]]) {
     try {
       await p.goto(`http://127.0.0.1:8799/${ficheiro}`, { waitUntil: "domcontentloaded", timeout: 30000 });
       await p.waitForTimeout(600);

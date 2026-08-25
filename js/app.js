@@ -1216,6 +1216,7 @@ const App = (() => {
         signedIn
           ? `<div class="comment-form">
                <textarea class="note-input" data-comment-text placeholder="Escreva um comentário…" rows="2"></textarea>
+               <p class="hint" data-comment-erro hidden style="color:var(--danger, #b3261e)"></p>
                <button class="btn btn-primary btn-sm" data-comment-send>Comentar</button>
              </div>`
           : DB.isAvailable()
@@ -1241,6 +1242,19 @@ const App = (() => {
       const submit = async () => {
         const text = textEl.value.trim();
         if (!text) return;
+        // Diretriz 1.2: filtrar antes de publicar. O texto fica no campo para
+        // a pessoa reformular — apagá-lo seria castigar em vez de moderar.
+        const erroEl = el.querySelector("[data-comment-erro]");
+        const filtro = typeof Filtro !== "undefined" ? Filtro.avaliar(text) : { ok: true };
+        if (!filtro.ok) {
+          if (erroEl) {
+            erroEl.textContent = "Esse comentário viola os termos de utilização — reformula sem insultos.";
+            erroEl.hidden = false;
+          }
+          haptico("erro");
+          return;
+        }
+        if (erroEl) erroEl.hidden = true;
         sendBtn.disabled = true;
         try {
           const me = UserData.me();
@@ -2270,6 +2284,7 @@ const App = (() => {
         <button type="button" class="perfil-row" data-perfil="tutorial">${icon("info")}<span>Rever tutorial</span>${icon("chevron-right")}</button>
         <button type="button" class="perfil-row" data-perfil="publico">${icon("user")}<span>O meu perfil público</span>${icon("chevron-right")}</button>
         <button type="button" class="perfil-row" data-perfil="privacidade">${icon("info")}<span>Privacidade</span>${icon("chevron-right")}</button>
+        <button type="button" class="perfil-row" data-perfil="termos">${icon("info")}<span>Termos de utilização</span>${icon("chevron-right")}</button>
         ${UserData.getBlocked().length ? `<button type="button" class="perfil-row" data-perfil="bloqueados">${icon("flag")}<span>Pessoas bloqueadas (${UserData.getBlocked().length})</span>${icon("chevron-right")}</button>` : ""}
         <button type="button" class="perfil-row perfil-row-danger" data-perfil="sair">${icon("log-in")}<span>Terminar sessão</span></button>
         <button type="button" class="perfil-row perfil-row-danger" data-perfil="apagar">${icon("trash")}<span>Apagar conta</span></button>
@@ -2284,6 +2299,7 @@ const App = (() => {
       const what = b.dataset.perfil;
       if (what === "apagar") abrirApagarConta();
       else if (what === "privacidade") abrirPrivacidade();
+      else if (what === "termos") abrirTermos();
       else if (what === "publico") abrirMeuPerfilPublico();
       else if (what === "bloqueados") abrirBloqueados();
       else if (what === "gosto") showTasteProfile();
@@ -2307,6 +2323,10 @@ const App = (() => {
   // dentro da webview — que é exatamente o que não se quer.
   function abrirPrivacidade() {
     window.open("https://foodboxd.pt/privacidade", "_blank", "noopener");
+  }
+  // Os termos abrem-se fora da app pelas mesmas razões todas de acima.
+  function abrirTermos() {
+    window.open("https://foodboxd.pt/termos", "_blank", "noopener");
   }
 
   // A lista de bloqueados, e a única forma de desfazer um bloqueio.

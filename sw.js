@@ -15,6 +15,7 @@ const ASSETS = [
   "js/storage.js",
   "js/db.js",
   "js/userdata.js",
+  "js/filtro.js",
   "js/erros.js",
   "js/auth.js",
   "js/map.js",

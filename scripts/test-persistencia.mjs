@@ -259,5 +259,33 @@ function descodificar(v) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// 4. O filtro de conteúdo dos comentários (js/filtro.js — diretriz 1.2)
+// ---------------------------------------------------------------------------
+{
+  const ctx = { console };
+  vm.createContext(ctx);
+  let carregou = true;
+  try {
+    vm.runInContext(readFileSync(join(ROOT, "js/filtro.js"), "utf8"), ctx, { filename: "js/filtro.js" });
+  } catch (e) { carregou = false; }
+  chk("js/filtro.js existe e carrega", carregou);
+
+  const casos = [
+    ["A açorda estava excelente, voltamos de certeza.", true, "texto normal passa"],
+    ["Serviço lento mas a comida compensa. 4 estrelas!", true, "crítica negativa legítima passa"],
+    ["que grande merda de sítio", false, "palavrão direto é recusado"],
+    ["isto é uma m3rd@ pegada", false, "palavrão disfarçado com números é recusado"],
+    ["FUCK this place", false, "palavrão em inglês é recusado"],
+    ["o empregado é um filho da puta", false, "insulto composto é recusado"]
+  ];
+  for (const [texto, esperado, nome] of casos) {
+    if (!carregou) { chk(`filtro: ${nome}`, false, "sem módulo"); continue; }
+    ctx.textoCaso = texto;
+    const r = vm.runInContext("Filtro.avaliar(textoCaso)", ctx);
+    chk(`filtro: ${nome}`, !!r && r.ok === esperado, `devolveu ${JSON.stringify(r)}`);
+  }
+}
+
 console.log(falhas ? `\npersistência/privacidade: ${falhas} FALHA(S)` : "\npersistência e privacidade: tudo no sítio");
 process.exitCode = falhas ? 1 : 0;

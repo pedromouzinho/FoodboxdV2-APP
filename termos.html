@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<!--
+  Termos de utilização do Foodboxd.
+
+  Porque existe: a diretriz 1.2 da App Store pede a quem tem conteúdo de
+  utilizadores quatro coisas — um filtro (js/filtro.js), denunciar, bloquear,
+  e UM COMPROMISSO PÚBLICO de agir sobre denúncias em 24 horas, com termos de
+  tolerância zero. As três primeiras vivem na app; a quarta vive aqui, e a
+  ficha da loja aponta para cá.
+
+  Página autónoma pela mesma razão da /privacidade: não usa o css/style.css,
+  que é construído à volta da casca da app. Os tokens repetem-se, e são poucos.
+-->
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Termos de utilização · Foodboxd</title>
+<meta name="description" content="As regras do Foodboxd: tolerância zero com abuso, denúncias tratadas em 24 horas, e o que acontece a quem não respeita." />
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" />
+<style>
+  :root {
+    --bg: #f6f1e7;
+    --surface: #fffefb;
+    --surface-2: #f0e8d8;
+    --text: #29231b;
+    --text-muted: #6b6152;
+    --border: #e3d8c3;
+    --primary: #b04a1c;
+    --font-body: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17130d;
+      --surface: #211b13;
+      --surface-2: #2b241a;
+      --text: #f2ece0;
+      --text-muted: #b5aa96;
+      --border: #3a3125;
+      --primary: #e8825a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap {
+    max-width: 42rem;
+    margin: 0 auto;
+    padding: max(24px, env(safe-area-inset-top)) 20px calc(48px + env(safe-area-inset-bottom));
+  }
+  header { padding: 8px 0 24px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+  .brand-mark { width: 22px; height: 22px; border-radius: 6px 2px 2px 6px; background: var(--primary); flex: none; }
+  .brand-name { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; }
+  h1 { font-family: var(--font-display); font-size: 2rem; line-height: 1.15; margin: 24px 0 4px; }
+  h2 { font-family: var(--font-display); font-size: 1.3rem; margin: 40px 0 8px; }
+  .sub { color: var(--text-muted); margin: 0 0 8px; }
+  p, li { color: var(--text); }
+  a { color: var(--primary); }
+  ul { padding-left: 1.25rem; }
+  li { margin: 6px 0; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px 18px;
+    margin: 20px 0;
+  }
+  footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.92rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <a class="brand" href="/"><span class="brand-mark"></span><span class="brand-name">Foodboxd</span></a>
+</header>
+
+<h1>Termos de utilização</h1>
+<p class="sub">Última atualização: 25 de agosto de 2026</p>
+
+<p>O Foodboxd é um diário de restaurantes partilhado entre amigos. Ao criar
+conta aceitas estas regras — são poucas, e existem para que o que os outros
+publicam não estrague o teu diário, nem o teu o deles.</p>
+
+<h2>Tolerância zero com conteúdo abusivo</h2>
+<p>Não há segunda leitura para:</p>
+<ul>
+  <li>insultos, assédio ou ameaças a outra pessoa;</li>
+  <li>discurso de ódio — por origem, religião, orientação, deficiência ou o
+      que for;</li>
+  <li>conteúdo sexual ou violência gratuita nas fotografias;</li>
+  <li>fazer-se passar por outra pessoa;</li>
+  <li>spam e publicidade disfarçada de crítica.</li>
+</ul>
+<p>Os comentários passam por um filtro automático antes de serem publicados.
+O filtro não substitui o teu critério: o que passar e não devia, denuncia-se.</p>
+
+<h2>Denunciar e bloquear</h2>
+<p>Em qualquer comentário ou fotografia de outra pessoa há um botão para
+<strong>denunciar</strong> (a bandeira) e para <strong>bloquear</strong> quem
+o publicou. Bloquear é imediato e só teu: essa pessoa desaparece de tudo o que
+vês, e ninguém é avisado.</p>
+
+<div class="card">
+  <p><strong>O compromisso das 24 horas.</strong> Cada denúncia é analisada no
+  prazo de 24 horas. Conteúdo que viole estas regras é removido, e a conta de
+  quem o publicou é avisada, suspensa ou apagada — conforme a gravidade e a
+  reincidência. Sem exceções para amigos.</p>
+</div>
+
+<h2>O que é teu, e o que é partilhado</h2>
+<p>O teu diário é teu. Os restaurantes que acrescentas entram na lista
+partilhada e ficam disponíveis a toda a gente — deixar de os ver não os apaga
+para os outros. Os comentários e as fotografias que publicas ficam visíveis a
+quem usa a app; podes apagá-los, e apagar a conta
+(<a href="/privacidade">como descrito na política de privacidade</a>) leva
+tudo o que é teu.</p>
+
+<h2>Contas</h2>
+<p>Uma conta por pessoa, com dados verdadeiros q.b. — o nome que mostras é o
+nome que os teus amigos veem. Contas criadas para abusar, contornar bloqueios
+ou inflacionar rankings são apagadas sem aviso.</p>
+
+<h2>Dúvidas e reclamações</h2>
+<p>Escreve para
+<a href="mailto:pedromouzinho812@gmail.com">pedromouzinho812@gmail.com</a>.
+É uma pessoa a ler, não um formulário.</p>
+
+<footer>
+  <p>Foodboxd · <a href="/privacidade">Política de privacidade</a> ·
+  <a href="/ajuda">Ajuda</a></p>
+</footer>
+
+</div>
+</body>
+</html>
