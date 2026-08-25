@@ -90,9 +90,30 @@ const MapModule = (() => {
     setTimeout(() => marker.setAnimation(null), 700);
   }
 
+  // O clusterer (F4): a lib oficial @googlemaps/markerclusterer, por CDN. A
+  // guarda existe porque o CDN pode não vir (offline; o sw não faz cache
+  // cross-origin) — sem o global, os pins ficam soltos como sempre estiveram.
+  // O renderer é da casa: uma bolha terracota com a contagem, em vez do
+  // balão azul default que não é de ninguém.
+  let clusterer = null;
+  function bolhaDeCluster(count, position) {
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">` +
+      `<circle cx="22" cy="22" r="18" fill="#b04a1c" stroke="#ffffff" stroke-width="3"/>` +
+      `<text x="22" y="27" text-anchor="middle" font-family="-apple-system,sans-serif" ` +
+      `font-size="14" font-weight="700" fill="#ffffff">${count}</text></svg>`;
+    return new google.maps.Marker({
+      position,
+      icon: { url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg), scaledSize: new google.maps.Size(44, 44) },
+      zIndex: 5
+    });
+  }
+
   function renderMarkers(restaurants, onClick) {
     if (!available) return;
 
+    if (clusterer && clusterer.clearMarkers) clusterer.clearMarkers();
+    clusterer = null;
     markers.forEach((marker) => marker.setMap(null));
     markers.clear();
 
@@ -108,6 +129,15 @@ const MapModule = (() => {
       marker.addListener("click", () => onClick(restaurant));
       markers.set(restaurant.id, marker);
     });
+
+    const MC = window.markerClusterer && window.markerClusterer.MarkerClusterer;
+    if (MC && markers.size) {
+      clusterer = new MC({
+        map,
+        markers: [...markers.values()],
+        renderer: { render: ({ count, position }) => bolhaDeCluster(count, position) }
+      });
+    }
   }
 
   // ---- Temporary search results (the map magnifier) ----
@@ -237,6 +267,47 @@ const MapModule = (() => {
   // Enquadra os sítios todos, que é a vista que diz mais num mapa pessoal: onde
   // já estive, de uma só olhada. O limite de zoom existe para o caso de haver um
   // só sítio — sem ele o fitBounds mergulha até à rua.
+  // Enquadrar NA ZONA em vez de em tudo (F4). O defeito medido a 25/08: um
+  // punhado de pins fora de Portugal (Madrid, Barcelona) esticava o fitBounds
+  // e a app abria com a Península inteira — o conteúdo real ficava num monte
+  // ilegível na costa. Com homeTown, a zona são os pins a ≤80 km de casa; sem
+  // ele, o maior aglomerado numa grelha de ~0,5° com as células vizinhas.
+  // Devolve false quando não há nada — o chamador cai no fitToMarkers de
+  // sempre, e por fim no resetView.
+  const ZONA_KM = 80;
+  function distanciaKm(a, b) {
+    const rad = Math.PI / 180;
+    const dLat = (b.lat - a.lat) * rad;
+    const dLng = (b.lng - a.lng) * rad;
+    const s = Math.sin(dLat / 2) ** 2 +
+      Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
+    return 6371 * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+  }
+  function fitToZone(list, home) {
+    if (!available) return false;
+    const pts = (list || []).filter((r) => typeof r.lat === "number" && typeof r.lng === "number");
+    if (!pts.length) return false;
+    let nucleo = [];
+    if (home && typeof home.lat === "number" && typeof home.lng === "number") {
+      nucleo = pts.filter((r) => distanciaKm(home, r) <= ZONA_KM);
+    }
+    if (!nucleo.length) {
+      const celulas = new Map();
+      pts.forEach((r) => {
+        const k = `${Math.round(r.lat * 2)}|${Math.round(r.lng * 2)}`;
+        if (!celulas.has(k)) celulas.set(k, []);
+        celulas.get(k).push(r);
+      });
+      let vencedora = null;
+      celulas.forEach((v, k) => { if (!vencedora || v.length > celulas.get(vencedora).length) vencedora = k; });
+      const [cl, cn] = vencedora.split("|").map(Number);
+      nucleo = pts.filter((r) =>
+        Math.abs(Math.round(r.lat * 2) - cl) <= 1 && Math.abs(Math.round(r.lng * 2) - cn) <= 1);
+    }
+    if (!nucleo.length) return false;
+    return fitToMarkers(nucleo);
+  }
+
   const FIT_PADDING = 40;
   const FIT_MAX_ZOOM = 14;
   function fitToMarkers(list) {
@@ -285,6 +356,7 @@ const MapModule = (() => {
     panTo,
     boundsOf,
     fitToMarkers,
+    fitToZone,
     openInfoWindow,
     focusRestaurant,
     saveCamera,

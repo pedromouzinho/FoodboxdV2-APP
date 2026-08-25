@@ -333,7 +333,11 @@ const App = (() => {
     renderList(list);
     MapModule.renderMarkers(list, onPinSelect);
     if (!enquadrouUmaVez && list.length && MapModule.isAvailable()) {
-      enquadrouUmaVez = MapModule.fitToMarkers(list);
+      // A cadeia (F4): zona → tudo → resetView. A zona é a de casa (homeTown)
+      // ou o maior aglomerado — um outlier em Barcelona deixou de abrir a
+      // Península inteira.
+      const home = typeof UserData !== "undefined" ? UserData.getHomeTown() : null;
+      enquadrouUmaVez = MapModule.fitToZone(list, home) || MapModule.fitToMarkers(list);
     }
     document.getElementById("list-count").textContent =
       `${list.length} restaurante${list.length === 1 ? "" : "s"}`;
@@ -5054,7 +5058,9 @@ const App = (() => {
     const recenter = document.getElementById("map-recenter-btn");
     if (recenter) recenter.addEventListener("click", () => {
       hideMapPeek();
-      if (!MapModule.fitToMarkers(getFiltered())) MapModule.resetView();
+      const home = typeof UserData !== "undefined" ? UserData.getHomeTown() : null;
+      const lista = getFiltered();
+      if (!(MapModule.fitToZone(lista, home) || MapModule.fitToMarkers(lista))) MapModule.resetView();
     });
     document.querySelectorAll("[data-close-detail]").forEach((el) => el.addEventListener("click", closeDetail));
     document.querySelectorAll("[data-close-signin]").forEach((el) =>

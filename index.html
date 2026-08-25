@@ -953,6 +953,10 @@
   <script src="js/erros.js"></script>
   <script src="js/push.js"></script>
   <script src="js/auth.js"></script>
+  <!-- Clustering dos pins (F4): a lib oficial da Google, por CDN — a exceção
+       deliberada à regra "sem bibliotecas" (aprovada no plano de 25/08). O
+       js/map.js tem guarda: sem este global (offline), pins soltos como antes. -->
+  <script src="https://unpkg.com/@googlemaps/markerclusterer@2.5.3/dist/index.min.js" defer></script>
   <script src="js/map.js"></script>
   <script src="js/geocode.js"></script>
   <script src="js/places.js"></script>
