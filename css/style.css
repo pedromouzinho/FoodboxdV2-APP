@@ -2544,3 +2544,127 @@ body.ob-open { overflow: hidden; }
   .tab:hover { color: var(--text); }
   .chip:hover { border-color: var(--border-strong); }
 }
+
+/* ============================================================
+   Ecrã de entrada
+   ------------------------------------------------------------
+   Cobre a app inteira enquanto não houver sessão. A casca continua
+   montada por baixo — o mapa precisa de existir para o initApp correr —
+   e é por isso que isto é uma camada e não um esconder peça a peça.
+   ============================================================ */
+.entrada {
+  position: fixed;
+  inset: 0;
+  z-index: 90; /* acima da topbar e da tabbar, abaixo das folhas do sistema */
+  background: var(--bg);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(var(--sp-5), env(safe-area-inset-top)) var(--sp-4)
+           calc(var(--sp-5) + env(safe-area-inset-bottom));
+}
+.entrada[hidden] { display: none; }
+
+.entrada-card {
+  width: 100%;
+  max-width: 24rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.entrada-marca { display: flex; align-items: center; gap: var(--sp-2); justify-content: center; }
+.entrada-marca h1 {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.entrada-lead {
+  margin: 0 0 var(--sp-2);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+}
+
+.entrada-form { display: flex; flex-direction: column; gap: var(--sp-3); }
+.entrada-campo { display: flex; flex-direction: column; gap: 6px; }
+.entrada-campo[hidden] { display: none; }
+.entrada-campo > span {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.entrada-campo input {
+  width: 100%;
+  min-height: var(--h-control);
+  padding: 0 var(--sp-3);
+  /* 16px: abaixo disto o iOS faz zoom ao focar o campo, e o ecrã salta. */
+  font-size: 16px;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+}
+.entrada-campo input:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+/* Reserva a altura de uma linha para a mensagem não empurrar o botão ao
+   aparecer — o salto era o que fazia a pessoa carregar duas vezes. */
+.entrada-estado {
+  margin: 0;
+  min-height: 1.3em;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  text-align: center;
+}
+.entrada-estado.erro { color: var(--danger); }
+
+.entrada-links {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.entrada-ou {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  margin: var(--sp-1) 0;
+}
+.entrada-ou::before, .entrada-ou::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.entrada-legal {
+  margin: var(--sp-2) 0 0;
+  text-align: center;
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+/* O alvo de toque tem de chegar aos 44px mesmo com o texto a 12px — a mesma
+   razão do ::after do .linklike. Sem isto o audit apanha-o a 17px de altura, e
+   apanha bem: é um link que se falha ao tocar. */
+.entrada-legal a {
+  color: var(--text-muted);
+  display: inline-block;
+  padding: 14px 4px;
+}
+
+/* Sem sessão a casca não deve captar toques nem ser lida por um leitor de
+   ecrã, mesmo estando montada por baixo. */
+body.sem-sessao .topbar,
+body.sem-sessao .tabbar,
+body.sem-sessao .screen { pointer-events: none; }

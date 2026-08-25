@@ -507,6 +507,9 @@ const App = (() => {
     if (!H) return;
     try {
       if (tipo === "sucesso") H.notification({ type: "SUCCESS" });
+      // "erro" caía no impacto leve, que é o mesmo de um toque qualquer. O iOS
+      // tem um padrão próprio para falha e é o que a pessoa reconhece sem olhar.
+      else if (tipo === "erro") H.notification({ type: "ERROR" });
       else H.impact({ style: "LIGHT" });
     } catch (e) { /* um toque que não se sente não é motivo para nada falhar */ }
   }
@@ -1658,6 +1661,110 @@ const App = (() => {
     MapModule.restoreCamera();
   }
 
+  // ---------- Ecrã de entrada ----------
+  //
+  // Sem sessão não se vê nada. A casca continua a montar-se por baixo — o mapa
+  // precisa de existir para o `initApp` correr — mas fica coberta.
+  //
+  // Dois modos no mesmo formulário, "entrar" e "criar", porque são dois campos
+  // de diferença e dois ecrãs seriam duas vezes o mesmo. O nome só aparece a
+  // criar: uma conta por email não traz nome nenhum do fornecedor, e sem ele a
+  // pessoa apareceria como "Amigo" a toda a gente.
+  let entradaModo = "entrar";
+
+  function mostrarEntrada() {
+    const el = document.getElementById("entrada");
+    if (!el) return;
+    el.hidden = false;
+    document.body.classList.add("sem-sessao");
+  }
+  function esconderEntrada() {
+    const el = document.getElementById("entrada");
+    if (!el) return;
+    el.hidden = true;
+    document.body.classList.remove("sem-sessao");
+    const estado = el.querySelector("[data-entrada-estado]");
+    if (estado) estado.textContent = "";
+    const palavra = document.getElementById("entrada-palavra");
+    if (palavra) palavra.value = "";
+  }
+
+  function entradaEstado(texto, tom) {
+    const el = document.querySelector("#entrada [data-entrada-estado]");
+    if (!el) return;
+    el.textContent = texto || "";
+    el.classList.toggle("erro", tom === "erro");
+  }
+
+  function pintarModoEntrada() {
+    const criar = entradaModo === "criar";
+    const nome = document.querySelector("#entrada [data-entrada-nome]");
+    const submit = document.getElementById("entrada-submit");
+    const troca = document.querySelector("#entrada [data-entrada-modo]");
+    const palavra = document.getElementById("entrada-palavra");
+    if (nome) nome.hidden = !criar;
+    if (submit) submit.textContent = criar ? "Criar conta" : "Entrar";
+    if (troca) troca.textContent = criar ? "Já tenho conta" : "Criar conta";
+    // O autocomplete tem de mudar com o modo, senão o gestor de palavras-passe
+    // oferece a antiga quando se está a escolher uma nova.
+    if (palavra) palavra.setAttribute("autocomplete", criar ? "new-password" : "current-password");
+    entradaEstado("");
+  }
+
+  async function submeterEntrada(e) {
+    if (e) e.preventDefault();
+    const email = (document.getElementById("entrada-email").value || "").trim();
+    const palavra = document.getElementById("entrada-palavra").value || "";
+    const nome = (document.getElementById("entrada-nome").value || "").trim();
+    const btn = document.getElementById("entrada-submit");
+    if (!email || !palavra) { entradaEstado("Falta o email ou a palavra-passe.", "erro"); return; }
+
+    btn.disabled = true;
+    entradaEstado(entradaModo === "criar" ? "A criar…" : "A entrar…");
+    try {
+      if (entradaModo === "criar") await AuthModule.criarComEmail(email, palavra, nome);
+      else await AuthModule.entrarComEmail(email, palavra);
+      // Não se esconde nada aqui: quem esconde é o `onAuthChange`, quando o
+      // Firebase confirmar. Esconder já daria um instante de app sem sessão.
+    } catch (err) {
+      entradaEstado(err.message, "erro");
+      haptico("erro");
+    }
+    btn.disabled = false;
+  }
+
+  async function recuperarDaEntrada() {
+    const email = (document.getElementById("entrada-email").value || "").trim();
+    if (!email) { entradaEstado("Escreve o email primeiro e eu envio o link.", "erro"); return; }
+    entradaEstado("A enviar…");
+    try {
+      await AuthModule.recuperarPalavra(email);
+      // Não se diz se a conta existe: dizê-lo transforma este campo num
+      // verificador de quem tem conta na app.
+      entradaEstado("Se houver conta com esse email, o link vai a caminho.");
+    } catch (err) {
+      entradaEstado(err.message, "erro");
+    }
+  }
+
+  function ligarEntrada() {
+    const form = document.getElementById("entrada-form");
+    if (!form) return;
+    form.addEventListener("submit", submeterEntrada);
+    const troca = document.querySelector("#entrada [data-entrada-modo]");
+    if (troca) troca.addEventListener("click", () => {
+      entradaModo = entradaModo === "criar" ? "entrar" : "criar";
+      pintarModoEntrada();
+    });
+    const rec = document.querySelector("#entrada [data-entrada-recuperar]");
+    if (rec) rec.addEventListener("click", recuperarDaEntrada);
+    const apple = document.getElementById("entrada-apple");
+    if (apple) apple.addEventListener("click", () => AuthModule.signInApple());
+    const google = document.getElementById("entrada-google");
+    if (google) google.addEventListener("click", () => AuthModule.signIn());
+    pintarModoEntrada();
+  }
+
   // ---------- Sign-in prompt modal (dismissible) ----------
   function showSigninModal() {
     const m = document.getElementById("signin-modal");
@@ -1670,15 +1777,6 @@ const App = (() => {
       try { sessionStorage.setItem("rp.signinPrompt", "off"); } catch (e) {}
     }
   }
-  function maybePromptSignin() {
-    if (UserData.isCloud()) return;
-    if (!(window.FirebaseAuth && window.FirebaseAuth.configured)) return;
-    let dismissed = false;
-    try { dismissed = sessionStorage.getItem("rp.signinPrompt") === "off"; } catch (e) {}
-    if (dismissed) return;
-    showSigninModal();
-  }
-
   // ---------- Guided tour (spotlight) ----------
   const TOUR_STEPS = [
     { title: "Bem-vindo", text: "Esta é a sua app de restaurantes. No mapa explora sítios por todo o Portugal — toque num para ver os detalhes." },
@@ -4359,7 +4457,8 @@ const App = (() => {
   // Called by AuthModule when the signed-in user changes.
   async function onAuthChange(user, getToken) {
     if (user) {
-      hideSigninModal(true); // signed in — close and don't auto-prompt again this session
+      esconderEntrada();
+      hideSigninModal(true); // a sessão expirou e voltou: fecha o que estiver aberto
       await UserData.setUser(user, getToken); // async; UserData.onChange triggers re-render
       syncAccountChip();
       // Primeira utilização na PRIMEIRA sessão da conta. A marca vive no perfil
@@ -4381,7 +4480,7 @@ const App = (() => {
       }
     } else {
       UserData.clearUser();
-      maybePromptSignin();
+      mostrarEntrada();
     }
   }
 
@@ -4399,6 +4498,17 @@ const App = (() => {
         refreshActiveDataScreen();
       }
     });
+    // O ecrã de entrada liga-se ANTES de tudo o que espera pela rede, e antes
+    // do AuthModule.
+    //
+    // Não é preferência de estilo: o `wireEvents()` lá em baixo só corre depois
+    // de dois `await` sem try/catch (o `data/restaurants.json` e o
+    // `DB.fetchAll`). Com o ecrã de entrada ligado lá, bastava a rede falhar
+    // para a app abrir no ecrã de login com os botões todos mortos — e sem
+    // saída nenhuma, porque não há mais nada visível. Um arranque sem rede tem
+    // de deixar entrar; é precisamente aí que entrar é mais preciso.
+    ligarEntrada();
+
     // O botão "Entrar" da barra abre o ecrã com as duas opções em vez de ir
     // direto para a Google — ver a nota sobre a diretriz 4.8 em js/auth.js.
     AuthModule.init({ onUser: onAuthChange, onSignInRequest: showSigninModal });

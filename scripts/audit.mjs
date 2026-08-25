@@ -115,7 +115,25 @@ const CHECKS = () => {
   document.querySelectorAll("button,a,[role=button],input,select,textarea").forEach((el)=>{
     if(!vis(el))return;
     const r=el.getBoundingClientRect();
-    if(r.width<44||r.height<44) out.alvos.push({cls:(el.className||el.tagName).toString().slice(0,28),d:Math.round(r.width)+"x"+Math.round(r.height)});
+    // A caixa do elemento NÃO é o alvo de toque quando há um ::after a esticá-lo.
+    //
+    // O `.linklike` da app faz exatamente isso: o texto tem 22px de altura e um
+    // `::after` absoluto de 44px centrado por cima. Media-se a caixa e a lista
+    // vinha cheia de "linklike 82x22" que não são defeito nenhum — e uma lista
+    // com falsos positivos treina quem a lê a saltá-la, que é a maneira de um
+    // alvo pequeno a sério passar despercebido.
+    //
+    // Mede-se o maior dos dois. Só conta se o pseudo estiver posicionado: um
+    // ::after no fluxo não é área de toque, é conteúdo.
+    let lw=r.width, lh=r.height;
+    for (const pseudo of ["::after","::before"]) {
+      const cs=getComputedStyle(el,pseudo);
+      if(!cs || cs.content==="none" || cs.position==="static") continue;
+      const pw=parseFloat(cs.width), ph=parseFloat(cs.height);
+      if(pw>lw) lw=pw;
+      if(ph>lh) lh=ph;
+    }
+    if(lw<44||lh<44) out.alvos.push({cls:(el.className||el.tagName).toString().slice(0,28),d:Math.round(lw)+"x"+Math.round(lh)});
     if(/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)&&parseFloat(getComputedStyle(el).fontSize)<16)
       out.campos.push(el.id||el.name||el.type);
     if(/^(BUTTON|A)$/.test(el.tagName)&&!el.textContent.trim()&&!el.getAttribute("aria-label")&&!el.getAttribute("title"))
@@ -147,7 +165,9 @@ for (const scheme of ["light","dark"]) {
   // intercepta todos os cliques — as 17 cenas de cada tema morriam em timeout.
   // Só aparece se `FirebaseAuth.configured`, ou seja, se o SDK tiver vindo do
   // gstatic: sem rede à Google não abre e a auditoria passava por acidente.
-  await p.addInitScript(()=>{try{sessionStorage.setItem("rp.signinPrompt","off");}catch(e){}});
+  // Sobrava do tempo em que o convite de sessão se dispensava por sessionStorage.
+  // Esse caminho deixou de existir com o ecrã de entrada — fica aqui como
+  // inofensivo em vez de dar a impressão de que ainda faz alguma coisa.
   // Sem isto, cada seletor ausente custa 30s e a auditoria nunca acaba.
   p.setDefaultTimeout(3000);
   p.on("pageerror",e=>problemas.erros.add(scheme+": "+String(e).slice(0,140)));
@@ -159,7 +179,34 @@ for (const scheme of ["light","dark"]) {
   await p.evaluate(SEED);
 
   const cenas=[
-    ["Mapa (mapa)", async()=>{ await p.click('[data-tab-nav="mapa"]'); await p.click('[data-map-mode="mapa"]'); }],
+    // O ecrã de entrada é agora um ecrã como os outros e tem de ser auditado:
+    // é o PRIMEIRO que qualquer pessoa vê, tem campos de texto (onde 16px não
+    // é preferência — abaixo disso o iOS faz zoom ao focar) e tem o contraste
+    // de um formulário sobre o fundo da marca.
+    ["Entrada", async()=>{ await p.evaluate(()=>{
+      const e=document.getElementById("entrada"); if(e) e.hidden=false;
+      // Esconder a casca de verdade, e não só cobri-la: senão o audit media o
+      // mapa e a tabbar por baixo e atribuía os alvos deles a esta cena — que
+      // foi o que aconteceu à primeira, e dava a impressão de que o ecrã de
+      // entrada tinha defeitos que não são dele.
+      document.querySelectorAll(".topbar,.tabbar,.screen").forEach(x=>{ x.style.display="none"; });
+    }); }],
+    ["Entrada (criar conta)", async()=>{ await p.click('#entrada [data-entrada-modo]'); }],
+    // E a partir daqui esconde-se, senão tapa tudo o resto.
+    //
+    // É um desvio deliberado e vale a pena dizer porquê: sem sessão a app agora
+    // não deixa passar daqui, e o audit não tem como iniciar sessão. O que ele
+    // mede — contraste, alvos, transbordo, ids repetidos — é do desenho dos
+    // ecrãs, e esse não muda por haver ou não sessão. O que ele NÃO passa a
+    // medir é o bloqueio em si; isso é o test:update e o simulador.
+    ["Mapa (mapa)", async()=>{
+      await p.evaluate(()=>{
+        const e=document.getElementById("entrada"); if(e) e.hidden=true;
+        document.body.classList.remove("sem-sessao");
+        document.querySelectorAll(".topbar,.tabbar,.screen").forEach(x=>{ x.style.display=""; });
+      });
+      await p.click('[data-tab-nav="mapa"]'); await p.click('[data-map-mode="mapa"]');
+    }],
     ["Mapa (lista)", async()=>{ await p.click('[data-map-mode="lista"]'); }],
     ["Filtros", async()=>{ await p.click("#filters-btn"); }],
     ["Filtros (expandido)", async()=>{ await p.click(".chip-more").catch(()=>{}); }],

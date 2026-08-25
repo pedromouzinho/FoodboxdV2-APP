@@ -78,6 +78,66 @@
     <symbol id="i-utensils-crossed" viewBox="0 0 24 24"><path d="M16 2v20"/><path d="M19 2v6a3 3 0 0 1-3 3"/><path d="M5 2v7a3 3 0 0 0 6 0V2"/><path d="M8 11v11"/></symbol>
   </svg>
 
+  <!-- Ecrã de entrada.
+       Cobre tudo enquanto não houver sessão, em vez de esconder a topbar, a
+       tabbar e os quatro ecrãs um a um — menos sítios para falhar, e a casca
+       continua a montar-se por baixo (o mapa precisa de existir para o
+       `initApp` correr; escondê-lo do DOM partia-o).
+
+       O `hidden` no arranque é de propósito: quem já tem sessão nunca deve ver
+       isto a piscar enquanto o Firebase decide. O `onAuthChange` mostra-o
+       quando confirma que não há ninguém.
+
+       ⚠️ Este id está na exceção do `ocupado()` lá em baixo, ao lado do
+       #signin-modal, e tem de lá ficar: um ecrã que está sempre de pé para quem
+       não tem sessão faz a app nunca mais aplicar uma atualização. É a mesma
+       armadilha que o convite de sessão já criou uma vez. -->
+  <section id="entrada" class="entrada" hidden aria-label="Entrar no Foodboxd">
+    <div class="entrada-card">
+      <div class="entrada-marca">
+        <svg class="icon brand-icon"><use href="#i-brand"/></svg>
+        <h1>Foodboxd</h1>
+      </div>
+      <p class="entrada-lead">O teu diário de restaurantes. Entra para começar.</p>
+
+      <form id="entrada-form" class="entrada-form" novalidate>
+        <label class="entrada-campo">
+          <span>Email</span>
+          <input id="entrada-email" type="email" autocomplete="email" inputmode="email"
+                 autocapitalize="none" spellcheck="false" required />
+        </label>
+        <label class="entrada-campo" data-entrada-nome hidden>
+          <span>Nome</span>
+          <input id="entrada-nome" type="text" autocomplete="name" />
+        </label>
+        <label class="entrada-campo">
+          <span>Palavra-passe</span>
+          <input id="entrada-palavra" type="password" autocomplete="current-password" required />
+        </label>
+        <p class="entrada-estado" data-entrada-estado role="status" aria-live="polite"></p>
+        <button type="submit" id="entrada-submit" class="btn btn-primary btn-block">Entrar</button>
+      </form>
+
+      <div class="entrada-links">
+        <button type="button" class="linklike" data-entrada-modo>Criar conta</button>
+        <button type="button" class="linklike" data-entrada-recuperar>Esqueci-me da palavra-passe</button>
+      </div>
+
+      <div class="entrada-ou"><span>ou</span></div>
+
+      <button id="entrada-apple" class="btn btn-block btn-apple">
+        <svg class="icon icon-apple"><use href="#i-apple"/></svg> Continuar com a Apple
+      </button>
+      <button id="entrada-google" class="btn btn-ghost btn-block">
+        <svg class="icon"><use href="#i-log-in"/></svg> Continuar com a Google
+      </button>
+
+      <p class="entrada-legal">
+        Ao entrares aceitas a <a href="https://foodboxd.pt/privacidade" target="_blank" rel="noopener">política de privacidade</a>.
+      </p>
+    </div>
+  </section>
+
   <header class="topbar">
     <div class="brand">
       <svg class="icon brand-icon"><use href="#i-brand"/></svg>
@@ -819,6 +879,11 @@
       // perde nada ao recarregar por baixo dele: reaparece do outro lado.
       function ocupado() {
         return !!document.querySelector(
+          // O #entrada está de fora pela MESMA razão do #signin-modal, e é a
+          // lição nº5: um ecrã que se abre sozinho a quem não tem sessão e que
+          // ninguém fecha deixaria a app ocupada para sempre — nunca mais
+          // aplicava uma versão nova. Tudo o que a PESSOA abre continua a
+          // suspender; o que a app abre por ela, não.
           ".sheet:not(.hidden), .modal:not(.hidden):not(#signin-modal), " +
           "#onboarding:not(.hidden), #tour:not(.hidden)"
         );
@@ -886,7 +951,8 @@
     import {
       getAuth, initializeAuth, GoogleAuthProvider, OAuthProvider, signInWithPopup, signOut,
       onAuthStateChanged, setPersistence, browserLocalPersistence, connectAuthEmulator,
-      getAdditionalUserInfo, updateProfile, signInWithCredential
+      getAdditionalUserInfo, updateProfile, signInWithCredential,
+      createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
     import {
       getStorage, ref as storageRef, uploadBytes, getDownloadURL, connectStorageEmulator
@@ -1186,6 +1252,39 @@
               if (i >= 0) perfilOuvintes.splice(i, 1);
             };
           },
+          // Email e palavra-passe.
+          //
+          // É o caminho mais simples dos três, ao contrário do que parece: não
+          // abre popup e não precisa de resolver, portanto NÃO tropeça no
+          // problema que obrigou o `initializeAuth` a existir — o `getAuth()`
+          // do bundle browser regista um resolver que valida a origem, e
+          // `capacitor://` não é http(s). Estes três passam pelo SDK direto e
+          // funcionam no nativo sem plugin nenhum.
+          //
+          // O nome vem depois: uma conta criada por email não traz displayName,
+          // e sem ele o Perfil e a lista de amigos mostrariam "Amigo" para
+          // sempre. Grava-se no momento do registo, com o `updateProfile`, e
+          // avisa-se pelo canal `onProfileChange` — o `onAuthStateChanged` não
+          // avisa mudanças de perfil, só de sessão, que é a lição que a Apple
+          // já ensinou aqui.
+          criarComEmail: async function (email, palavra, nome) {
+            const res = await createUserWithEmailAndPassword(auth, email, palavra);
+            // `nomeGuardado` e não um updateProfile à mão: já faz o reload() do
+            // objeto em memória (sem ele os ouvintes voltavam a ver o
+            // displayName antigo) e já avisa o canal de perfil.
+            const limpo = (nome || "").trim();
+            if (limpo && res.user) {
+              try { await nomeGuardado(res.user, limpo); } catch (e) {}
+            }
+            return res;
+          },
+          entrarComEmail: function (email, palavra) {
+            return signInWithEmailAndPassword(auth, email, palavra);
+          },
+          recuperarPalavra: function (email) {
+            return sendPasswordResetEmail(auth, email);
+          },
+
           getToken: function () { return auth.currentUser ? auth.currentUser.getIdToken() : Promise.resolve(null); },
           current: function () { return auth.currentUser; }
         };

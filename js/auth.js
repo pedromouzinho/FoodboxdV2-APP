@@ -82,6 +82,53 @@ const AuthModule = (() => {
     if (fb) fb.signOut().catch(() => {});
   }
 
+  // ---- Email e palavra-passe ----
+  //
+  // Ao contrário dos dois sociais, estes devolvem o erro a quem chamou em vez
+  // de o engolirem num console.warn. A razão é a interface: o ecrã de entrada
+  // tem de dizer À PESSOA o que correu mal — "essa palavra-passe está errada"
+  // não é o mesmo que "esse email já tem conta", e um "não foi possível" para
+  // os dois manda-a tentar o mesmo outra vez.
+  //
+  // A tradução dos códigos vive aqui e não no ecrã, para o dia em que houver
+  // outro sítio a entrar.
+  const ERROS = {
+    "auth/invalid-email": "Esse email não parece um email.",
+    "auth/user-disabled": "Esta conta está desativada.",
+    "auth/user-not-found": "Não há conta com esse email.",
+    "auth/wrong-password": "Palavra-passe errada.",
+    "auth/invalid-credential": "Email ou palavra-passe errados.",
+    "auth/email-already-in-use": "Já existe uma conta com esse email. Tenta entrar.",
+    "auth/weak-password": "A palavra-passe tem de ter pelo menos 6 caracteres.",
+    "auth/missing-password": "Falta a palavra-passe.",
+    "auth/too-many-requests": "Demasiadas tentativas. Espera um pouco.",
+    "auth/network-request-failed": "Sem ligação. Tenta outra vez.",
+    // Este não é culpa de quem está a usar a app: quer dizer que o fornecedor
+    // Email/Password não está ligado na consola do Firebase. Dizê-lo assim
+    // poupa a quem vier a diagnosticar um bug que não existe no código.
+    "auth/operation-not-allowed": "A entrada por email não está ativada neste projeto."
+  };
+  function traduzir(e) {
+    const codigo = (e && e.code) || "";
+    return ERROS[codigo] || (e && e.message) || "Não consegui. Tenta outra vez.";
+  }
+
+  async function entrarComEmail(email, palavra) {
+    if (!fb || !fb.entrarComEmail) throw new Error("A entrada por email não está disponível.");
+    try { return await fb.entrarComEmail(email, palavra); }
+    catch (e) { throw new Error(traduzir(e)); }
+  }
+  async function criarComEmail(email, palavra, nome) {
+    if (!fb || !fb.criarComEmail) throw new Error("A criação de conta não está disponível.");
+    try { return await fb.criarComEmail(email, palavra, nome); }
+    catch (e) { throw new Error(traduzir(e)); }
+  }
+  async function recuperarPalavra(email) {
+    if (!fb || !fb.recuperarPalavra) throw new Error("A recuperação não está disponível.");
+    try { return await fb.recuperarPalavra(email); }
+    catch (e) { throw new Error(traduzir(e)); }
+  }
+
   // Apagar a conta corre no servidor (função `conta`), não aqui: há coisas que
   // o cliente não tem como apagar — as arestas de quem TE segue pertencem a
   // essas pessoas, não a ti. Ver o comentário em functions/index.js.
@@ -133,5 +180,6 @@ const AuthModule = (() => {
     }
   }
 
-  return { init, signIn, signInApple, signOut, deleteAccount };
+  return { init, signIn, signInApple, signOut, deleteAccount,
+           entrarComEmail, criarComEmail, recuperarPalavra };
 })();
