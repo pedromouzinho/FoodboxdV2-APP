@@ -139,6 +139,27 @@ service cloud.firestore {
                     && request.resource.data.tipo in ['comentario', 'foto'];
     }
 
+    // Tokens de push (F3): um documento por pessoa, com os tokens dos SEUS
+    // dispositivos. Só o dono lhe toca e só o dono o lê — quem envia as
+    // notificações é o Admin SDK, que não passa pelas regras.
+    match /pushTokens/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Eventos de atividade que alimentam as notificações (F3). O cliente cria
+    // o SEU e mais nada: ninguém os lê daqui (a função lê com Admin SDK), e um
+    // evento não se edita nem apaga — é um facto, não um estado.
+    match /activity/{doc} {
+      allow read: if false;
+      allow update, delete: if false;
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.tipo in ['visita', 'avaliacao', 'foto']
+                    && request.resource.data.restaurantId is string
+                    && request.resource.data.restaurantId.size() > 0
+                    && request.resource.data.createdAt is string;
+    }
+
     // Erros do cliente (js/erros.js). Write-only, como os reports: a app
     // grava e ninguém os lê daqui — leem-se na consola do Firestore. Sessão
     // obrigatória, e o uid tem de ser o de quem chama: abrir isto ao

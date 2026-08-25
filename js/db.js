@@ -451,6 +451,50 @@ const DB = (() => {
     return true;
   }
 
+  // O token de push deste dispositivo, no MEU doc de tokens (F3). Merge com
+  // os que lá estiverem: uma pessoa tem vários dispositivos, e cada um só
+  // sabe do seu.
+  async function savePushToken(uid, token, platform, authToken) {
+    if (!ready || !uid || !token) return false;
+    try {
+      const res = await fetch(`${docsBase}/pushTokens/${encodeURIComponent(uid)}?${keyQ()}`, {
+        headers: authHeaders(authToken)
+      });
+      const atuais = res.ok ? (decodeFields(await res.json()).tokens || []) : [];
+      const outros = atuais.filter((t) => t && t.token !== token);
+      const fields = encodeFields({
+        tokens: [...outros, { token, platform: platform || "ios", updatedAt: new Date().toISOString() }],
+        updatedAt: new Date().toISOString()
+      });
+      const w = await fetch(`${docsBase}/pushTokens/${encodeURIComponent(uid)}?${keyQ()}`, {
+        method: "PATCH", headers: authHeaders(authToken), body: JSON.stringify({ fields })
+      });
+      return w.ok;
+    } catch (e) { return false; }
+  }
+
+  // Um evento de atividade (F3): o facto que a função de envio transforma em
+  // notificação para quem me segue. Melhor-esforço — falhar isto nunca pode
+  // travar o registo que o originou.
+  async function addActivity(evento, token) {
+    if (!ready) return false;
+    try {
+      const fields = encodeFields({
+        uid: evento.uid,
+        tipo: evento.tipo, // "visita" | "avaliacao" | "foto"
+        restaurantId: evento.restaurantId,
+        restaurantName: evento.restaurantName || "",
+        visitId: evento.visitId || "",
+        stars: evento.stars || 0,
+        createdAt: new Date().toISOString()
+      });
+      const res = await fetch(`${docsBase}/activity?${keyQ()}`, {
+        method: "POST", headers: authHeaders(token), body: JSON.stringify({ fields })
+      });
+      return res.ok;
+    } catch (e) { return false; }
+  }
+
   // Erros do cliente (js/erros.js). Write-only como os reports: grava-se e
   // lê-se na consola. A regra valida o uid e o tamanho da mensagem.
   async function addErro(erro, token) {
@@ -1041,6 +1085,8 @@ const DB = (() => {
     addPhoto,
     deletePhoto,
     addReport,
-    addErro
+    addErro,
+    savePushToken,
+    addActivity
   };
 })();

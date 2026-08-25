@@ -87,6 +87,14 @@ async function semear() {
 
   // O que NÃO pode desaparecer: está na lista partilhada e outras pessoas usam-no.
   b.set(db.collection("restaurants").doc("r1"), { name: "Monte d'Açorda", addedByUid: EU });
+
+  // O rasto do push (F3): os tokens dos MEUS dispositivos e os eventos de
+  // atividade que os meus registos criaram. Uma conta que sai não pode deixar
+  // tokens a receber notificações nem eventos órfãos com o seu uid.
+  b.set(db.collection("pushTokens").doc(EU), { tokens: [{ token: "fcm-abc:123", platform: "ios" }], updatedAt: "2026-08-25" });
+  b.set(db.collection("activity").doc("act1"), { uid: EU, tipo: "avaliacao", restaurantId: "r1", createdAt: "2026-08-25" });
+  b.set(db.collection("activity").doc("act2"), { uid: EU, tipo: "foto", restaurantId: "r2", createdAt: "2026-08-25" });
+  b.set(db.collection("activity").doc("act3"), { uid: OUTRO, tipo: "visita", restaurantId: "r1", createdAt: "2026-08-25" });
   await b.commit();
 
   try {
@@ -113,7 +121,7 @@ async function ficheiroExiste(caminho) {
 }
 
 async function limpar() {
-  for (const col of ["userData", "profiles", "comments", "photos", "follows", "visitInvites", "groups", "restaurants", "apagarPendente"]) {
+  for (const col of ["userData", "profiles", "comments", "photos", "follows", "visitInvites", "groups", "restaurants", "apagarPendente", "pushTokens", "activity"]) {
     const snap = await db.collection(col).get();
     await Promise.all(snap.docs.map((d) => d.ref.delete()));
   }
@@ -169,6 +177,12 @@ ok("o restaurante que acrescentei continua na lista partilhada", await existe("r
   "o ecrã de confirmação promete isto — se cair, a promessa é falsa");
 ok("comentários de outras pessoas intactos", await existe("comments/c3"));
 ok("fotos de outras pessoas intactas", await existe("photos/p2"));
+
+// O rasto do push (F3): sai comigo, e o dos outros fica.
+ok("os tokens de push desaparecem", !(await existe(`pushTokens/${EU}`)));
+ok("os meus eventos de atividade desaparecem",
+  (await db.collection("activity").where("uid", "==", EU).get()).empty);
+ok("os eventos de atividade dos outros ficam", await existe("activity/act3"));
 ok("a conta da outra pessoa intacta", await existe(`userData/${OUTRO}`));
 
 // ---- grupos: ninguém fica preso num grupo sem dono -------------------------

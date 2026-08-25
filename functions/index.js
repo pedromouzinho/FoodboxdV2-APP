@@ -698,6 +698,11 @@ async function apagarConta(uid) {
     contagem.ficheirosPorApagar = orfaos.map((o) => o.prefixo);
     await registarOrfaos(uid, orfaos);
   }
+  // O rasto do push (F3): os tokens dos dispositivos e os eventos de
+  // atividade. Uma conta que sai não pode continuar a receber notificações
+  // nem deixar eventos órfãos com o seu uid à espera da função de envio.
+  contagem.eventos = await apagarDocsDaQuery(db.collection("activity").where("uid", "==", uid));
+  await db.collection("pushTokens").doc(uid).delete().catch(() => {});
   await db.collection("userData").doc(uid).delete().catch(() => {});
   await db.collection("profiles").doc(uid).delete().catch(() => {});
   // Por fim a conta. Se alguma coisa acima falhar, a conta continua de pé e o

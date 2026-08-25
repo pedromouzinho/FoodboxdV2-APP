@@ -1164,6 +1164,19 @@ const App = (() => {
       enviarFotoDaVisita(r, UserData.visitId(entrada), visitDraft.foto);
       visitDraft.foto = null;
     }
+    // O evento de atividade (F3): o facto que vira notificação para quem me
+    // segue. Só no registo NOVO — editar não é atividade nova — e sempre
+    // melhor-esforço. Uma submissão = UM evento; a foto anexada vai dentro.
+    if (!visitDraft.editId && entrada) {
+      tokenSessao().then((t) => DB.addActivity({
+        uid: UserData.me().uid,
+        tipo: visitDraft.stars ? "avaliacao" : "visita",
+        restaurantId: r.id,
+        restaurantName: r.name,
+        visitId: UserData.visitId(entrada) || "",
+        stars: visitDraft.stars || 0
+      }, t)).catch(() => {});
+    }
     closeVisitSheet();
     renderMyMarks(r);
     renderAmigos(r);
@@ -1281,10 +1294,36 @@ const App = (() => {
             i.restaurantId === r.id && i.date === dataDaVisita && i.status === "pending");
           await Promise.all(apagados.map((i) => DB.deleteVisitInvite(i.id, token).catch(() => {})));
         } catch (e) { apagados = []; }
+        // As fotos LIGADAS à visita (visitId) só se apagam AO EXPIRAR a
+        // janela: o ficheiro morre a sério, e o Anular tem de conseguir
+        // voltar atrás. As antigas, sem ligação, ficam — apagáveis no viewer.
+        let fotosDaVisita = [];
+        try {
+          const vid = UserData.visitId(removida);
+          if (vid) {
+            const todas = await DB.fetchPhotos(r.id);
+            fotosDaVisita = todas.filter((p) => p.visitId === vid && p.uid === UserData.me().uid);
+          }
+        } catch (e) { fotosDaVisita = []; }
         const desligou = !UserData.isVisited(r.id);
+        const texto = desligou
+          ? "Visita removida — o sítio deixou de contar como visitado."
+          : "Visita removida.";
         showSnackbar(
-          desligou ? "Visita removida — o sítio deixou de contar como visitado." : "Visita removida.",
+          fotosDaVisita.length ? texto + " A foto vai com ela." : texto,
           {
+            aoExpirar: fotosDaVisita.length ? (async () => {
+              try {
+                const token = await tokenSessao();
+                await Promise.all(fotosDaVisita.map(async (p) => {
+                  await DB.deletePhoto(p.id, token).catch(() => {});
+                  if (p.path && window.FirebaseStorage && window.FirebaseStorage.remove) {
+                    await window.FirebaseStorage.remove(p.path).catch(() => {});
+                  }
+                }));
+                if (state.currentDetail === r) renderPhotos(r);
+              } catch (e) { /* órfãs ficam apagáveis à mão no viewer */ }
+            }) : null,
             acao: "Anular",
             aoAnular: async () => {
               UserData.undoRemoveVisit(r.id, removida);
@@ -1912,6 +1951,11 @@ const App = (() => {
           if (empty) myGrid.innerHTML = "";
           myGrid.insertAdjacentHTML("beforeend", photoTile(saved));
           statusEl.textContent = "Foto adicionada.";
+          // Uma foto avulsa é atividade própria (F3); a anexada a uma visita
+          // não — o evento da visita já a conta.
+          DB.addActivity({
+            uid: me.uid, tipo: "foto", restaurantId: r.id, restaurantName: r.name
+          }, token).catch(() => {});
         } catch (e) {
           statusEl.textContent = "A foto não subiu — tenta outra vez quando houver rede.";
         }
