@@ -435,16 +435,68 @@ const DB = (() => {
     const f = decodeFields(doc);
     return { uid: doc.name.split("/").pop(), displayName: f.displayName || "", photoURL: f.photoURL || "" };
   }
+  // O `profiles/{uid}` é a cara pública de uma pessoa: é o único documento que
+  // qualquer utilizador com sessão pode ler (`firestore.rules`), e só o dono
+  // escreve. O `userData` continua fechado.
+  //
+  // ⚠️ A MÁSCARA NÃO É OPCIONAL. Um PATCH ao Firestore SEM `updateMask` não
+  // faz merge: substitui o documento pelos campos enviados e APAGA os que não
+  // forem. Como o `upsertProfile` corre a cada entrada, sem máscara apagaria os
+  // destaques, os favoritos e a visibilidade de cada vez que alguém entrasse —
+  // em silêncio, e sem forma de os recuperar.
+  const mascara = (campos) => campos.map((c) => `updateMask.fieldPaths=${c}`).join("&");
+
   async function upsertProfile(uid, profile, token) {
     if (!ready) return false;
     const fields = encodeFields({
       displayName: profile.displayName || "", photoURL: profile.photoURL || "",
       updatedAt: new Date().toISOString()
     });
-    const res = await fetch(`${docsBase}/profiles/${encodeURIComponent(uid)}?${keyQ()}`, {
+    const q = `${keyQ()}&${mascara(["displayName", "photoURL", "updatedAt"])}`;
+    const res = await fetch(`${docsBase}/profiles/${encodeURIComponent(uid)}?${q}`, {
       method: "PATCH", headers: authHeaders(token), body: JSON.stringify({ fields })
     });
     return res.ok;
+  }
+
+  // A parte do perfil que a pessoa escolhe mostrar. Máscara própria, para não
+  // tocar no nome nem na fotografia — que são escritos noutro momento, pelo
+  // `upsertProfile`, e viriam vazios daqui.
+  async function savePublicProfile(uid, dados, token) {
+    if (!ready) return false;
+    const fields = encodeFields({
+      destaques: Array.isArray(dados.destaques) ? dados.destaques : [],
+      favoritos: Array.isArray(dados.favoritos) ? dados.favoritos : [],
+      visibilidade: dados.visibilidade || "seguidores",
+      updatedAt: new Date().toISOString()
+    });
+    const q = `${keyQ()}&${mascara(["destaques", "favoritos", "visibilidade", "updatedAt"])}`;
+    const res = await fetch(`${docsBase}/profiles/${encodeURIComponent(uid)}?${q}`, {
+      method: "PATCH", headers: authHeaders(token), body: JSON.stringify({ fields })
+    });
+    return res.ok;
+  }
+
+  // Um perfil público, inteiro. Devolve null se não existir — uma conta pode
+  // não ter perfil ainda, e isso não é erro.
+  async function fetchProfile(uid, token) {
+    if (!ready || !uid) return null;
+    try {
+      const res = await fetch(`${docsBase}/profiles/${encodeURIComponent(uid)}?${keyQ()}`, { headers: authHeaders(token) });
+      if (!res.ok) return null;
+      const doc = await res.json();
+      const f = decodeFields(doc);
+      return {
+        uid,
+        displayName: f.displayName || "",
+        photoURL: f.photoURL || "",
+        destaques: Array.isArray(f.destaques) ? f.destaques : [],
+        favoritos: Array.isArray(f.favoritos) ? f.favoritos : [],
+        // Por omissão "seguidores": quem nunca escolheu não fica exposto por
+        // omissão. O valor mais fechado que ainda deixa a coisa servir.
+        visibilidade: f.visibilidade || "seguidores"
+      };
+    } catch (e) { return null; }
   }
   // Small user base: fetch the page and filter client-side (Firestore has no
   // substring search).
@@ -882,6 +934,8 @@ const DB = (() => {
     fetchFollowers,
     fetchUsersByIds,
     upsertProfile,
+    savePublicProfile,
+    fetchProfile,
     searchProfiles,
     createVisitInvite,
     fetchVisitInvites,

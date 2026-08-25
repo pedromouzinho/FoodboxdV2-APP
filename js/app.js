@@ -1274,11 +1274,262 @@ const App = (() => {
     return `<div class="comment">
       ${avatar(c.author, c.photoURL)}
       <div class="comment-body">
-        <span class="comment-who"><span class="name">${esc(c.author)}</span><span class="when">${esc(fmtDate(c.createdAt))}</span></span>
+        <span class="comment-who">${meu || !c.uid
+          ? `<span class="name">${esc(c.author)}</span>`
+          : `<button type="button" class="name person-abrir" data-abrir-pessoa="${esc(c.uid)}" data-abrir-nome="${esc(c.author || "")}">${esc(c.author)}</button>`
+        }<span class="when">${esc(fmtDate(c.createdAt))}</span></span>
         <p>${esc(c.text)}</p>
       </div>
       ${acoes}
     </div>`;
+  }
+
+  // ---------- O meu perfil público ----------
+  //
+  // Tudo aqui é escolhido, e nada é calculado. Podia-se derivar os "favoritos"
+  // das avaliações de cinco estrelas e os "destaques" do perfil de gosto que a
+  // IA gera — e seria pior: um perfil é o que uma pessoa quer dizer de si, não
+  // o que os dados dizem por ela.
+  let rascunhoPerfil = null;
+
+  function abrirMeuPerfilPublico() {
+    if (!UserData.isCloud()) { showSigninModal(); return; }
+    const sheet = document.getElementById("meu-perfil-sheet");
+    if (!sheet) return;
+    rascunhoPerfil = UserData.getPerfilPublico();
+    pintarMeuPerfil();
+    sheet.classList.remove("hidden");
+    sheet.setAttribute("aria-hidden", "false");
+  }
+
+  function fecharMeuPerfilPublico() {
+    const sheet = document.getElementById("meu-perfil-sheet");
+    if (!sheet) return;
+    sheet.classList.add("hidden");
+    sheet.setAttribute("aria-hidden", "true");
+    rascunhoPerfil = null;
+  }
+
+  function pintarMeuPerfil() {
+    const sheet = document.getElementById("meu-perfil-sheet");
+    if (!sheet || !rascunhoPerfil) return;
+
+    sheet.querySelectorAll("[data-vis]").forEach((b) =>
+      b.setAttribute("aria-pressed", String(b.dataset.vis === rascunhoPerfil.visibilidade)));
+
+    const destaques = sheet.querySelector("[data-destaques]");
+    destaques.innerHTML = rascunhoPerfil.destaques.length
+      ? rascunhoPerfil.destaques.map((d, i) => `
+          <button type="button" class="chip" data-destaque-tirar="${i}">
+            ${esc(d)} ${icon("x")}
+          </button>`).join("")
+      : `<span class="muted">Ainda não escreveste nenhum.</span>`;
+
+    // Os favoritos saem do que já está no diário: escolher de uma lista de
+    // sítios onde nunca se foi não faz sentido nenhum.
+    const visitados = state.restaurants.filter((r) => UserData.isVisited(r.id));
+    const alvo = sheet.querySelector("[data-favoritos]");
+    if (!visitados.length) {
+      alvo.innerHTML = `<p class="muted">Regista uma visita primeiro — os favoritos saem do teu diário.</p>`;
+    } else {
+      alvo.innerHTML = visitados.slice(0, 40).map((r) => {
+        const on = rascunhoPerfil.favoritos.includes(r.id);
+        return `<button type="button" class="person-row" data-fav="${esc(r.id)}" aria-pressed="${on}">
+          <span class="person-text">
+            <span class="person-name">${esc(r.name)}</span>
+            <span class="person-why">${esc([r.town, r.region].filter(Boolean).join(" · "))}</span>
+          </span>
+          ${on ? icon("check-circle") : icon("plus")}
+        </button>`;
+      }).join("");
+    }
+  }
+
+  function ligarMeuPerfil() {
+    const sheet = document.getElementById("meu-perfil-sheet");
+    if (!sheet) return;
+    sheet.querySelectorAll("[data-close-meu-perfil]").forEach((el) =>
+      el.addEventListener("click", fecharMeuPerfilPublico));
+
+    sheet.addEventListener("click", (e) => {
+      if (!rascunhoPerfil) return;
+      const vis = e.target.closest("[data-vis]");
+      if (vis) { rascunhoPerfil.visibilidade = vis.dataset.vis; pintarMeuPerfil(); return; }
+
+      const tirar = e.target.closest("[data-destaque-tirar]");
+      if (tirar) {
+        rascunhoPerfil.destaques.splice(Number(tirar.dataset.destaqueTirar), 1);
+        pintarMeuPerfil();
+        return;
+      }
+      const fav = e.target.closest("[data-fav]");
+      if (fav) {
+        const id = fav.dataset.fav;
+        const i = rascunhoPerfil.favoritos.indexOf(id);
+        if (i >= 0) rascunhoPerfil.favoritos.splice(i, 1);
+        else if (rascunhoPerfil.favoritos.length < 6) rascunhoPerfil.favoritos.push(id);
+        else { sheet.querySelector("[data-meu-perfil-estado]").textContent = "Seis é o máximo. Tira um primeiro."; return; }
+        pintarMeuPerfil();
+      }
+    });
+
+    const add = sheet.querySelector("[data-destaque-add]");
+    const texto = sheet.querySelector("[data-destaque-texto]");
+    const juntar = () => {
+      if (!rascunhoPerfil) return;
+      const v = (texto.value || "").trim();
+      if (!v) return;
+      if (rascunhoPerfil.destaques.length >= 5) {
+        sheet.querySelector("[data-meu-perfil-estado]").textContent = "Cinco é o máximo.";
+        return;
+      }
+      rascunhoPerfil.destaques.push(v);
+      texto.value = "";
+      pintarMeuPerfil();
+    };
+    if (add) add.addEventListener("click", juntar);
+    if (texto) texto.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); juntar(); }
+    });
+
+    const guardar = sheet.querySelector("[data-meu-perfil-guardar]");
+    if (guardar) guardar.addEventListener("click", async () => {
+      if (!rascunhoPerfil) return;
+      const estado = sheet.querySelector("[data-meu-perfil-estado]");
+      guardar.disabled = true;
+      estado.textContent = "A guardar…";
+      try {
+        await UserData.setPerfilPublico(rascunhoPerfil);
+        estado.textContent = "Guardado.";
+        haptico("sucesso");
+        setTimeout(fecharMeuPerfilPublico, 700);
+      } catch (e) {
+        estado.textContent = "Não consegui guardar. Tenta outra vez.";
+      }
+      guardar.disabled = false;
+    });
+  }
+
+  // ---------- O perfil de outra pessoa ----------
+  //
+  // Até aqui via-se o nome de alguém no feed e não havia para onde ir. Agora
+  // toca-se e abre-se o que essa pessoa escolheu mostrar: os destaques que
+  // escreveu sobre o gosto dela, e os sítios que escolheu como favoritos.
+  //
+  // Escolheu mesmo — nada disto é calculado a partir das avaliações. É a
+  // diferença entre um perfil e um relatório.
+  async function abrirPerfilDe(uid, nomeConhecido) {
+    if (!uid || !UserData.isCloud()) return;
+    const me = UserData.me();
+    if (uid === me.uid) { navTo("perfil"); return; }
+
+    const sheet = document.getElementById("pessoa-sheet");
+    if (!sheet) return;
+    const nomeEl = sheet.querySelector("#pessoa-nome");
+    const subEl = sheet.querySelector("[data-pessoa-sub]");
+    const avatarEl = sheet.querySelector("[data-pessoa-avatar]");
+    const corpo = sheet.querySelector("[data-pessoa-conteudo]");
+
+    nomeEl.textContent = nomeConhecido || "";
+    subEl.textContent = "";
+    subEl.hidden = true;
+    avatarEl.innerHTML = avatar(nomeConhecido || "", "");
+    corpo.innerHTML = `<div class="skeleton" style="height:64px"></div>`;
+    sheet.classList.remove("hidden");
+    sheet.setAttribute("aria-hidden", "false");
+
+    let perfil = null, souSeguidor = false;
+    try {
+      const token = await window.FirebaseAuth.getToken();
+      // As duas ao mesmo tempo: o perfil, e se estou na lista de quem a segue.
+      // A segunda é o que decide a visibilidade "só quem me segue", e é uma
+      // pergunta sobre a lista DELA — não dá para responder do que tenho cá.
+      const [p, seguidores] = await Promise.all([
+        DB.fetchProfile(uid, token),
+        DB.fetchFollowers(uid, token)
+      ]);
+      perfil = p;
+      souSeguidor = Array.isArray(seguidores) && seguidores.includes(me.uid);
+    } catch (e) { /* trata-se em baixo */ }
+
+    if (!perfil) {
+      corpo.innerHTML = `<p class="muted">Não consegui abrir este perfil agora.</p>`;
+      return;
+    }
+
+    nomeEl.textContent = perfil.displayName || nomeConhecido || "Sem nome";
+    avatarEl.innerHTML = avatar(perfil.displayName || nomeConhecido || "", perfil.photoURL);
+
+    const sigo = UserData.isFollowing(uid);
+    const botaoSeguir = `<button type="button" class="btn ${sigo ? "btn-ghost" : "btn-primary"} btn-block"
+      data-pessoa-seguir="${esc(uid)}">${sigo ? "A seguir" : "Seguir"}</button>`;
+
+    if (!UserData.podeVerPerfil(perfil, souSeguidor)) {
+      subEl.textContent = perfil.visibilidade === "ninguem"
+        ? "Este perfil é privado."
+        : "Só quem esta pessoa segue de volta vê os destaques.";
+      subEl.hidden = false;
+      corpo.innerHTML = botaoSeguir;
+      ligarBotaoSeguir(sheet, perfil);
+      return;
+    }
+
+    const listaDestaques = (perfil.destaques || []).filter(Boolean);
+    const favoritos = (perfil.favoritos || [])
+      .map((id) => restById(id))
+      .filter(Boolean);
+
+    corpo.innerHTML = `
+      ${listaDestaques.length ? `
+        <div class="pessoa-bloco">
+          <span class="detail-section-title">O que gosta</span>
+          <div class="chip-row">${listaDestaques.map((d) => `<span class="chip">${esc(d)}</span>`).join("")}</div>
+        </div>` : ""}
+      ${favoritos.length ? `
+        <div class="pessoa-bloco">
+          <span class="detail-section-title">Favoritos</span>
+          ${favoritos.map((r) => `
+            <button type="button" class="person-row" data-pessoa-rest="${esc(r.id)}">
+              <span class="person-text">
+                <span class="person-name">${esc(r.name)}</span>
+                <span class="person-why">${esc([r.town, r.region].filter(Boolean).join(" · "))}</span>
+              </span>
+              ${icon("chevron-right")}
+            </button>`).join("")}
+        </div>` : ""}
+      ${!listaDestaques.length && !favoritos.length
+        ? `<p class="muted">Ainda não escolheu nada para mostrar.</p>` : ""}
+      ${botaoSeguir}`;
+
+    ligarBotaoSeguir(sheet, perfil);
+    sheet.querySelectorAll("[data-pessoa-rest]").forEach((b) => b.addEventListener("click", () => {
+      const r = restById(b.dataset.pessoaRest);
+      fecharPerfilDe();
+      if (r) onSelect(r);
+    }));
+  }
+
+  function ligarBotaoSeguir(sheet, perfil) {
+    const b = sheet.querySelector("[data-pessoa-seguir]");
+    if (!b) return;
+    b.addEventListener("click", async () => {
+      b.disabled = true;
+      const sigo = UserData.isFollowing(perfil.uid);
+      try {
+        if (sigo) await UserData.unfollow(perfil.uid);
+        else await UserData.follow(perfil.uid);
+        // Reabrir: seguir pode destrancar os destaques, e ficar com o botão
+        // trocado e o conteúdo antigo seria mentira.
+        abrirPerfilDe(perfil.uid, perfil.displayName);
+      } catch (e) { b.disabled = false; }
+    });
+  }
+
+  function fecharPerfilDe() {
+    const sheet = document.getElementById("pessoa-sheet");
+    if (!sheet) return;
+    sheet.classList.add("hidden");
+    sheet.setAttribute("aria-hidden", "true");
   }
 
   // ---------- Moderação: denunciar e bloquear (diretriz 1.2) ----------
@@ -2009,6 +2260,7 @@ const App = (() => {
         ${AIModule.available() ? `<button type="button" class="perfil-row" data-perfil="gosto">${icon("sparkles")}<span>O meu perfil de gosto</span>${icon("chevron-right")}</button>` : ""}
         <button type="button" class="perfil-row" data-perfil="pessoas">${icon("users")}<span>Descobrir pessoas</span>${icon("chevron-right")}</button>
         <button type="button" class="perfil-row" data-perfil="tutorial">${icon("info")}<span>Rever tutorial</span>${icon("chevron-right")}</button>
+        <button type="button" class="perfil-row" data-perfil="publico">${icon("user")}<span>O meu perfil público</span>${icon("chevron-right")}</button>
         <button type="button" class="perfil-row" data-perfil="privacidade">${icon("info")}<span>Privacidade</span>${icon("chevron-right")}</button>
         ${UserData.getBlocked().length ? `<button type="button" class="perfil-row" data-perfil="bloqueados">${icon("flag")}<span>Pessoas bloqueadas (${UserData.getBlocked().length})</span>${icon("chevron-right")}</button>` : ""}
         <button type="button" class="perfil-row perfil-row-danger" data-perfil="sair">${icon("log-in")}<span>Terminar sessão</span></button>
@@ -2024,6 +2276,7 @@ const App = (() => {
       const what = b.dataset.perfil;
       if (what === "apagar") abrirApagarConta();
       else if (what === "privacidade") abrirPrivacidade();
+      else if (what === "publico") abrirMeuPerfilPublico();
       else if (what === "bloqueados") abrirBloqueados();
       else if (what === "gosto") showTasteProfile();
       else if (what === "pessoas") openPeopleModal();
@@ -3889,12 +4142,17 @@ const App = (() => {
 
   function personRow(p) {
     const on = UserData.isFollowing(p.uid);
+    // O nome e o avatar abrem o perfil; o botão continua a seguir. São dois
+    // alvos distintos dentro da mesma linha, e é por isso que o de abrir é um
+    // <button> e não a linha inteira.
     return `<div class="person-row">
-      ${avatar(p.displayName, p.photoURL)}
-      <span class="person-text">
+      <button type="button" class="person-abrir" data-abrir-pessoa="${esc(p.uid)}" data-abrir-nome="${esc(p.displayName || "")}">
+        ${avatar(p.displayName, p.photoURL)}
+      </button>
+      <button type="button" class="person-text person-abrir" data-abrir-pessoa="${esc(p.uid)}" data-abrir-nome="${esc(p.displayName || "")}">
         <span class="person-name">${esc(p.displayName || "Sem nome")}</span>
         <span class="person-why">${esc(followReason(p))}</span>
-      </span>
+      </button>
       <button type="button" class="chip" data-follow="${esc(p.uid)}" data-on="${on}" aria-pressed="${on}">
         ${on ? "A seguir" : "Seguir"}
       </button>
@@ -4121,9 +4379,11 @@ const App = (() => {
       : "";
     return `<div class="feed-item">
       <div class="feed-top">
-        ${avatar(it.g.displayName, it.g.photoURL)}
+        <button type="button" class="person-abrir" data-abrir-pessoa="${esc(it.g.uid || "")}" data-abrir-nome="${esc(it.g.displayName || "")}">
+          ${avatar(it.g.displayName, it.g.photoURL)}
+        </button>
         <div class="feed-top-text">
-          <span class="feed-who"><b>${who}</b> ${verb}</span>
+          <span class="feed-who"><button type="button" class="person-abrir feed-who-nome" data-abrir-pessoa="${esc(it.g.uid || "")}" data-abrir-nome="${esc(it.g.displayName || "")}"><b>${who}</b></button> ${verb}</span>
           ${when ? `<span class="feed-time">${when}</span>` : ""}
         </div>
       </div>
@@ -4331,6 +4591,19 @@ const App = (() => {
     // Moderação (diretriz 1.2). Ligada uma vez aqui, e não a cada render da
     // lista de comentários — a folha é uma só e os botões dela não mudam.
     document.querySelectorAll("[data-close-mod]").forEach((el) => el.addEventListener("click", fecharModeracao));
+    document.querySelectorAll("[data-close-pessoa]").forEach((el) => el.addEventListener("click", fecharPerfilDe));
+
+    // Delegado no documento, e não em cada lista: os nomes aparecem no feed, na
+    // folha de pessoas, nos comentários e nos avatares de "visitado por", e
+    // todos esses são repintados a cada render. Ligar em cada um era ligar
+    // outra vez a cada repintura.
+    document.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-abrir-pessoa]");
+      if (!b) return;
+      e.preventDefault();
+      e.stopPropagation();
+      abrirPerfilDe(b.dataset.abrirPessoa, b.dataset.abrirNome || "");
+    });
     const modBloq = document.querySelector("[data-mod-bloquear]");
     if (modBloq) modBloq.addEventListener("click", bloquearDaModeracao);
     const modDen = document.querySelector("[data-mod-denunciar]");
@@ -4617,6 +4890,7 @@ const App = (() => {
     // saída nenhuma, porque não há mais nada visível. Um arranque sem rede tem
     // de deixar entrar; é precisamente aí que entrar é mais preciso.
     ligarEntrada();
+    ligarMeuPerfil();
 
     // O botão "Entrar" da barra abre o ecrã com as duas opções em vez de ir
     // direto para a Google — ver a nota sobre a diretriz 4.8 em js/auth.js.

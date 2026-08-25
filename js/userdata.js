@@ -60,6 +60,16 @@ const UserData = (() => {
   // por cima do comentário ou da foto. Guarda-se esse.
   let blockedNames = {};
 
+  // O perfil público: o que a pessoa escolhe mostrar a quem a visita.
+  //
+  // A cópia autoritativa vive no `userData` — que já é lido e gravado em cada
+  // sessão — e é espelhada para o `profiles/{uid}`, que é o documento que os
+  // outros conseguem ler. Assim não há uma leitura a mais no arranque, e a
+  // escrita pública só acontece quando alguma destas coisas muda.
+  let destaques = [];   // frases curtas, escolhidas pela pessoa
+  let favoritos = [];   // ids de restaurantes, escolhidos pela pessoa
+  let visibilidade = "seguidores"; // "todos" | "seguidores" | "ninguem"
+
   let onChange = null; // called after async loads complete
   let saveTimer = null;
 
@@ -142,6 +152,9 @@ const UserData = (() => {
       shareGroupIds = Array.isArray(doc.shareGroups) ? doc.shareGroups : [];
       visibleTo = Array.isArray(doc.visibleTo) ? doc.visibleTo : [];
       blocked = Array.isArray(doc.blocked) ? doc.blocked : [];
+      destaques = Array.isArray(doc.destaques) ? doc.destaques : [];
+      favoritos = Array.isArray(doc.favoritos) ? doc.favoritos : [];
+      visibilidade = doc.visibilidade || "seguidores";
       blockedNames = (doc.blockedNames && typeof doc.blockedNames === "object") ? doc.blockedNames : {};
       const legacyAudience = doc.audienceGlobal === undefined; // stamp it so others can query me
       // First sign-in: fold in whatever was marked locally before logging in.
@@ -186,6 +199,9 @@ const UserData = (() => {
     shareGroupIds = [];
     blocked = [];
     blockedNames = {};
+    destaques = [];
+    favoritos = [];
+    visibilidade = "seguidores";
     visibleTo = [];
     following = [];
     if (onChange) onChange();
@@ -300,7 +316,10 @@ const UserData = (() => {
         visibleTo: computeVisibleTo(),
         shareGroups: shareGroupIds,
         blocked,
-        blockedNames
+        blockedNames,
+        destaques,
+        favoritos,
+        visibilidade
       },
       token
     );
@@ -346,6 +365,44 @@ const UserData = (() => {
     persistNow().catch(() => {});
     if (onChange) onChange();
     return true;
+  }
+
+  // ---- perfil público ----
+  function getPerfilPublico() {
+    return { destaques: destaques.slice(), favoritos: favoritos.slice(), visibilidade };
+  }
+  async function setPerfilPublico(novo) {
+    if (!cloud) return false;
+    if (Array.isArray(novo.destaques)) destaques = novo.destaques.slice(0, 5);
+    if (Array.isArray(novo.favoritos)) favoritos = novo.favoritos.slice(0, 6);
+    if (novo.visibilidade) visibilidade = novo.visibilidade;
+    persistNow().catch(() => {});
+    // E espelhar para o documento público, que é o que os outros leem.
+    try {
+      const token = await getToken();
+      await DB.savePublicProfile(uid, { destaques, favoritos, visibilidade }, token);
+    } catch (e) { /* a cópia privada já ficou gravada; tenta-se outra vez à próxima */ }
+    if (onChange) onChange();
+    return true;
+  }
+
+  // Se EU posso ver o perfil daquela pessoa, dada a escolha DELA.
+  //
+  // O `souSeguidor` vem de fora, e é de propósito: "seguidores" quer dizer
+  // **quem me segue**, e essa lista é da outra pessoa — o cliente só conhece a
+  // sua própria (`following`). Quem abre o perfil pergunta ao `follows` se lá
+  // está, e passa a resposta aqui.
+  //
+  // Escrevi isto primeiro com `following.includes(perfil.uid)`, que responde a
+  // outra pergunta — "eu sigo-a" — e teria mostrado o perfil às pessoas
+  // erradas. Fica anotado porque as duas frases parecem a mesma coisa e não são.
+  function podeVerPerfil(perfil, souSeguidor) {
+    if (!perfil) return false;
+    if (perfil.uid === uid) return true;
+    const v = perfil.visibilidade || "seguidores";
+    if (v === "ninguem") return false;
+    if (v === "todos") return true;
+    return souSeguidor === true;
   }
 
   function getSharing() { return { global: audienceGlobal, groupIds: shareGroupIds.slice() }; }
@@ -660,6 +717,9 @@ const UserData = (() => {
     markTasteGen,
     getSharing,
     setSharing,
+    getPerfilPublico,
+    setPerfilPublico,
+    podeVerPerfil,
     isBlocked,
     getBlocked,
     blockUser,

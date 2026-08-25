@@ -732,6 +732,70 @@
        A diretriz 1.2 da App Store exige as duas coisas em qualquer app com
        conteúdo de utilizadores, e a App Review testa-as à mão — abre conteúdo
        de outra pessoa e procura o botão. -->
+  <!-- O perfil de outra pessoa. Abre-se ao tocar num nome ou num avatar, no
+       feed, nos comentários ou na lista de pessoas. -->
+  <!-- Editar o que o meu perfil mostra: destaques, favoritos e quem os vê. -->
+  <div id="meu-perfil-sheet" class="sheet hidden" aria-hidden="true">
+    <div class="sheet-scrim" data-close-meu-perfil></div>
+    <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="meu-perfil-titulo">
+      <div class="sheet-handle" data-close-meu-perfil></div>
+      <header class="sheet-head">
+        <h2 class="sheet-title" id="meu-perfil-titulo">O meu perfil público</h2>
+      </header>
+      <div class="sheet-body">
+        <p class="muted">É isto que aparece a quem tocar no teu nome.</p>
+
+        <div class="field">
+          <span class="field-label">Quem vê</span>
+          <div class="chip-row" role="radiogroup" aria-label="Quem vê o meu perfil">
+            <button type="button" class="chip" data-vis="todos">Toda a gente</button>
+            <button type="button" class="chip" data-vis="seguidores">Só quem me segue</button>
+            <button type="button" class="chip" data-vis="ninguem">Ninguém</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="field-label">O que gosto</span>
+          <p class="field-hint">Frases curtas, escolhidas por ti. Até cinco.</p>
+          <div class="chip-row" data-destaques></div>
+          <div class="destaque-novo">
+            <input type="text" class="note-input" data-destaque-texto maxlength="40" placeholder="ex: peixe grelhado sem pressas" />
+            <button type="button" class="btn btn-ghost btn-sm" data-destaque-add>Juntar</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="field-label">Favoritos</span>
+          <p class="field-hint">Escolhidos do teu diário. Até seis.</p>
+          <div data-favoritos></div>
+        </div>
+
+        <p class="photo-status" data-meu-perfil-estado></p>
+      </div>
+      <div class="sheet-foot">
+        <button type="button" class="btn btn-primary btn-block" data-meu-perfil-guardar>Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="pessoa-sheet" class="sheet hidden" aria-hidden="true">
+    <div class="sheet-scrim" data-close-pessoa></div>
+    <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="pessoa-nome">
+      <div class="sheet-handle" data-close-pessoa></div>
+      <div class="sheet-body" data-pessoa-corpo>
+        <div class="pessoa-cab">
+          <span data-pessoa-avatar></span>
+          <h2 class="sheet-title" id="pessoa-nome"></h2>
+          <p class="muted" data-pessoa-sub></p>
+        </div>
+        <div data-pessoa-conteudo></div>
+      </div>
+      <div class="sheet-foot">
+        <button type="button" class="btn btn-ghost btn-block" data-close-pessoa>Fechar</button>
+      </div>
+    </div>
+  </div>
+
   <div id="mod-sheet" class="sheet hidden" aria-hidden="true">
     <div class="sheet-scrim" data-close-mod></div>
     <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="mod-title">

@@ -2772,3 +2772,44 @@ body.sem-sessao .screen { pointer-events: none; }
   border-radius: var(--r-pill);
 }
 .form-foto-previa .icon-btn .icon { width: 14px; height: 14px; }
+
+/* Abrir o perfil de alguém: o nome e o avatar passam a ser alvos.
+   Sem aspeto de botão — parecem o que já pareciam, e é só o toque que muda. */
+.person-abrir {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.person-abrir:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: var(--r-sm); }
+.feed-who-nome { display: inline; }
+.comment-who .name.person-abrir { color: inherit; }
+
+/* A folha do perfil de outra pessoa. */
+.pessoa-cab { display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); text-align: center; }
+.pessoa-cab .avatar { width: 64px; height: 64px; }
+.pessoa-cab .sheet-title { margin: var(--sp-1) 0 0; }
+.pessoa-cab p[hidden] { display: none; }
+/* O corpo desta folha cresce com o conteúdo. Sem isto, um perfil sem destaques
+   nem favoritos deixava um vão do tamanho de meio ecrã por baixo do nome. */
+#pessoa-sheet .sheet-body { padding-bottom: var(--sp-4); }
+#pessoa-sheet .sheet-card { min-height: 0; }
+.pessoa-bloco { display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-4) 0; }
+.pessoa-bloco .chip-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+/* O editor do perfil público. */
+#meu-perfil-sheet .field { margin-bottom: var(--sp-4); }
+#meu-perfil-sheet .chip-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+#meu-perfil-sheet .chip[aria-pressed="true"] {
+  background: var(--chip-on-bg);
+  color: var(--chip-on-ink);
+  border-color: transparent;
+}
+#meu-perfil-sheet .person-row[aria-pressed="true"] { color: var(--accent-ink); }
+#meu-perfil-sheet .person-row[aria-pressed="true"] .icon { color: var(--accent); }
+.destaque-novo { display: flex; gap: var(--sp-2); margin-top: var(--sp-2); }
+.destaque-novo .note-input { flex: 1; }
+.field-hint { margin: 4px 0 var(--sp-2); font-size: var(--fs-sm); color: var(--text-muted); }
