@@ -2108,9 +2108,30 @@ const App = (() => {
     card.addEventListener("touchmove", (e) => {
       if (!allow) return;
       const delta = e.touches[0].clientY - startY;
-      if (delta > 0) {
-        if (!dragging && delta > 6) { dragging = true; card.classList.add("dragging"); }
-        if (dragging) { dy = delta; e.preventDefault(); card.style.transform = `translateY(${dy}px)`; }
+
+      // O limiar tem de ser nos DOIS sentidos.
+      //
+      // Antes só olhava para baixo: `if (delta > 0)`. Quem arrastasse para cima
+      // para chegar aos comentários — com a descida mínima que um polegar faz ao
+      // assentar antes do flick — engatava o fecho, e a ficha fechava-se a meio
+      // de um gesto cujo sentido era o contrário. Reproduzido no simulador: 62pt
+      // para baixo e 262pt para cima em 175ms fecha a ficha.
+      //
+      // Assim que o dedo mostra que vai para cima, o gesto passa a ser do
+      // scroller e não volta a ser nosso neste toque. Tem de ser aqui e não no
+      // fim: depois de um preventDefault() num touchmove, o WebKit já não inicia
+      // o scroll para o resto da sequência — largar o gesto a meio não o devolve.
+      if (!dragging && delta < -6) { allow = false; return; }
+
+      if (delta > 0 && !dragging && delta > 6) { dragging = true; card.classList.add("dragging"); }
+      if (dragging) {
+        // `Math.max(0, delta)` a cada movimento, e não `dy = delta` só quando é
+        // positivo. Congelado no último valor positivo, o `dy` ficava a dizer
+        // "desceu 62px" enquanto o dedo já ia a subir — e era esse número
+        // congelado que o `end()` julgava. É o que o wireSheetDrag já faz.
+        dy = Math.max(0, delta);
+        e.preventDefault();
+        card.style.transform = `translateY(${dy}px)`;
       }
     }, { passive: false });
     const end = () => {

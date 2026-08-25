@@ -357,7 +357,21 @@ npm run preview        # telemóvel e ecrã grande, claro e escuro
 
   No contentor o Chromium está noutro sítio: `CHROMIUM_PATH=... npm run audit`.
 
-- **E há um quinto, que precisa do emulador** — apagar conta, a única operação
+- **E há um quinto, que mede o que o dedo faz** — nenhum dos outros toca em
+  eventos de toque, e um clique não tem direção nem duração:
+
+```bash
+npm run test:gesto     # 5 afirmações sobre o gesto de fechar a ficha
+```
+
+  Os eventos vão pelo CDP (`Input.dispatchTouchEvent`) para se controlar o
+  caminho ponto a ponto **e o tempo entre pontos** — é o tempo que separa um
+  flick de um arrasto. Ao mexer nele, mede os caminhos com uma sonda em vez de
+  os adivinhar: a primeira versão deste ensaio usava 25ms entre pontos, o gesto
+  demorava 400ms, a janela do defeito é de 250ms, e **passava com o código
+  defeituoso**.
+
+- **E um sexto, que precisa do emulador** — apagar conta, a única operação
   irreversível da app:
 
 ```bash

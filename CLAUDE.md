@@ -74,6 +74,7 @@ npm run preview        # telemóvel e ecrã grande, claro e escuro
 npm run audit          # contraste, alvos de toque, transbordo, ids repetidos
 npm run test:map
 npm run test:update
+npm run test:gesto     # o gesto de fechar a ficha; mede toque, não cliques
 ```
 
 Se mexeres em ficheiros que a app corre, corre-os. Se só mexeres em documentação,
@@ -172,6 +173,24 @@ está **domado**, não está provado resolvido.
 **A regra curta:** num arnês, uma espera que possa esgotar ou é uma afirmação com
 nome, ou é um traço de pilha à espera de acontecer — e às vezes é um falso verde,
 que é pior do que os dois.
+
+**A nona nasceu ao escrever um arnês novo, e o falso verde foi meu.** O
+`test:gesto` mede o gesto de fechar a ficha. Escrevi-o com 25ms entre pontos do
+caminho de toque, corri-o contra o código **com** o defeito, e passou — os cinco
+casos verdes sobre código partido.
+
+A causa: o defeito só dispara dentro de uma janela de **250ms**, e o meu caminho
+demorava 400. O `preventDefault` e o `dy` congelado não chegavam a ser julgados.
+
+Só se descobriu com uma **sonda**: um listener em `capture` a registar
+`{delta, tempo}` de cada `touchmove` que chega ao elemento. Os números disseram
+logo o que a leitura não dizia — `d=+62 aos 48ms, d=-200 aos 105ms` sem espera
+entre pontos, contra `d=+62 aos 177ms, reversão aos 244ms` com 25ms.
+
+**Ao escrever um arnês de gestos ou de tempo, mede o que o alvo recebe antes de
+afirmar o que quer que seja.** Um caminho de toque é um número inventado até
+alguém o medir — e um número inventado que passa é indistinguível de um que
+mede.
 
 ## Onde está o resto
 
