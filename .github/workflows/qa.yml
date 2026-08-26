@@ -8,9 +8,11 @@
 # Actions) com o JSON da conta de serviço claude-deploy@…
 name: QA (canal de pré-visualização)
 
+# O disparo automático a cada push SAIU a 26/08/2026, por causa da fatura:
+# cada canal de QA é uma ORIGEM nova com cache vazia, e cada visita a um era
+# uma vassourada completa de chamadas pagas à Places API. O botão manual fica
+# para quando um canal fizer falta de propósito.
 on:
-  push:
-    branches: ["claude/**", "qa/**"]
   workflow_dispatch:
 
 # Um canal por branch: um push novo substitui o anterior em vez de acumular.
