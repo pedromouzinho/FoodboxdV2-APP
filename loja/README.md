@@ -1,5 +1,38 @@
 # Metadados da App Store — rascunho para aprovar
 
+> ## Estado a 26/08/2026: o formulário está preenchido
+>
+> Os textos deste ficheiro foram passados para a App Store Connect (build 4,
+> versão 1.0). O que ficou lá: descrição (1590), palavras-chave (90),
+> subtítulo (28), copyright, nota ao revisor (2308), URL da privacidade, e as
+> etiquetas de privacidade dos seis tipos de dados. O «Add for Review» ficou
+> ativo, ou seja, não há campos em falta na página da versão.
+>
+> **Uma mudança que não estava neste ficheiro:** as palavras-chave que lá
+> estavam incluíam `letterboxd`. É marca registada de outra empresa, e a Apple
+> recusa metadados com marcas de terceiros — foi substituída pela lista deste
+> README. Se a decisão for outra, muda-se, mas sabendo o risco.
+>
+> **O que continua por fazer, e é do dono:**
+>
+> 1. **Publicar as etiquetas de privacidade** (botão *Publish* no topo de *App
+>    Privacy*). Foram preenchidas mas não publicadas de propósito: são
+>    declarações sobre o tratamento de dados de pessoas, e quem as assina é
+>    quem responde por elas. O que ficou declarado: os seis tipos usados para
+>    *App Functionality*, ligados à identidade, **nenhum** para rastreio.
+> 2. **Digital Services Act** (*App Information* → *Set Up*). Cinco dos seis
+>    países escolhidos são da UE — sem a verificação de comerciante, a app
+>    pode ser retirada de venda lá. É o bloqueador mais silencioso da lista.
+> 3. **Content Rights** diz hoje «não contém conteúdo de terceiros», e a app
+>    mostra fotografias, notas e críticas da Google Places. Vale a pena
+>    reler a pergunta antes de submeter.
+> 4. **Lançamento automático** está escolhido: aprovada, a app entra na loja
+>    sozinha. Para controlar o momento, é *Manually release this version*.
+> 5. **O screenshot 05-amigos** leva o nome e a cara de uma pessoa real e as
+>    caras de outros clientes — ver
+>    [`screenshots-telemovel/README.md`](screenshots-telemovel/README.md).
+> 6. **Carregar no «Add for Review»** — a submissão é do dono, não do agente.
+
 > **O que é isto:** tudo o que a App Store Connect pede ao lado da build, escrito
 > para ser copiado campo a campo. Os textos são um rascunho do agente; **a
 > decisão é do dono** — sobretudo a descrição, que é a promessa que a app faz a
