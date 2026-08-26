@@ -160,6 +160,19 @@ service cloud.firestore {
                     && request.resource.data.createdAt is string;
     }
 
+    // Cache partilhada dos detalhes da Google (js/places.js): o primeiro
+    // dispositivo que busca um sítio paga a chamada, os outros leem daqui.
+    // Escrever exige sessão e a forma exata {dados, quando} — é conteúdo
+    // derivado da Google, não dados de pessoas; o risco de alguém autenticado
+    // escrever lixo limita-se a estrelinhas erradas até ao refresh seguinte.
+    match /placesCache/{doc} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+                    && request.resource.data.keys().hasOnly(['dados', 'quando'])
+                    && request.resource.data.quando is string;
+      allow delete: if false;
+    }
+
     // Erros do cliente (js/erros.js). Write-only, como os reports: a app
     // grava e ninguém os lê daqui — leem-se na consola do Firestore. Sessão
     // obrigatória, e o uid tem de ser o de quem chama: abrir isto ao

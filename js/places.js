@@ -1,6 +1,7 @@
 // Google Places enrichment: rating, photos, opening hours, price, phone and
 // reviews — shown inside the app (detail drawer) and as mini-stats on cards.
-// Results are cached in localStorage for a week to limit API calls.
+// Cache em três camadas: localStorage (30 dias) → Firestore partilhado
+// (30 dias, pago uma vez por sítio para TODOS os dispositivos) → rede.
 
 const PlacesModule = (() => {
   let service = null;
@@ -18,14 +19,50 @@ const PlacesModule = (() => {
     return typeof level === "number" ? "€".repeat(Math.max(1, level)) : "";
   }
 
+  // Só o que já está em cache local — SEM rede, nunca. É o que a lista e os
+  // thumbnails podem usar: em agosto de 2026 cada cartão chamava a Google
+  // (Find Place + Details + fotos) em cada dispositivo de cache fresca, e a
+  // fatura passou o crédito em €108 com 8 utilizadores. A rede é para quando
+  // se ABRE a ficha; um cartão sem cache fica sem estrelinha até lá.
+  function fromCache(restaurant) {
+    return Storage.getCachedPlace(restaurant.id) || null;
+  }
+
   // Resolve full details for a restaurant (cached). Resolves to data or null.
-  function fetchDetails(restaurant, opts) {
+  //
+  // Três camadas, da mais barata para a mais cara: cache local (30 dias) →
+  // cache PARTILHADA no Firestore (o primeiro dispositivo que busca um sítio
+  // paga a chamada; todos os outros leem de graça) → a Google. Sem a camada
+  // partilhada, o custo crescia com o número de DISPOSITIVOS — cada telemóvel,
+  // browser e reinstalação pagava a vassourada inteira outra vez.
+  async function fetchDetails(restaurant, opts) {
+    const force = opts && opts.force; // bypass + overwrite cache (e.g. expired photo URLs)
+    if (!force) {
+      const local = Storage.getCachedPlace(restaurant.id);
+      if (local) return local;
+      try {
+        const partilhada = await DB.fetchPlaceCache(restaurant.id);
+        if (partilhada) {
+          Storage.setCachedPlace(restaurant.id, partilhada);
+          return partilhada;
+        }
+      } catch (e) { /* sem cache partilhada segue-se para a rede */ }
+    }
+    const data = await daRede(restaurant);
+    if (data) {
+      // Melhor-esforço: a escrita partilhada exige sessão (regras), e falhar
+      // aqui nunca pode estragar a ficha de quem está a olhar para ela.
+      try {
+        const fb = window.FirebaseAuth;
+        const token = fb && fb.configured ? await fb.getToken() : null;
+        if (token) DB.savePlaceCache(restaurant.id, data, token).catch(() => {});
+      } catch (e) { /* fica só na cache local */ }
+    }
+    return data;
+  }
+
+  function daRede(restaurant) {
     return new Promise((resolve) => {
-      const force = opts && opts.force; // bypass + overwrite cache (e.g. expired photo URLs)
-      if (!force) {
-        const cached = Storage.getCachedPlace(restaurant.id);
-        if (cached) return resolve(cached);
-      }
       if (!service) return resolve(null);
 
       service.findPlaceFromQuery(
@@ -157,9 +194,10 @@ const PlacesModule = (() => {
   }
 
   // Inline rating + open-now for a sidebar card meta element.
+  // SÓ de cache: um cartão de lista nunca paga uma chamada à Google.
   async function enrichCard(restaurant, metaEl) {
     if (!metaEl) return null;
-    const data = await fetchDetails(restaurant);
+    const data = fromCache(restaurant);
     if (!data) return null;
     const parts = [];
     if (typeof data.rating === "number") {
@@ -175,5 +213,5 @@ const PlacesModule = (() => {
     return data;
   }
 
-  return { init, isAvailable, fetchDetails, detailsByPlaceId, textSearch, enrichCard };
+  return { init, isAvailable, fromCache, fetchDetails, detailsByPlaceId, textSearch, enrichCard };
 })();

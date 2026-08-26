@@ -513,6 +513,36 @@ const DB = (() => {
     } catch (e) { return false; }
   }
 
+  // A cache PARTILHADA dos detalhes da Google (js/places.js). O primeiro
+  // dispositivo que busca um sítio paga a chamada; todos os outros leem daqui
+  // durante 30 dias — sem isto o custo do Places crescia com o número de
+  // DISPOSITIVOS, e foi a fatura de agosto de 2026 (€108 acima do crédito
+  // com 8 pessoas). A janela de 30 dias é verificada na LEITURA: um doc
+  // velho conta como ausente e o próximo abridor de ficha renova-o.
+  const CACHE_PARTILHADA_DIAS = 30;
+  async function fetchPlaceCache(id) {
+    if (!ready || !id) return null;
+    try {
+      const res = await fetch(`${docsBase}/placesCache/${encodeURIComponent(id)}?${keyQ()}`);
+      if (!res.ok) return null;
+      const f = decodeFields(await res.json());
+      if (!f.quando || !f.dados) return null;
+      const idade = Date.now() - new Date(f.quando).getTime();
+      if (!(idade >= 0) || idade > CACHE_PARTILHADA_DIAS * 24 * 60 * 60 * 1000) return null;
+      return f.dados;
+    } catch (e) { return null; }
+  }
+  async function savePlaceCache(id, dados, token) {
+    if (!ready || !id || !dados) return false;
+    try {
+      const fields = encodeFields({ dados, quando: new Date().toISOString() });
+      const res = await fetch(`${docsBase}/placesCache/${encodeURIComponent(id)}?${keyQ()}`, {
+        method: "PATCH", headers: authHeaders(token), body: JSON.stringify({ fields })
+      });
+      return res.ok;
+    } catch (e) { return false; }
+  }
+
   // Erros do cliente (js/erros.js). Write-only como os reports: grava-se e
   // lê-se na consola. A regra valida o uid e o tamanho da mensagem.
   async function addErro(erro, token) {
@@ -1102,6 +1132,8 @@ const DB = (() => {
     addReport,
     addErro,
     savePushToken,
-    addActivity
+    addActivity,
+    fetchPlaceCache,
+    savePlaceCache
   };
 })();

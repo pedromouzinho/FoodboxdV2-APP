@@ -58,8 +58,10 @@ const Storage = {
     const cache = this.getPlacesCache();
     const entry = cache[id];
     if (!entry) return null;
-    const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
-    if (Date.now() - entry.fetchedAt > ONE_WEEK) return null;
+    // 30 dias — o teto que os termos da Google permitem, e 4× menos idas à
+    // rede do que a semana que aqui estava (a fatura de agosto de 2026).
+    const TRINTA_DIAS = 30 * 24 * 60 * 60 * 1000;
+    if (Date.now() - entry.fetchedAt > TRINTA_DIAS) return null;
     return entry.data;
   },
 

@@ -393,9 +393,11 @@ const App = (() => {
   }
 
   // Drop a real photo into a `.ph` placeholder — only once it actually loads, so
-  // a broken URL never shows a broken-image icon. Google photo URLs from the
-  // Places SDK are cached for a week but can EXPIRE, so on error we refetch fresh
-  // (bypassing the cache) once and retry; otherwise we keep the clean placeholder.
+  // a broken URL never shows a broken-image icon. Um URL partido fica no
+  // placeholder limpo e MAIS NADA: o refetch forçado que aqui viveu foi
+  // removido em agosto de 2026, porque com URLs da Google a expirar em massa
+  // era uma chamada paga POR CARTÃO só a desenhar a lista. Quem cura a cache
+  // agora é a ficha (setHeroPhoto), um sítio de cada vez.
   function setThumbPhoto(phEl, url, r) {
     if (!phEl || !url) return;
     const img = new Image();
@@ -408,16 +410,6 @@ const App = (() => {
       phEl.innerHTML = "";
       phEl.appendChild(img);
     };
-    img.onerror = () => {
-      if (r && !phEl.dataset.photoRetried && PlacesModule.isAvailable()) {
-        phEl.dataset.photoRetried = "1";
-        PlacesModule.fetchDetails(r, { force: true }).then((data) => {
-          const fresh = data && data.photos && data.photos[0];
-          if (fresh && fresh !== url) setThumbPhoto(phEl, fresh, r);
-        }).catch(() => {});
-      }
-      // else keep the clean .ph placeholder
-    };
     img.src = url;
   }
   // Fill a `.ph` thumbnail: a community "cover" photo (override) wins; otherwise
@@ -425,10 +417,11 @@ const App = (() => {
   function fillThumbPhoto(phEl, r) {
     if (!phEl) return;
     if (r && r.photoURL) { setThumbPhoto(phEl, r.photoURL, r); return; }
-    if (!PlacesModule.isAvailable()) return;
-    PlacesModule.fetchDetails(r).then((data) => {
-      if (data && data.photos && data.photos[0]) setThumbPhoto(phEl, data.photos[0], r);
-    }).catch(() => {});
+    // Só de cache — um thumbnail nunca paga uma chamada à Google (a lição da
+    // fatura de agosto de 2026). A foto aparece depois de a ficha ser aberta
+    // uma vez, por alguém, em qualquer dispositivo (cache partilhada).
+    const data = PlacesModule.fromCache ? PlacesModule.fromCache(r) : null;
+    if (data && data.photos && data.photos[0]) setThumbPhoto(phEl, data.photos[0], r);
   }
 
   // Self-healing pins: geocoding a place with the wrong country (or an ambiguous
@@ -2924,12 +2917,26 @@ const App = (() => {
   }
   // Swap the detail hero photo in only once it loads (broken/expired URLs keep
   // the category placeholder instead of a broken-image icon).
+  // É AQUI que os URLs de foto expirados da Google se curam: uma chamada
+  // forçada, um sítio de cada vez, iniciada por quem abriu a ficha — e o
+  // refetch renova a cache local E a partilhada, por isso os thumbnails de
+  // toda a gente saram sem nenhum deles pagar chamada nenhuma.
   function setHeroPhoto(r, url) {
     const hero = document.getElementById("detail-hero");
     if (!hero || !url) return;
     const img = new Image();
     img.alt = r.name;
     img.onload = () => { if (state.currentDetail === r) { hero.innerHTML = ""; hero.appendChild(img); } };
+    img.onerror = () => {
+      // Só para fotos da Google (a capa da comunidade vive no nosso Storage e
+      // não expira), e só uma vez por abertura de ficha.
+      if (r.photoURL === url || r.__heroRetried || !PlacesModule.isAvailable()) return;
+      r.__heroRetried = true;
+      PlacesModule.fetchDetails(r, { force: true }).then((data) => {
+        const fresh = data && data.photos && data.photos[0];
+        if (fresh && fresh !== url) setHeroPhoto(r, fresh);
+      }).catch(() => {});
+    };
     img.src = url;
   }
 

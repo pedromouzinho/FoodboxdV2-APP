@@ -60,6 +60,7 @@ await p.addInitScript(() => {
   window.__fit = [];
   window.__zoom = 9;
   window.__cluster = 0;
+  window.__placesCalls = 0;
   const LatLng = function(lat,lng){ this.lat=()=>lat; this.lng=()=>lng; };
   const Bounds = function(sw,ne){ this.sw=sw; this.ne=ne; };
   window.google = { maps: {
@@ -76,7 +77,11 @@ await p.addInitScript(() => {
     DirectionsRenderer: function(){ return { setDirections:()=>{} };},
     Size: function(){}, Point: function(){}, Animation:{BOUNCE:1},
     event: { addListenerOnce:(o,e,cb)=>{ setTimeout(cb,10); }, trigger:()=>{} },
-    places: { PlacesService: function(){ return { textSearch:()=>{}, getDetails:()=>{}, findPlaceFromQuery:()=>{} };}, PlacesServiceStatus:{OK:"OK"} },
+    places: { PlacesService: function(){ return {
+      textSearch:()=>{ window.__placesCalls++; },
+      getDetails:()=>{ window.__placesCalls++; },
+      findPlaceFromQuery:()=>{ window.__placesCalls++; }
+    };}, PlacesServiceStatus:{OK:"OK"} },
     Geocoder: function(){ return { geocode:()=>{} };}, GeocoderStatus:{OK:"OK"}
   }};
   window.__clusterHist = [];
@@ -128,6 +133,18 @@ const nDaLista = await p.evaluate(() =>
   parseInt((document.getElementById("list-count") || {}).textContent || "0", 10));
 chk("os pins entram todos no clusterer", r.cluster === nDaLista && r.cluster > 0,
   `cluster=${r.cluster} lista=${nDaLista} hist=${await p.evaluate(() => JSON.stringify(window.__clusterHist))}`);
+
+// A fatura de agosto de 2026: 8 543 pedidos à Places API, €108 acima do
+// crédito — porque CADA cartão da lista chamava a Google (detalhes + fotos)
+// em cada dispositivo de cache fresca. A lista tem de viver só de cache; a
+// rede é para quando se ABRE a ficha. Mudar para a lista e contar.
+await p.click('[data-map-mode="lista"]'); await p.waitForTimeout(600);
+const chamadasNaLista = await p.evaluate(() => window.__placesCalls);
+chk("a lista não chama a Google por cartão", chamadasNaLista === 0,
+  `${chamadasNaLista} chamadas só a desenhar a lista`);
+// … e volta-se ao mapa, que é onde vivem os passos seguintes (o botão de
+// recentrar não existe na vista lista).
+await p.click('[data-map-mode="mapa"]'); await p.waitForTimeout(300);
 
 // mudar de filtro não deve re-enquadrar
 await p.click("#filters-btn"); await p.waitForTimeout(300);
