@@ -13,25 +13,34 @@
 > recusa metadados com marcas de terceiros — foi substituída pela lista deste
 > README. Se a decisão for outra, muda-se, mas sabendo o risco.
 >
-> **O que continua por fazer, e é do dono:**
+> **Fechado nesse mesmo dia, pelo dono:**
 >
-> 1. **Publicar as etiquetas de privacidade** (botão *Publish* no topo de *App
->    Privacy*). Foram preenchidas mas não publicadas de propósito: são
->    declarações sobre o tratamento de dados de pessoas, e quem as assina é
->    quem responde por elas. O que ficou declarado: os seis tipos usados para
->    *App Functionality*, ligados à identidade, **nenhum** para rastreio.
-> 2. **Digital Services Act** (*App Information* → *Set Up*). Cinco dos seis
->    países escolhidos são da UE — sem a verificação de comerciante, a app
->    pode ser retirada de venda lá. É o bloqueador mais silencioso da lista.
-> 3. **Content Rights** diz hoje «não contém conteúdo de terceiros», e a app
->    mostra fotografias, notas e críticas da Google Places. Vale a pena
->    reler a pergunta antes de submeter.
-> 4. **Lançamento automático** está escolhido: aprovada, a app entra na loja
->    sozinha. Para controlar o momento, é *Manually release this version*.
-> 5. **O screenshot 05-amigos** leva o nome e a cara de uma pessoa real e as
->    caras de outros clientes — ver
->    [`screenshots-telemovel/README.md`](screenshots-telemovel/README.md).
-> 6. **Carregar no «Add for Review»** — a submissão é do dono, não do agente.
+> - **Etiquetas de privacidade publicadas.** Os seis tipos usados para *App
+>   Functionality*, ligados à identidade, **nenhum** para rastreio. Na página
+>   da loja aparece como «Data Linked to You: Contact Info · Location · User
+>   Content · Identifiers».
+> - **Digital Services Act — *In Review*** para 27 países. Era o bloqueador
+>   mais silencioso da lista: cinco dos seis países de venda são da UE, e sem
+>   a verificação de comerciante a app seria retirada lá.
+> - **Content Rights → «Yes, this app has the necessary rights to its
+>   third-party content.»** A app mostra fotografias, notas e críticas da
+>   Google Places; os direitos vêm dos termos da Google Maps Platform.
+> - **Conta bancária** da Caixa aceite, em processamento. O campo *Bank Code*
+>   da Apple, para Portugal, quer o **balcão** (4 dígitos do meio do NIB) e
+>   não o código do banco — o nome do campo engana, e só se descobre a
+>   tentar. O *Account Number* são os 11 dígitos da conta, zeros à esquerda
+>   incluídos.
+> - **Lançamento automático** e **o screenshot 05-amigos**: decisões
+>   aprovadas pelo dono depois de lhe serem postas à frente.
+>
+> **Fica só o botão «Add for Review»** — a submissão é do dono, não do agente.
+>
+> **Não é bloqueador:** o formulário fiscal W-8BEN está por completar. A app é
+> grátis e sem compras, e para isso basta o *Free Apps Agreement*, que está
+> Ativo; a conta bancária e os impostos pertencem ao *Paid Apps Agreement*,
+> que só conta quando houver dinheiro a receber. Sem W-8BEN válido os EUA
+> retêm 30% sobre royalties de vendas americanas — irrelevante a preço zero,
+> obrigatório no dia em que houver preço ou compras dentro da app.
 
 > **O que é isto:** tudo o que a App Store Connect pede ao lado da build, escrito
 > para ser copiado campo a campo. Os textos são um rascunho do agente; **a
