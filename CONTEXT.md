@@ -316,6 +316,19 @@ all; write se `auth && file começa por uid + imagem + <6MB`; delete se auth.
 
 ## 9. Itens em aberto / TODO
 
+- 💶 **Custos (26/08).** A fatura de agosto passou o crédito em €108 — Places
+  API, 8 543 pedidos: cada cartão da lista chamava a Google em cada
+  dispositivo de cache fresca, e cada canal de QA era uma origem nova a pagar
+  a vassourada inteira. O que mudou: a lista/thumbnails passaram a SÓ-cache
+  (a rede é ao abrir a ficha), cache local 7→30 dias, cache **partilhada** no
+  Firestore (`placesCache` — o primeiro dispositivo paga, os outros leem), o
+  canal de QA já não dispara por push, e nasceu o workflow **Custos
+  (semanal)** (`.github/workflows/custos.yml`): BigQuery (dataset
+  `faturacao`, export ligado 25/08, primeira carga até 48h) + Admin API da
+  Anthropic; issue automático só quando a semana passa €10 E cresce >50%.
+  Em aberto: tetos de quota diários nas APIs de Maps/Places na consola
+  (ação do dono), e a app nativa só apanha a dieta num build novo.
+
 - 🔴 **AS PÁGINAS PUBLICADAS CONTRADIZEM A APP, E ESTÃO NO AR.** A
   `/privacidade` diz «Podes usar o Foodboxd sem conta» num cartão em destaque, e
   a `/ajuda` responde «Não, para explorar» à pergunta «Preciso de conta?». Desde
