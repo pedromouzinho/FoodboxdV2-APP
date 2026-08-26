@@ -47,10 +47,16 @@ jobs:
           # A tabela da exportação standard chama-se gcp_billing_export_v1_<id
           # da conta de faturação> — descobre-se em vez de se escrever à mão
           # (a lição do caminho do Chromium).
-          TABELA=$(bq ls --project_id="$PROJETO" --format=json faturacao 2>/dev/null \
+          TABELA=$(bq ls --project_id="$PROJETO" --format=json faturacao 2>/tmp/ls-err.txt \
             | jq -r '.[].tableReference.tableId | select(startswith("gcp_billing_export_v1"))' | head -1)
           if [ -z "$TABELA" ]; then
-            echo "aviso=Dataset faturacao sem tabela de exportação ainda — a primeira carga pode demorar até 48h depois de ligar o export." >> "$GITHUB_OUTPUT"
+            # Distinguir "ainda não nasceu" de "não tenho permissão" — um aviso
+            # que não diz qual dos dois é esconde precisamente o que interessa.
+            if [ -s /tmp/ls-err.txt ]; then
+              echo "aviso=O bq ls falhou (permissões? dataset?): $(tr '\n' ' ' < /tmp/ls-err.txt | head -c 300)" >> "$GITHUB_OUTPUT"
+            else
+              echo "aviso=Dataset faturacao sem tabela de exportação ainda — a primeira carga pode demorar até 48h depois de ligar o export." >> "$GITHUB_OUTPUT"
+            fi
             echo "total_atual=0" >> "$GITHUB_OUTPUT"; echo "total_anterior=0" >> "$GITHUB_OUTPUT"
             echo "tabela_md=_(sem dados do Google ainda)_" >> "$GITHUB_OUTPUT"
             exit 0
