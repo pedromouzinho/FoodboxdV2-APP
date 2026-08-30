@@ -25,14 +25,16 @@ falhado que passa despercebido custa mais adiante do que custa aqui.
 | Projeto Firebase | `app-restaurantes-499400` (número `909243049168`) |
 | Bundle ID | `pt.foodboxd.app` (em `capacitor.config.json`) |
 | Publicar | GitHub Actions → **Deploy (produção)**, ou pela API do GitHub |
-| App Store Connect | **build 4** carregado, formulário completo, «Add for Review» ativo |
+| App Store Connect | **1.0 (4) submetida a 26/08 — Waiting for Review** |
+| TestFlight | beta no ar e a funcionar |
 
-**Blocos 0, 1, 2, 3 e 4: feitos.** A app está a um botão da revisão.
+**Blocos 0, 1, 2, 3 e 4: feitos.** A app está nas mãos da App Review.
 
 **Por fazer:** ver a tabela **"O que falta, por ordem"**, no fim — é o estado, e
-é lá que se atualiza. Em resumo: **falta só o «Add for Review»**, que é do dono
-(mais as credenciais da conta de teste, coladas no próprio formulário). O estado
-da loja em detalhe vive em [`loja/README.md`](loja/README.md).
+é lá que se atualiza. Em resumo: a 1.0 (4) foi **submetida a 26/08** e está
+*Waiting for Review*; a beta do TestFlight está no ar. O que resta é responder
+ao que a revisão levantar. O estado da loja em detalhe vive em
+[`loja/README.md`](loja/README.md).
 
 > **Lê a secção "O que esta sessão apurou"**, no fim deste documento, antes de
 > começares. Tem cinco coisas que só se souberam a correr a app, e três delas
@@ -1642,8 +1644,8 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | Screenshots: cinco ecrãs reais do simulador, nos dois tamanhos da loja, sem canal alfa | agente | ✅ `29d63ee` |
 | — | Campos da consola: copyright, nota ao revisor, descrição, palavras-chave — colados na App Store Connect a 26/08 | agente preencheu, dono fechou | ✅ ver `loja/README.md` |
 | — | Etiquetas de privacidade, DSA (27 países), Content Rights, conta bancária | dono | ✅ fechado 26/08 |
-| 1 | **Carregar no «Add for Review»** e colar as credenciais da conta de teste no formulário — passo a passo em [`loja/submissao.html`](loja/submissao.html), valores em [`loja/README.md`](loja/README.md) | **dono, e só o dono** | **por fazer — é o único passo que resta** |
-| 2 | Responder ao que a App Review levantar | dono decide, agente executa | à espera da revisão |
+| — | Carregar no «Add for Review» e colar as credenciais da conta de teste | dono | ✅ **submetida 26/08** — *Waiting for Review*; e a beta do TestFlight está no ar e a funcionar |
+| 1 | **Responder ao que a App Review levantar** — quando o estado mudar, é aqui que se volta | dono decide, agente executa | **à espera da revisão** |
 
 > **W-8BEN por completar:** não bloqueia — a app é grátis, o *Free Apps
 > Agreement* está ativo; impostos e banco pertencem ao *Paid Apps Agreement*,
