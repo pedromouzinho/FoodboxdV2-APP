@@ -61,7 +61,11 @@ await p.addInitScript(() => {
 });
 
 p.on("pageerror", (e) => console.log("ERRO DA PÁGINA:", String(e).slice(0, 160)));
-await p.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "domcontentloaded" });
+// Prazo próprio no goto, como no test:portao: o domcontentloaded depende de
+// quão depressa o abort() das rotas externas assenta — ~0s no Mac e no CI,
+// ~12s no contentor da nuvem. Com o prazo por omissão, este arnês falhava
+// pelo ambiente antes de medir fosse o que fosse.
+await p.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "domcontentloaded", timeout: 60000 });
 await p.waitForTimeout(1500);
 
 // A camada DB, intercetada DEPOIS de carregar e ANTES de haver sessão.

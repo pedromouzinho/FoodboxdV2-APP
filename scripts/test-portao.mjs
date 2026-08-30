@@ -55,7 +55,12 @@ const chk = (nome, ok, extra = "") => {
   if (!ok) falhas++;
 };
 
-await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "domcontentloaded" });
+// Prazo próprio, generoso: o goto herda o defaultTimeout de 4s, mas quanto
+// tempo o domcontentloaded demora depende de quão depressa o abort() das
+// rotas à Google assenta — medido: ~0s no Mac e no CI, ~12s no contentor da
+// nuvem. Um prazo curto aqui fazia o arnês falhar pelo ambiente, que é
+// exatamente a doença que ele existe para medir nos outros.
+await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "domcontentloaded", timeout: 60000 });
 
 // O vigia do portão tem um prazo próprio; espera-se pelo SINAL (o ecrã de
 // entrada visível) com um teto folgado, nunca por segundos contados às cegas.

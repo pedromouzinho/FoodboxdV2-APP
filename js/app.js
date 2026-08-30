@@ -398,19 +398,83 @@ const App = (() => {
   // removido em agosto de 2026, porque com URLs da Google a expirar em massa
   // era uma chamada paga POR CARTÃO só a desenhar a lista. Quem cura a cache
   // agora é a ficha (setHeroPhoto), um sítio de cada vez.
-  function setThumbPhoto(phEl, url, r) {
-    if (!phEl || !url) return;
+  //
+  // E a 30/08 mediu-se a segunda metade da doença: a Google TRAVA RAJADAS por
+  // cliente, independentemente da quota do projeto. 14 GetPhoto em paralelo →
+  // 7 respondem 403 com um PNG de 100×100 (o mapa com a cruz); os mesmos,
+  // espaçados → 200 todos. E como o 403 traz uma imagem válida, o `onload`
+  // disparava e a cruz ia parar ao cartão — um erro de quota vestido de foto,
+  // que nenhum `onerror` apanha. Daí as três regras deste carregador:
+  //
+  //   · preguiça — a foto só se pede quando o cartão se aproxima do ecrã
+  //     (uma lista de 75 deixa de ser uma rajada de 75);
+  //   · fila — no máximo FOTO_LIMITE pedidos em curso, que é o padrão
+  //     espaçado que a Google aceita;
+  //   · guarda — uma "foto" de 100×100 vinda do GetPhoto é o erro da Google:
+  //     fica o placeholder, e tenta-se UMA vez mais, espaçado.
+  const FOTO_LIMITE = 4;
+  let fotoEmCurso = 0;
+  const fotoEspera = [];
+  // O ecrã como gatilho. O rootMargin pede um nadinha antes de entrar, para a
+  // foto não "piscar" a chegar. Os cartões que o render() deita fora sem nunca
+  // terem aparecido são varridos no callback — o observer segura-os vivos.
+  const fotoPedidos = new WeakMap();
+  const fotoObservados = new Set();
+  const fotoIO = ("IntersectionObserver" in window)
+    ? new IntersectionObserver((entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          fotoIO.unobserve(e.target);
+          fotoObservados.delete(e.target);
+          const pedido = fotoPedidos.get(e.target);
+          if (pedido) carregarFoto(pedido);
+        }
+        for (const el of [...fotoObservados]) {
+          if (el.isConnected) continue;
+          fotoIO.unobserve(el);
+          fotoObservados.delete(el);
+        }
+      }, { rootMargin: "200px" })
+    : null;
+  function carregarFoto(pedido) {
+    if (fotoEmCurso >= FOTO_LIMITE) { fotoEspera.push(pedido); return; }
+    if (!pedido.phEl.isConnected) return; // o render() trocou o cartão entretanto
+    fotoEmCurso++;
     const img = new Image();
     img.alt = "";
     img.decoding = "async";
     img.style.cssText = "width:100%;height:100%;object-fit:cover";
-    img.onload = () => {
-      phEl.removeAttribute("data-label");
-      phEl.style.background = "none";
-      phEl.innerHTML = "";
-      phEl.appendChild(img);
+    const vaga = () => {
+      fotoEmCurso--;
+      const prox = fotoEspera.shift();
+      if (prox) carregarFoto(prox);
     };
-    img.src = url;
+    img.onload = () => {
+      vaga();
+      if (img.naturalWidth === 100 && img.naturalHeight === 100 && /PhotoService\.GetPhoto/.test(pedido.url)) {
+        // A cruz da Google. O placeholder fica; uma nova tentativa, espaçada
+        // com um pouco de sorte para as tentativas não voltarem a ser rajada.
+        if (!pedido.repetiu) {
+          setTimeout(() => carregarFoto({ ...pedido, repetiu: true }), 4000 + Math.random() * 3000);
+        }
+        return;
+      }
+      if (!pedido.phEl.isConnected) return;
+      pedido.phEl.removeAttribute("data-label");
+      pedido.phEl.style.background = "none";
+      pedido.phEl.innerHTML = "";
+      pedido.phEl.appendChild(img);
+    };
+    img.onerror = vaga;
+    img.src = pedido.url;
+  }
+  function setThumbPhoto(phEl, url, r) {
+    if (!phEl || !url) return;
+    const pedido = { phEl, url, r };
+    if (!fotoIO) { carregarFoto(pedido); return; }
+    fotoPedidos.set(phEl, pedido);
+    fotoObservados.add(phEl);
+    fotoIO.observe(phEl);
   }
   // Fill a `.ph` thumbnail: a community "cover" photo (override) wins; otherwise
   // fall back to the cached Google photo.
@@ -2926,7 +2990,20 @@ const App = (() => {
     if (!hero || !url) return;
     const img = new Image();
     img.alt = r.name;
-    img.onload = () => { if (state.currentDetail === r) { hero.innerHTML = ""; hero.appendChild(img); } };
+    img.onload = () => {
+      // A cruz da Google (ver o carregador dos thumbnails): 403 de rajada com
+      // uma imagem válida de 100×100, que o onerror nunca vê. Não é um URL
+      // morto — o mesmo pedido, espaçado, passa — por isso repete-se de graça
+      // em vez de gastar o refetch pago, que é para URLs expirados a sério.
+      if (img.naturalWidth === 100 && img.naturalHeight === 100 && /PhotoService\.GetPhoto/.test(url)) {
+        if (!r.__heroTravado) {
+          r.__heroTravado = true;
+          setTimeout(() => { if (state.currentDetail === r) setHeroPhoto(r, url); }, 4000);
+        }
+        return;
+      }
+      if (state.currentDetail === r) { hero.innerHTML = ""; hero.appendChild(img); }
+    };
     img.onerror = () => {
       // Só para fotos da Google (a capa da comunidade vive no nosso Storage e
       // não expira), e só uma vez por abertura de ficha.

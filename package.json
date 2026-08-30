@@ -20,6 +20,7 @@
     "test:update": "node scripts/test-update.mjs",
     "ai:diff": "node scripts/ai-diff.mjs",
     "test:taste": "node scripts/test-taste.mjs",
+    "test:fotos": "node scripts/test-fotos.mjs",
     "test:apagar": "node scripts/test-apagar.mjs",
     "test:gesto": "node scripts/test-gesto.mjs",
     "ios:info": "node scripts/ios-info.mjs",

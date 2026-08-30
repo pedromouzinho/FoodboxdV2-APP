@@ -326,8 +326,25 @@ all; write se `auth && file começa por uid + imagem + <6MB`; delete se auth.
   (semanal)** (`.github/workflows/custos.yml`): BigQuery (dataset
   `faturacao`, export ligado 25/08, primeira carga até 48h) + Admin API da
   Anthropic; issue automático só quando a semana passa €10 E cresce >50%.
-  Em aberto: tetos de quota diários nas APIs de Maps/Places na consola
-  (ação do dono), e a app nativa só apanha a dieta num build novo.
+  Em aberto: o teto de quota DIÁRIO na consola (ação do dono — a 30/08
+  mediu-se que afinal não havia teto nenhum: 6000/min é o default da Google e
+  o diário estava ilimitado; a métrica certa é
+  `places-backend.googleapis.com/billable_default`, unidade `1/d/{project}`).
+  A app nativa apanhou a dieta no build 3.
+
+  **E a 30/08 mediu-se a segunda metade (sw v98):** a Google trava RAJADAS por
+  cliente, com quota de sobra — 14 GetPhoto em paralelo → 7 respondem 403 com
+  um PNG de 100×100 (o mapa com a cruz); os mesmos, espaçados → 200 todos. O
+  403 traz uma imagem válida, o `onload` disparava, e a app pendurava a cruz
+  no cartão — no telemóvel do dono, com o build 4 já em App Review. O
+  carregador de thumbnails passou a preguiça (só o que se aproxima do ecrã) +
+  fila (4 de cada vez) + guarda do PNG 100×100 com nova tentativa espaçada; o
+  hero distingue a cruz (repete de graça) do URL morto (refetch pago). Arnês
+  novo: `npm run test:fotos`, no CI, corrido primeiro contra o defeito
+  (34 pedidos num tick, 34 cruzes). Os thumbnails "só-cache" continuam a ser
+  pedidos FATURADOS por desenho — o URL em cache é o endpoint pago e o
+  redirect vem com no-cache; guardar o URL final do lh3 fica por medir (prazo
+  de vida desconhecido).
 
 - 🔴 **AS PÁGINAS PUBLICADAS CONTRADIZEM A APP, E ESTÃO NO AR.** A
   `/privacidade` diz «Podes usar o Foodboxd sem conta» num cartão em destaque, e

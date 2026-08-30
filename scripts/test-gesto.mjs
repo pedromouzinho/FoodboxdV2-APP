@@ -48,7 +48,11 @@ function ok(nome, condicao, extra) {
   console.log((condicao ? "PASS " : "FALHA ") + nome + (condicao ? "" : "  " + (extra ?? "")));
 }
 
-const b = await chromium.launch();
+// A válvula que todos os irmãos têm e este não tinha: sem ela, o Playwright
+// procura o browser da versão dele e este arnês era o único a não arrancar
+// numa máquina com o Chromium noutro sítio (o contentor da nuvem) — a família
+// do caminho escrito à mão, pela porta do esquecimento.
+const b = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
 const c = await b.newContext({
   viewport: { width: 402, height: 874 },
   hasTouch: true,
