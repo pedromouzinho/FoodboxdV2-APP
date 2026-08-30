@@ -16,26 +16,23 @@ falhado que passa despercebido custa mais adiante do que custa aqui.
 
 ---
 
-## Estado atual (21 de agosto de 2026)
+## Estado atual (30 de agosto de 2026)
 
 | | |
 | --- | --- |
-| Produção | https://foodboxd.pt — service worker `foodboxd-v83` (por publicar: **v85**) |
+| Produção | https://foodboxd.pt — service worker `foodboxd-v97` |
 | Ramo de trabalho | `claude/beautiful-davinci-vsyokk` |
 | Projeto Firebase | `app-restaurantes-499400` (número `909243049168`) |
 | Bundle ID | `pt.foodboxd.app` (em `capacitor.config.json`) |
 | Publicar | GitHub Actions → **Deploy (produção)**, ou pela API do GitHub |
+| App Store Connect | **build 4** carregado, formulário completo, «Add for Review» ativo |
 
-**Blocos 0, 1, 2 e 3: feitos.** Falta o 4.
-
-**Em produção:** apagar conta (5.1.1v), **Sign in with Apple**, a marca nova em
-toda a app, favicon, haptics, barra de estado, splash, a chave da Anthropic no
-Secret Manager, a rede de segurança do arranque (a app já não precisa do Google
-Maps para arrancar), e o `/api/` absoluto no nativo.
+**Blocos 0, 1, 2, 3 e 4: feitos.** A app está a um botão da revisão.
 
 **Por fazer:** ver a tabela **"O que falta, por ordem"**, no fim — é o estado, e
-é lá que se atualiza. Em resumo: o login nativo funciona com a **Google e com a
-Apple**, com sessão real e nome certo no Perfil. Falta o Bloco 4.
+é lá que se atualiza. Em resumo: **falta só o «Add for Review»**, que é do dono
+(mais as credenciais da conta de teste, coladas no próprio formulário). O estado
+da loja em detalhe vive em [`loja/README.md`](loja/README.md).
 
 > **Lê a secção "O que esta sessão apurou"**, no fim deste documento, antes de
 > começares. Tem cinco coisas que só se souberam a correr a app, e três delas
@@ -1358,10 +1355,10 @@ a pessoa ficaria presa numa página estática sem saída a não ser matar a app.
 | --- | --- | --- |
 | Escrever o texto a partir da tabela da 4.3 | agente | ✅ feito |
 | Link na app, a abrir fora da webview | agente | ✅ feito e medido |
-| **Dar o nome do responsável e o email de contacto** — a página tem `[[NOME DO RESPONSÁVEL]]` e `[[EMAIL DE CONTACTO]]` por preencher, e não os invento: são dados pessoais que vão para uma página pública | **dono** | por fazer |
-| **Ler e assumir o que lá está** — é um compromisso legal, não um ficheiro | **dono, e só o dono** | por fazer |
-| Publicar em `foodboxd.pt/privacidade` | agente dispara, dono autoriza | por fazer |
-| Colar o URL na App Store Connect | dono | por fazer |
+| Dar o nome do responsável e o email de contacto | dono | ✅ preenchidos |
+| Ler e assumir o que lá está — é um compromisso legal, não um ficheiro | dono, e só o dono | ✅ assumido |
+| Publicar em `foodboxd.pt/privacidade` | agente dispara, dono autoriza | ✅ no ar a 25/08 (`a803fcf`) |
+| Colar o URL na App Store Connect | dono | ✅ colado 26/08 |
 
 > Vale a pena um link no ecrã Perfil, ao lado do "Apagar a conta". Não é exigido
 > pela App Store, mas é onde as pessoas o procuram, e o RGPD aplica-se — há oito
@@ -1618,7 +1615,7 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | A ponte da Apple: `rawNonce` e `signInWithCredential` | agente | ✅ medidos |
 | — | **A captura do nome da Apple** numa primeira autorização | dono destrancou, agente mediu | ✅ **fechado 25/08** — `nome="Pedro Mouzinho"` |
 | — | Equipa de assinatura no projeto (4.1) | agente | ✅ `LGN8A4342T`, versionada em `ios-build.json` |
-| 2 | Capacidade *Sign in with Apple* — só se o build para dispositivo a pedir | dono, se preciso | por confirmar |
+| — | Capacidade *Sign in with Apple* no perfil de aprovisionamento | dono, se preciso | ✅ o build 4 arquivou e subiu sem o erro do perfil |
 | — | "Pergunta-me" + permissão de localização (4.2) | agente | ✅ medido |
 | — | Carregar foto para um sítio (4.2) | agente | ✅ sobe e aparece |
 | — | Dar 3 papéis IAM à conta de serviço | dono | ✅ dados 24/08 |
@@ -1630,23 +1627,27 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | **Diretriz 1.2 — denunciar e bloquear** (4.0) | agente construiu, dono e agente mediram | ✅ **fechado** — denunciar, bloquear e desbloquear, e em produção |
 | — | As páginas no ar contradiziam a app | agente reescreveu, dono autorizou | ✅ **publicado 25/08** — `sw v88`, confirmado por `curl` |
 | — | Política de privacidade (4.3b) | agente escreveu, dono autorizou | ✅ no ar em `/privacidade` |
-| 5 | Nota ao revisor (4.4) — refeita para «AN ACCOUNT IS REQUIRED», com duas portas | agente refez; **dono cola** | ✅ escrita, por colar |
+| — | Nota ao revisor (4.4) — refeita para «AN ACCOUNT IS REQUIRED», com duas portas | agente refez, dono colou | ✅ colada na consola a 26/08 |
 | — | Conta de teste (4.4) | dono | ✅ criada 25/08 — **e agora É precisa**, ver 4.4 |
 | — | ⚠️ **Contas Apple e Google separadas — já em produção** | dono decide o quê, agente executa | ver abaixo |
 | — | A procura numa porta (item 7) | dono decidiu, agente fez | ✅ `+` na barra, escolha no fim |
 | — | O ecrã de entrada (item 7) | dono decidiu, agente fez | ✅ com email/palavra-passe |
 | — | O perfil público (item 7) — visibilidade escolhida por pessoa | dono decidiu, agente fez | ✅ `abrirPerfilDe`, três níveis de visibilidade |
-| **A** | 🔴 **O ícone e o splash são os do Capacitor** — o «X» azul, de Mar/2025. O da marca está em `resources/icon.png` e nunca foi gerado | agente | **por fazer** |
-| **A** | 🔴 **A geração de ícones não está na cadeia do `sync`** — sem isso volta ao placeholder no clone seguinte, como já aconteceu três vezes com outras coisas | agente | **por fazer** |
-| **A** | 🔴 **O número de build ainda é 1**, e a `1.0 (1)` já foi carregada — o próximo envio é recusado. E versão/build não têm fonte versionada | agente | **por fazer** |
-| **A** | 🔴 **O `www/` em disco está atrasado** e ainda diz «a app continua a funcionar sem sessão» — é a cópia que entra no `.ipa` | agente | **por fazer** (`npm run sync` antes do archive) |
-| **A** | 🔴 **O portão de entrada falha aberto.** Com o `gstatic` bloqueado o `#entrada` não aparece, a app abre inteira e não há por onde entrar — medido contra a produção | agente | **por fazer** |
-| **B** | 🔴 **A app declara suporte a iPad** (`TARGETED_DEVICE_FAMILY = "1,2"`) — obriga a screenshots de iPad 13" e a revisão testa lá | **dono decide**, agente executa | **por decidir** |
-| **B** | 🔴 **Diretriz 1.2: faltam duas das quatro.** Há denunciar e bloquear; falta filtro antes de publicar, o compromisso de 24h e os termos de utilização | **dono decide**, agente executa | **por decidir** |
-| **C** | 🔴 **Os seis screenshots** — cinco mostram a app anterior a 25/08 (2.3.3), os seis têm canal alfa, e três foram tirados no browser | agente refaz; dono decide de que conta | **por fazer** |
-| **C** | Campos da consola sem valor decidido: **copyright**, **contacto para a revisão**, **credenciais da conta de teste** | dono | por fazer |
-| 4 | **Submeter** as etiquetas de privacidade, categorias, preço e países na App Store Connect | dono | por fazer |
-| 6 | **Submeter** — passo a passo em [`loja/submissao.html`](loja/submissao.html) e no artifact *Submeter o Foodboxd*; valores em [`loja/README.md`](loja/README.md) | agente preparou; **dono executa** | por fazer |
+| — | O ícone e o splash da marca, gerados no `sync` (`capacitor-assets` na cadeia — não volta ao placeholder no clone seguinte) | agente | ✅ `b7ff2a9` |
+| — | Versão e build em fonte versionada — `ios-build.json`, reposto pelo `ios-info.mjs` a cada sync; build carregado: **4** | agente | ✅ `3e8586c`, alinhado em `4afc0df` |
+| — | O `www/` atrasado no `.ipa` — o `sync` (que o archive corre) regenera-o sempre via `build:www` | agente | ✅ fechado com a cadeia do sync |
+| — | O portão de entrada falhava aberto sem o `gstatic` | agente | ✅ `2ec9823`, com arnês `test:portao` |
+| — | iPad: **só iPhone** (`deviceFamily: "1"` no `ios-build.json`) — decisão do dono a 25/08, reversível | dono decidiu, agente fez | ✅ na fonte |
+| — | Diretriz 1.2 completa: filtro antes de publicar, `/termos` com o compromisso das 24h | dono decidiu, agente fez | ✅ `b87cf63` |
+| — | Screenshots: cinco ecrãs reais do simulador, nos dois tamanhos da loja, sem canal alfa | agente | ✅ `29d63ee` |
+| — | Campos da consola: copyright, nota ao revisor, descrição, palavras-chave — colados na App Store Connect a 26/08 | agente preencheu, dono fechou | ✅ ver `loja/README.md` |
+| — | Etiquetas de privacidade, DSA (27 países), Content Rights, conta bancária | dono | ✅ fechado 26/08 |
+| 1 | **Carregar no «Add for Review»** e colar as credenciais da conta de teste no formulário — passo a passo em [`loja/submissao.html`](loja/submissao.html), valores em [`loja/README.md`](loja/README.md) | **dono, e só o dono** | **por fazer — é o único passo que resta** |
+| 2 | Responder ao que a App Review levantar | dono decide, agente executa | à espera da revisão |
+
+> **W-8BEN por completar:** não bloqueia — a app é grátis, o *Free Apps
+> Agreement* está ativo; impostos e banco pertencem ao *Paid Apps Agreement*,
+> que só conta quando houver dinheiro a receber. Ver `loja/README.md`.
 
 ### ⚠️ Duas contas para a mesma pessoa — e já está no ar
 
