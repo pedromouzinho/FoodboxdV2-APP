@@ -62,3 +62,6 @@ jobs:
 
       - name: test:fotos
         run: npm run test:fotos
+
+      - name: test:foto-url
+        run: npm run test:foto-url

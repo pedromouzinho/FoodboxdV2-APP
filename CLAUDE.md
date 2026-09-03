@@ -79,9 +79,11 @@ npm run test:persistencia  # o contrato da gravação do userData + privacidade;
 npm run test:portao    # o portão de entrada com a rede à Google cortada por rota
 npm run test:visita    # o ciclo da visita: registar/editar/remover/anular, feed, leaderboard
 npm run test:apagar    # apagar conta — precisa do emulador (npm run emu:start)
+npm run test:fotos     # as fotos da Google: rajada, cache, e o dispositivo novo
+npm run test:foto-url  # a função que troca o URL que morre pelo que dura; node puro
 ```
 
-**São oito, e cada um vê uma coisa que os outros não veem.** O `audit` percorre
+**São dez, e cada um vê uma coisa que os outros não veem.** O `audit` percorre
 os ecrãs e mede desenho — e desde 25/08 também **percorre o tutorial** e afirma
 que cada passo destaca alguma coisa. O `test:gesto` é o único que despacha
 eventos de toque: os outros conduzem a app com cliques, e um clique não tem
@@ -98,8 +100,13 @@ nove lições: aqui a dependência da rede é o próprio objeto de medição. O
 `test:visita` conduz a interface real com a camada DB intercetada e o
 UserData verdadeiro por baixo — é onde vive o contrato do modelo
 visita-atómica (25/08): as três formas de entrada, o rating como sombra, o
-undo. Desde 25/08 os de browser + o de persistência correm também no CI a
-cada push (`.github/workflows/testes.yml`).
+undo. O `test:fotos` é o único que serve imagens de erro DE PROPÓSITO — o PNG de
+100×100 com que a Google responde a um 403 — e mede a fila, a preguiça e o
+que uma instalação de fresco vê; o `test:foto-url` é o segundo sem browser, e
+mede a lista branca da função `foto`, que é o que separa um tradutor de URLs
+de uma porta aberta para a rede interna do projeto (SSRF). Desde 25/08 os de
+browser + os de node correm também no CI a cada push
+(`.github/workflows/testes.yml`).
 
 Se mexeres em ficheiros que a app corre, corre-os. Se só mexeres em documentação,
 diz que não os correste e porquê — não os dês por corridos.

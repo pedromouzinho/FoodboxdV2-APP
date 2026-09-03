@@ -302,6 +302,10 @@ const n2 = await (async () => {
 })();
 chk("instalação de fresco: a lista desenhou cartões", n2 >= 20, `cartões=${n2}`);
 
+// O observer dispara em assíncrono: medir no instante do desenho dava sempre
+// zero, e a afirmação era verde por chegar cedo de mais.
+await p2.waitForTimeout(2500);
+const lidosAoDesenhar = lidosDaPartilhada;
 // Rolar: sem isto só ~2 cartões entram na margem do observer, e a amostra pode
 // sair toda do mesmo tipo. Rolando, passam pelos dois — que é o que se quer
 // medir (o durável acende, o expirado nem é pedido).
@@ -334,8 +338,135 @@ chk("um GetPhoto guardado na cache NUNCA é pedido: expira em dias e custa",
   pedidos2.size === 0, `pediu ${pedidos2.size} GetPhoto a partir da cache partilhada`);
 // Sem o `> 0` isto passava com zero leituras — verde sobre código partido,
 // que é o ramo de escape que o CLAUDE.md manda não escrever.
-chk("a preguiça mantém-se: não lê os 34 documentos de uma vez",
-  lidosDaPartilhada > 0 && lidosDaPartilhada <= 16, `leituras=${lidosDaPartilhada}`);
+// Mede-se ANTES de rolar: depois de percorrer a lista toda é natural que se
+// leiam quase todos, e a afirmação deixaria de dizer o que quer dizer.
+chk("a preguiça mantém-se: o primeiro desenho não lê os 34 documentos",
+  lidosAoDesenhar > 0 && lidosAoDesenhar < 34, `ao desenhar=${lidosAoDesenhar}, no fim=${lidosDaPartilhada}`);
+
+// ---- 7 · A CACHE DEIXA DE APODRECER ------------------------------------
+//
+// O ciclo que este caso fecha, medido a 03/09 contra a produção: abre-se um
+// sítio, guarda-se o URL do GetPhoto, ele morre em dias, e a cache — que diz
+// 30 — continua a dá-lo por válido. Semeei um dispositivo com uma entrada de
+// SEIS dias e um URL real da cache partilhada: cartão sem foto, ficha sem
+// foto, um pedido pago para receber a cruz, e ZERO pedidos de detalhes
+// frescos. A entrada morta auto-perpetuava-se por mais três semanas.
+//
+// Agora uma entrada com GetPhoto conta como ausente, o sítio vai à rede, e o
+// que fica guardado é o `lh3` que a função devolve.
+const c3 = await b.newContext({ ...devices["iPhone 13 Pro"] });
+const p3 = await c3.newPage(); p3.setDefaultTimeout(5000);
+
+const FRESCO = "https://maps.googleapis.com/maps/api/place/js/PhotoService.GetPhoto?1sFRESCO";
+const DURAVEL = "https://lh3.googleusercontent.com/place-photos/RESOLVIDO=s1600-w800";
+let chamouFuncao = 0, guardado = null;
+
+await p3.route("https://maps.googleapis.com/**", (route) => {
+  // O bootstrap do Maps NÃO é uma foto. Devolver-lhe um PNG deixava o
+  // MapModule indisponível, o PlacesModule sem service, e a lista vazia — o
+  // ensaio media zero e a culpa não era do código.
+  if (!route.request().url().includes("PhotoService.GetPhoto")) {
+    return route.fulfill({ status: 200, contentType: "application/javascript",
+      body: "window.initApp && window.initApp();" });
+  }
+  return route.fulfill({ status: 200, contentType: "image/png", body: PNG_FOTO });
+});
+await p3.route("https://lh3.googleusercontent.com/**", (route) =>
+  route.fulfill({ status: 200, contentType: "image/png", body: PNG_FOTO }));
+for (const dom of ["https://www.gstatic.com/**", "https://identitytoolkit.googleapis.com/**", "https://unpkg.com/**"])
+  await p3.route(dom, (route) => route.abort());
+
+// A função `foto`, a fingir. Em 127.0.0.1 o CONFIG.EMULATORS é verdade, por
+// isso o places.js chama-a na porta das funções e não em /api/foto.
+const rotaFuncao = async (route) => {
+  chamouFuncao++;
+  const corpo = JSON.parse(route.request().postData() || "{}");
+  return route.fulfill({ status: 200, contentType: "application/json",
+    body: JSON.stringify({ result: { urls: (corpo.urls || []).map(() => DURAVEL) } }) });
+};
+await p3.route("**/europe-west1/foto", rotaFuncao);
+await p3.route("**/api/foto", rotaFuncao);
+
+// O Firestore: a escrita da cache partilhada é o que se quer inspecionar.
+await p3.route("http://127.0.0.1:8080/**", async (route) => {
+  const url = route.request().url();
+  if (route.request().method() === "PATCH" && /placesCache/.test(url)) {
+    guardado = JSON.parse(route.request().postData() || "{}");
+    return route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+  }
+  // Abortar, como nos outros cenários: um 404 com corpo JSON fazia caminhos da
+  // app tratarem-no como resposta boa e vazia.
+  return route.abort();
+});
+
+// Uma sessão a fingir: sem token o places.js nem tenta guardar.
+await p3.addInitScript(() => {
+  window.__semPortao = true;
+  window.FirebaseAuth = { configured: true, getToken: async () => "token-de-mentira" };
+});
+await p3.addInitScript(MAPS_FALSO);
+// O serviço do Places a responder de verdade, com uma foto fresca.
+await p3.addInitScript(({ fresco }) => {
+  const espera = (cb, arg) => setTimeout(() => cb(arg, "OK"), 5);
+  window.google.maps.places.PlacesService = function () {
+    return {
+      findPlaceFromQuery: (r, cb) => espera(cb, [{ place_id: "pid-1" }]),
+      getDetails: (r, cb) => espera(cb, {
+        rating: 4.6, user_ratings_total: 321, price_level: 2,
+        formatted_address: "Rua X", url: "https://maps.google.com/x",
+        photos: [{ getUrl: () => fresco }]
+      }),
+      textSearch: (r, cb) => espera(cb, [])
+    };
+  };
+}, { fresco: FRESCO });
+// A entrada PODRE: seis dias, dentro dos 30, com o URL que já morreu.
+await p3.addInitScript(({ podre }) => {
+  const seisDias = Date.now() - 6 * 24 * 60 * 60 * 1000;
+  const cache = {};
+  cache["r-podre"] = { fetchedAt: seisDias, data: { rating: 4.4, userRatingsTotal: 120, photos: [podre] } };
+  try { localStorage.setItem("portugalRestaurants.placesCache.v2", JSON.stringify(cache)); } catch (e) {}
+  try { localStorage.setItem("portugalRestaurants.custom", JSON.stringify([{
+    id: "r-podre", name: "Tasca Podre", town: "Lisboa", region: "Lisboa", country: "Portugal",
+    category: "tradicional", lat: 38.71, lng: -9.14, tags: ["tradicional"], mapsQuery: "tasca", source: "custom"
+  }])); } catch (e) {}
+}, { podre: "https://maps.googleapis.com/maps/api/place/js/PhotoService.GetPhoto?1sMORTO" });
+
+await p3.goto("http://127.0.0.1:8807/index.html", { waitUntil: "domcontentloaded", timeout: 30000 });
+await p3.waitForTimeout(2500);
+await p3.evaluate(() => {
+  const e = document.getElementById("entrada");
+  if (e) e.hidden = true;
+  document.body.classList.remove("sem-sessao");
+});
+// Chama-se o `fetchDetails` directamente, e não pela lista. O que está sob
+// ensaio é a decisão da cache, não o desenho dos cartões — esses já têm os
+// cenários de cima. Conduzir a interface aqui só acrescentava dependências
+// (o arranque com sessão a fingir não desenha a lista) sem medir mais nada.
+const saida = await p3.evaluate(async () => {
+  const r = { id: "r-podre", name: "Tasca Podre", mapsQuery: "tasca" };
+  try {
+    const d = await PlacesModule.fetchDetails(r);
+    return { ok: true, photos: (d && d.photos) || [] };
+  } catch (e) { return { ok: false, erro: e.message }; }
+});
+chk("o fetchDetails de um sítio com cache podre chega ao fim", saida.ok, JSON.stringify(saida));
+
+const guardouDuravel = await (async () => {
+  const fim = Date.now() + 12000;
+  while (Date.now() < fim) {
+    if (guardado && JSON.stringify(guardado).includes("RESOLVIDO")) return true;
+    await p3.waitForTimeout(250);
+  }
+  return false;
+})();
+
+chk("uma entrada com GetPhoto conta como ausente e o sítio vai à rede",
+  chamouFuncao > 0, "a função de tradução nem foi chamada — a cache podre foi dada por boa");
+chk("e o que fica guardado na cache partilhada é o lh3, não o que morre",
+  guardouDuravel, `guardado=${guardado ? JSON.stringify(guardado).slice(0, 120) : "nada"}`);
+chk("o URL morto NUNCA vai para a cache partilhada",
+  !guardado || !JSON.stringify(guardado).includes("1sMORTO"), "guardou o URL que já estava morto");
 
 await b.close(); srv.close();
 console.log(falhas ? `\nfotos sob rajada: ${falhas} FALHA(S)` : "\nfotos sob rajada: tudo verde");

@@ -59,6 +59,11 @@
         "region": "europe-west1"
       },
       {
+        "source": "/api/foto",
+        "function": "foto",
+        "region": "europe-west1"
+      },
+      {
         "source": "/privacidade",
         "destination": "/privacidade.html"
       },

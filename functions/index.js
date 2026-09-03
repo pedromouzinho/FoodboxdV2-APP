@@ -846,3 +846,70 @@ exports.conta = onRequest(
     }
   }
 );
+
+// ---------------------------------------------------------------------------
+// `foto` — traduzir um URL do Places que morre num que dura.
+//
+// O PORQUÊ, medido a 03/09/2026. Os URLs `PhotoService.GetPhoto` que o SDK do
+// Places devolve EXPIRAM EM DIAS, e a cache guarda-os por 30. Quatro deles,
+// gravados entre 26 e 29/08, pedidos um a um e espaçados: 403 com um PNG de
+// 100×100, os quatro. Uma foto pedida de fresco no mesmo minuto: 302 → 200,
+// 800×1062. Não é quota nem chave — é o URL que caduca.
+//
+// O 302 aponta ao `lh3.googleusercontent.com`, e ESSE serve a foto sem chave,
+// sem referrer e a pedidos repetidos (200, 155 688 bytes, medido). É o URL que
+// devia estar na cache desde o princípio.
+//
+// E TEM DE SER AQUI, não no cliente: o `fetch` do browser ao GetPhoto morre no
+// CORS — medido nas duas formas, `follow` e `redirect: "manual"`, as duas dão
+// "Failed to fetch". Do node puro o mesmo pedido devolve o `Location` sem se
+// queixar.
+//
+// Não segue o redirecionamento: lê o cabeçalho e devolve-o. Assim não descarrega
+// imagem nenhuma, e o pedido pago é o mesmo que o cliente faria de qualquer
+// maneira — passa a ser um por foto para sempre, em vez de um por foto, por
+// dispositivo, a cada 30 dias.
+const FOTO_ORIGEM = /^https:\/\/maps\.googleapis\.com\/maps\/api\/place\/js\/PhotoService\.GetPhoto\?/;
+const FOTO_DESTINO = /^https:\/\/lh3\.googleusercontent\.com\//;
+const FOTO_MAX = 6;
+
+async function resolverFoto(url) {
+  // A lista branca é a defesa contra SSRF: esta função busca um URL que o
+  // cliente escolhe, e sem isto seria uma porta para a rede interna do
+  // projeto. Só um prefixo é aceite, e só um destino é devolvido.
+  if (typeof url !== "string" || !FOTO_ORIGEM.test(url)) return null;
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    const res = await fetch(url, { redirect: "manual", signal: ctrl.signal });
+    clearTimeout(t);
+    const loc = res.headers.get("location");
+    return loc && FOTO_DESTINO.test(loc) ? loc : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+exports.foto = onRequest(
+  { region: "europe-west1", cors: true, maxInstances: 5, timeoutSeconds: 30, serviceAccount: RUNTIME_SA },
+  async (req, res) => {
+    if (req.method === "OPTIONS") return res.status(204).send("");
+    if (req.method !== "POST") return res.status(405).json({ error: "method" });
+
+    const user = await requireUser(req);
+    if (!user) return res.status(401).json({ error: "auth" });
+
+    const urls = (req.body || {}).urls;
+    if (!Array.isArray(urls) || !urls.length) return res.status(400).json({ error: "urls" });
+
+    try {
+      const out = await Promise.all(urls.slice(0, FOTO_MAX).map(resolverFoto));
+      return res.json({ result: { urls: out } });
+    } catch (e) {
+      console.error("resolver fotos", user.uid, e && e.message);
+      return res.status(500).json({ error: "falha" });
+    }
+  }
+);
+
+exports.__testFoto = { resolverFoto, FOTO_ORIGEM, FOTO_DESTINO };

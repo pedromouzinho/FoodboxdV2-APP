@@ -24,8 +24,40 @@ const PlacesModule = (() => {
   // (Find Place + Details + fotos) em cada dispositivo de cache fresca, e a
   // fatura passou o crédito em €108 com 8 utilizadores. A rede é para quando
   // se ABRE a ficha; um cartão sem cache fica sem estrelinha até lá.
+  // Uma entrada com URLs do GetPhoto está a apodrecer: eles morrem em dias e a
+  // janela da cache é de 30. Sem isto as entradas velhas AUTO-PERPETUAM-SE — o
+  // fetchDetails encontra-as, dá-as por válidas e nunca vai buscar nada.
+  //
+  // MAS SÓ AS VELHAS. Um GetPhoto acabado de vir da Google funciona, e é o que
+  // mostra a foto no segundo em que se abre a ficha; deitá-lo fora pelo tipo
+  // partia o caminho normal — foi o que fiz à primeira, e três casos deste
+  // arnês ficaram vermelhos a dizê-lo.
+  //
+  // O dia é o limite conservador: medi mortos aos 5–8 dias e vivos ao minuto,
+  // e não sei onde fica a fronteira. Errar para o lado de refazer custa uma
+  // ida à Google; errar para o outro custa um cartão sem foto durante um mês.
+  // E é uma migração, não um custo permanente: o que fica guardado no lugar é
+  // o `lh3`, que nunca é considerado podre.
+  const PODRE_MS = 24 * 60 * 60 * 1000;
+
+  function temEfemero(data) {
+    return !!(data && Array.isArray(data.photos) && data.photos.length &&
+              data.photos.some((u) => /PhotoService\.GetPhoto/.test(u)));
+  }
+  function podreLocal(id) {
+    if (!Storage.getPlacesCache) return false;
+    let e = null;
+    try { e = Storage.getPlacesCache()[id] || null; } catch (err) { return false; }
+    if (!e || !temEfemero(e.data)) return false;
+    return Date.now() - e.fetchedAt > PODRE_MS;
+  }
+
   function fromCache(restaurant) {
-    return Storage.getCachedPlace(restaurant.id) || null;
+    const d = Storage.getCachedPlace(restaurant.id);
+    if (!d) return null;
+    // O thumbnail não pode pedir um URL que já morreu: paga a chamada e recebe
+    // a cruz. O resto da entrada — nota, preço — continua bom e fica.
+    return podreLocal(restaurant.id) ? Object.assign({}, d, { photos: [] }) : d;
   }
 
   // Resolve full details for a restaurant (cached). Resolves to data or null.
@@ -39,10 +71,13 @@ const PlacesModule = (() => {
     const force = opts && opts.force; // bypass + overwrite cache (e.g. expired photo URLs)
     if (!force) {
       const local = Storage.getCachedPlace(restaurant.id);
-      if (local) return local;
+      if (local && !podreLocal(restaurant.id)) return local;
       try {
         const partilhada = await DB.fetchPlaceCache(restaurant.id);
-        if (partilhada) {
+        // Na partilhada não se sabe a idade daqui, e não é preciso: desde esta
+        // versão só lá entram URLs duráveis. Um GetPhoto ali é herança de
+        // agosto — conta como ausente, e a próxima abertura substitui-o.
+        if (partilhada && !temEfemero(partilhada)) {
           Storage.setCachedPlace(restaurant.id, partilhada);
           return partilhada;
         }
@@ -52,13 +87,69 @@ const PlacesModule = (() => {
     if (data) {
       // Melhor-esforço: a escrita partilhada exige sessão (regras), e falhar
       // aqui nunca pode estragar a ficha de quem está a olhar para ela.
-      try {
-        const fb = window.FirebaseAuth;
-        const token = fb && fb.configured ? await fb.getToken() : null;
-        if (token) DB.savePlaceCache(restaurant.id, data, token).catch(() => {});
-      } catch (e) { /* fica só na cache local */ }
+      //
+      // A tradução dos URLs corre EM SEGUNDO PLANO e não atrasa quem está a
+      // olhar para a ficha: o `data` que se devolve leva os URLs frescos do
+      // GetPhoto, que funcionam agora mesmo. O que fica GUARDADO — nas duas
+      // caches — é a versão durável, quando ela chegar.
+      duravelEGuardar(restaurant.id, data);
     }
     return data;
+  }
+
+  // Os URLs do GetPhoto expiram em dias e a cache guarda-os 30 (medido a
+  // 03/09/2026: quatro URLs de 26–29/08, todos 403 com a cruz de 100×100; um
+  // pedido fresco no mesmo minuto, 302 → 200). A função `foto` troca-os pelo
+  // `lh3` para onde o 302 aponta, que serve a foto sem chave nem referrer.
+  //
+  // Falhar aqui não estraga nada: fica o que já estava, e a foto de hoje
+  // aparece na mesma. Só a de daqui a uma semana é que se perde — que é
+  // exatamente o estado de antes desta função existir.
+  function endpointFoto() {
+    if (!CONFIG.EMULATORS) return (CONFIG.API_BASE || "") + "/api/foto";
+    return `http://127.0.0.1:${CONFIG.EMU.functions}/${CONFIG.FIREBASE_PROJECT_ID}/europe-west1/foto`;
+  }
+
+  async function duravelEGuardar(id, data) {
+    let token = null;
+    try {
+      const fb = window.FirebaseAuth;
+      token = fb && fb.configured ? await fb.getToken() : null;
+    } catch (e) { /* sem sessão não há escrita partilhada nem função */ }
+    if (!token) return;
+
+    const originais = Array.isArray(data.photos) ? data.photos : [];
+    const porTraduzir = originais.filter((u) => /PhotoService\.GetPhoto/.test(u));
+    let guardar = data;
+
+    if (porTraduzir.length) {
+      try {
+        const res = await fetch(endpointFoto(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+          body: JSON.stringify({ urls: originais })
+        });
+        if (res.ok) {
+          const traduzidos = ((await res.json()).result || {}).urls || [];
+          // Um por um: onde a tradução falhou fica o original, que pelo menos
+          // funciona hoje. Nunca se guarda um buraco.
+          const photos = originais.map((u, i) => traduzidos[i] || u);
+          if (photos.some((u, i) => u !== originais[i])) {
+            guardar = Object.assign({}, data, { photos });
+            // A cache local também: senão este dispositivo continua a ver o
+            // URL que morre, e era metade do problema.
+            try { Storage.setCachedPlace(id, guardar); } catch (e) {}
+          }
+        }
+      } catch (e) { /* fica o original */ }
+    }
+
+    // A partilhada é lida por todos os dispositivos: só lá entra o que dura.
+    // Se a tradução falhou, não se guarda — degrada para o que havia antes
+    // desta função (cada dispositivo busca o seu), em vez de espalhar um URL
+    // que morre daqui a três dias por toda a gente.
+    if (temEfemero(guardar)) return;
+    try { DB.savePlaceCache(id, guardar, token).catch(() => {}); } catch (e) {}
   }
 
   function daRede(restaurant) {

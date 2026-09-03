@@ -25,7 +25,8 @@
     "test:gesto": "node scripts/test-gesto.mjs",
     "ios:info": "node scripts/ios-info.mjs",
     "ios:apple-diag": "node scripts/ler-apple-diag.mjs",
-    "ios:build": "npm run sync && xcodebuild -workspace ios/App/App.xcworkspace -scheme App -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=- build"
+    "ios:build": "npm run sync && xcodebuild -workspace ios/App/App.xcworkspace -scheme App -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=- build",
+    "test:foto-url": "node scripts/test-foto-url.mjs"
   },
   "dependencies": {
     "@capacitor-firebase/authentication": "^6.3.1",
