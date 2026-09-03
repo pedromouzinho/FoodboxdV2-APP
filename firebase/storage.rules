@@ -3,15 +3,34 @@ rules_version = '2';
 // Cloud Storage rules for user-uploaded restaurant photos.
 //   restaurants/{restaurantId}/{fileName}
 // Anyone can view the photos; only signed-in people can upload (images only,
-// max ~6 MB), and a signed-in person can delete files.
+// max ~6 MB) and the file name must be prefixed with the uploader's own uid
+// (the client writes "{uid}-{timestamp}.{ext}").
+//
+// Apagar exige ser o dono, desde 25/08. Era `request.auth != null` — qualquer
+// pessoa com sessão podia apagar o avatar ou as fotos de qualquer outra. A
+// prova de posse é a mesma convenção da escrita: o nome do ficheiro começa
+// pelo uid de quem o enviou. (A cascata do apagar conta não passa por aqui —
+// corre no Admin SDK, que ignora regras — e usa a mesma convenção do prefixo.)
 service firebase.storage {
   match /b/{bucket}/o {
     match /restaurants/{restaurantId}/{fileName} {
       allow read: if true;
       allow write: if request.auth != null
+                   && fileName.matches(request.auth.uid + '-.*')
                    && request.resource.size < 6 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
-      allow delete: if request.auth != null;
+      allow delete: if request.auth != null
+                    && fileName.matches(request.auth.uid + '-.*');
+    }
+    // Profile avatars — file name must be prefixed with the uploader's uid.
+    match /avatars/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && fileName.matches(request.auth.uid + '-.*')
+                   && request.resource.size < 6 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null
+                    && fileName.matches(request.auth.uid + '-.*');
     }
   }
 }

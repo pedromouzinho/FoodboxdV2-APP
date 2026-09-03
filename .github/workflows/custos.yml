@@ -1,0 +1,152 @@
+# Vigia semanal dos custos — Google Cloud (via exportação de faturação para o
+# BigQuery, dataset `faturacao`) e Anthropic (via Admin API, segredo
+# ANTHROPIC_ADMIN_KEY). Nasceu da fatura de agosto de 2026: €108 acima do
+# crédito em Places API, descoberto por acaso e tarde.
+#
+# O que faz, todas as segundas às 09:00 de Lisboa (e no botão manual):
+#   1. Soma os últimos 7 dias fechados por serviço, e compara com os 7 anteriores.
+#   2. Soma o custo Anthropic do mesmo período.
+#   3. Escreve o relatório no resumo do workflow (Actions → Custos → o run).
+#   4. SÓ abre um issue quando há motivo: a semana Google passou de €10 E
+#      cresceu mais de 50% face à anterior — alerta por mudança, não ruído
+#      semanal que se aprende a ignorar.
+#
+# Notas honestas sobre os dados:
+#   - A exportação para o BigQuery só acumula desde o dia em que foi ligada
+#     (25/08/2026) e traz até ~1 dia de atraso — a primeira semana vem coxa,
+#     e o relatório di-lo em vez de fingir números.
+#   - Falhas de infraestrutura (dataset ainda vazio, segredo em falta) contam
+#     como AVISO no relatório, não como run vermelho: um vigia que grita por
+#     estar mal configurado ensina a ignorar gritos.
+name: Custos (semanal)
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  relatorio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Custos Google (BigQuery)
+        id: google
+        run: |
+          set -uo pipefail
+          PROJETO=app-restaurantes-499400
+          # A tabela da exportação standard chama-se gcp_billing_export_v1_<id
+          # da conta de faturação> — descobre-se em vez de se escrever à mão
+          # (a lição do caminho do Chromium).
+          TABELA=$(bq ls --project_id="$PROJETO" --format=json faturacao 2>/tmp/ls-err.txt \
+            | jq -r '.[].tableReference.tableId | select(startswith("gcp_billing_export_v1"))' | head -1)
+          if [ -z "$TABELA" ]; then
+            # Distinguir "ainda não nasceu" de "não tenho permissão" — um aviso
+            # que não diz qual dos dois é esconde precisamente o que interessa.
+            if [ -s /tmp/ls-err.txt ]; then
+              echo "aviso=O bq ls falhou (permissões? dataset?): $(tr '\n' ' ' < /tmp/ls-err.txt | head -c 300)" >> "$GITHUB_OUTPUT"
+            else
+              echo "aviso=Dataset faturacao sem tabela de exportação ainda — a primeira carga pode demorar até 48h depois de ligar o export." >> "$GITHUB_OUTPUT"
+            fi
+            echo "total_atual=0" >> "$GITHUB_OUTPUT"; echo "total_anterior=0" >> "$GITHUB_OUTPUT"
+            echo "tabela_md=_(sem dados do Google ainda)_" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          SQL="
+            SELECT
+              IF(DATE(usage_start_time) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY), 'atual', 'anterior') AS janela,
+              service.description AS servico,
+              ROUND(SUM(cost), 2) AS bruto,
+              ROUND(SUM(cost) + SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0)), 2) AS liquido
+            FROM \`$PROJETO.faturacao.$TABELA\`
+            WHERE DATE(usage_start_time) >= DATE_SUB(CURRENT_DATE(), INTERVAL 14 DAY)
+              AND DATE(usage_start_time) < CURRENT_DATE()
+            GROUP BY janela, servico
+            HAVING ABS(bruto) >= 0.01
+            ORDER BY janela, bruto DESC"
+          if ! bq query --project_id="$PROJETO" --use_legacy_sql=false --format=json "$SQL" > /tmp/custos.json 2> /tmp/bq-err.txt; then
+            echo "aviso=A consulta ao BigQuery falhou: $(head -c 300 /tmp/bq-err.txt)" >> "$GITHUB_OUTPUT"
+            echo "total_atual=0" >> "$GITHUB_OUTPUT"; echo "total_anterior=0" >> "$GITHUB_OUTPUT"
+            echo "tabela_md=_(consulta falhou — ver o log do run)_" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          TOTAL_ATUAL=$(jq '[.[] | select(.janela=="atual") | (.liquido|tonumber)] | add // 0' /tmp/custos.json)
+          TOTAL_ANT=$(jq '[.[] | select(.janela=="anterior") | (.liquido|tonumber)] | add // 0' /tmp/custos.json)
+          {
+            echo "| Serviço | Bruto 7d | Líquido 7d (c/ créditos) |"
+            echo "| --- | ---: | ---: |"
+            jq -r '.[] | select(.janela=="atual") | "| \(.servico) | €\(.bruto) | €\(.liquido) |"' /tmp/custos.json
+          } > /tmp/tabela.md
+          echo "total_atual=$TOTAL_ATUAL" >> "$GITHUB_OUTPUT"
+          echo "total_anterior=$TOTAL_ANT" >> "$GITHUB_OUTPUT"
+          {
+            echo "tabela_md<<FIM_TABELA"
+            cat /tmp/tabela.md
+            echo "FIM_TABELA"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Custos Anthropic (Admin API)
+        id: anthropic
+        env:
+          CHAVE: ${{ secrets.ANTHROPIC_ADMIN_KEY }}
+        run: |
+          set -uo pipefail
+          if [ -z "${CHAVE:-}" ]; then
+            echo "linha=_(segredo ANTHROPIC_ADMIN_KEY não configurado)_" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          INICIO=$(date -u -d "7 days ago" +%Y-%m-%dT00:00:00Z)
+          FIM=$(date -u +%Y-%m-%dT00:00:00Z)
+          RESP=$(curl -sf "https://api.anthropic.com/v1/organizations/cost_report?starting_at=$INICIO&ending_at=$FIM&bucket_width=1d&limit=31" \
+            -H "x-api-key: $CHAVE" -H "anthropic-version: 2023-06-01") || {
+            echo "linha=_(a Admin API da Anthropic não respondeu — ver o log)_" >> "$GITHUB_OUTPUT"; exit 0; }
+          TOTAL=$(echo "$RESP" | jq '[.data[].results[]?.amount | tonumber] | add // 0 | (.*100 | round) / 100')
+          echo "linha=Anthropic (últimos 7 dias): **\$$TOTAL USD**" >> "$GITHUB_OUTPUT"
+
+      - name: Relatório
+        env:
+          TABELA_MD: ${{ steps.google.outputs.tabela_md }}
+          TOTAL_ATUAL: ${{ steps.google.outputs.total_atual }}
+          TOTAL_ANT: ${{ steps.google.outputs.total_anterior }}
+          AVISO: ${{ steps.google.outputs.aviso }}
+          LINHA_ANTHROPIC: ${{ steps.anthropic.outputs.linha }}
+        run: |
+          {
+            echo "## Custos da semana"
+            echo ""
+            [ -n "${AVISO:-}" ] && echo "> ⚠️ $AVISO" && echo ""
+            echo "Google Cloud, últimos 7 dias fechados: **€$TOTAL_ATUAL líquidos** (7 anteriores: €$TOTAL_ANT)"
+            echo ""
+            echo "$TABELA_MD"
+            echo ""
+            echo "${LINHA_ANTHROPIC:-}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Alerta por mudança
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TOTAL_ATUAL: ${{ steps.google.outputs.total_atual }}
+          TOTAL_ANT: ${{ steps.google.outputs.total_anterior }}
+          TABELA_MD: ${{ steps.google.outputs.tabela_md }}
+          LINHA_ANTHROPIC: ${{ steps.anthropic.outputs.linha }}
+        run: |
+          set -uo pipefail
+          # Só grita quando há motivo: >€10 na semana E >50% acima da anterior.
+          # (Uma semana anterior a zero — a primeira — conta como motivo se a
+          # atual passar os €10: crescimento infinito também é crescimento.)
+          DISPARA=$(awk -v a="$TOTAL_ATUAL" -v b="$TOTAL_ANT" \
+            'BEGIN { print (a > 10 && (b <= 0 || a > b * 1.5)) ? "sim" : "nao" }')
+          [ "$DISPARA" = "nao" ] && { echo "Sem motivo para alerta (€$TOTAL_ATUAL vs €$TOTAL_ANT)."; exit 0; }
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Custos: €$TOTAL_ATUAL esta semana (antes: €$TOTAL_ANT)" \
+            --body "$(printf 'A semana passou o limiar (>€10 e >50%% acima da anterior).\n\n%s\n\n%s\n\nRelatório completo: %s/%s/actions/runs/%s' "$TABELA_MD" "${LINHA_ANTHROPIC:-}" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID")"

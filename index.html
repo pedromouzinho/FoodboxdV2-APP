@@ -2,19 +2,49 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Restaurantes Portugal</title>
-  <meta name="description" content="Mapa interativo de restaurantes em Portugal para visitar." />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Foodboxd</title>
+  <meta name="description" content="Foodboxd — o teu diário de restaurantes: avalia, regista e descobre com os amigos." />
+  <script>
+    // Coletor de erros de arranque. Vive aqui, antes de qualquer outro
+    // script, para apanhar o que rebentar durante o próprio carregamento —
+    // que é precisamente quando o js/erros.js ainda não existe para ajudar.
+    // Só guarda; quem grava é o js/erros.js, que drena isto ao carregar e
+    // se pendura em __registarErro. Nunca interfere: não faz preventDefault,
+    // não devolve true, e um erro aqui dentro morre em silêncio.
+    window.__errosPendentes = [];
+    (function () {
+      function guardar(err, origem) {
+        try {
+          if (window.__registarErro) { window.__registarErro(err, origem); return; }
+          if (window.__errosPendentes.length < 20) window.__errosPendentes.push({ err: err, origem: origem });
+        } catch (e) { /* nada */ }
+      }
+      window.addEventListener("error", function (e) { guardar(e.error || e.message, "erro"); });
+      window.addEventListener("unhandledrejection", function (e) { guardar(e.reason, "promessa"); });
+    })();
+  </script>
   <link rel="manifest" href="manifest.webmanifest" />
-  <meta name="theme-color" content="#b5531f" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#f6f1e7" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#181511" media="(prefers-color-scheme: dark)" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="Restaurantes" />
-  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Foodboxd" />
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="icons/favicon-96.png" sizes="96x96" type="image/png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/splash/750x1334.png" />
+  <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/splash/828x1792.png" />
+  <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/1125x2436.png" />
+  <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/1242x2688.png" />
+  <link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/1170x2532.png" />
+  <link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/1284x2778.png" />
+  <link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/1179x2556.png" />
+  <link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/1290x2796.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
     rel="stylesheet"
   />
   <link rel="stylesheet" href="css/style.css" />
@@ -28,6 +58,14 @@
     <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
     <symbol id="i-map" viewBox="0 0 24 24"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+    <!-- A marca da Apple é preenchida, ao contrário do resto do sprite, que é
+         Lucide de traço. Tem de ser esta e não uma aproximação: as regras do
+         Sign in with Apple são sobre a marca, o tamanho e a cor do botão. -->
+    <symbol id="i-apple" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
     <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></symbol>
     <symbol id="i-star" viewBox="0 0 24 24"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
@@ -38,6 +76,9 @@
     <symbol id="i-external" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
     <symbol id="i-sliders" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></symbol>
     <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+    <!-- marca Foodboxd — não é um ícone de interface, não seguir o traço Lucide.
+         Vive só na barra de topo; o estado vazio dos cartões usa #i-utensils. -->
+    <symbol id="i-brand" viewBox="0 0 24 24"><path fill-rule="evenodd" fill="currentColor" stroke="none" d="M6.06 3H17.94Q21 3 21 6.06V17.94Q21 21 17.94 21H6.06Q3 21 3 17.94V6.06Q3 3 6.06 3ZM15.96 10.56A5.04 5.04 0 1 0 26.04 10.56A5.04 5.04 0 1 0 15.96 10.56Z"/></symbol>
     <symbol id="i-utensils" viewBox="0 0 24 24"><path d="M3 2v7c0 1.1.9 2 2 2h0a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></symbol>
     <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
     <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
@@ -48,16 +89,92 @@
     <symbol id="i-message" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
     <symbol id="i-log-in" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></symbol>
     <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
+    <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="m2 2 20 20"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/><path d="M5 13a10 10 0 0 1 5.24-2.76"/><line x1="12" x2="12.01" y1="20" y2="20"/></symbol>
+    <symbol id="i-locate" viewBox="0 0 24 24"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+    <symbol id="i-utensils-crossed" viewBox="0 0 24 24"><path d="M16 2v20"/><path d="M19 2v6a3 3 0 0 1-3 3"/><path d="M5 2v7a3 3 0 0 0 6 0V2"/><path d="M8 11v11"/></symbol>
   </svg>
 
-  <header class="topbar">
-    <button id="sidebar-toggle" class="icon-btn topbar-menu" aria-label="Abrir lista">
-      <svg class="icon"><use href="#i-menu"/></svg>
-    </button>
-    <div class="brand">
-      <svg class="icon brand-icon"><use href="#i-utensils"/></svg>
-      <h1>Restaurantes Portugal</h1>
+  <!-- Ecrã de entrada.
+       Cobre tudo enquanto não houver sessão, em vez de esconder a topbar, a
+       tabbar e os quatro ecrãs um a um — menos sítios para falhar, e a casca
+       continua a montar-se por baixo (o mapa precisa de existir para o
+       `initApp` correr; escondê-lo do DOM partia-o).
+
+       O `hidden` no arranque é de propósito: quem já tem sessão nunca deve ver
+       isto a piscar enquanto o Firebase decide. O `onAuthChange` mostra-o
+       quando confirma que não há ninguém.
+
+       ⚠️ Este id está na exceção do `ocupado()` lá em baixo, ao lado do
+       #signin-modal, e tem de lá ficar: um ecrã que está sempre de pé para quem
+       não tem sessão faz a app nunca mais aplicar uma atualização. É a mesma
+       armadilha que o convite de sessão já criou uma vez. -->
+  <section id="entrada" class="entrada" hidden aria-label="Entrar no Foodboxd">
+    <div class="entrada-card">
+      <div class="entrada-marca">
+        <svg class="icon brand-icon"><use href="#i-brand"/></svg>
+        <h1>Foodboxd</h1>
+      </div>
+      <p class="entrada-lead">O teu diário de restaurantes. Entra para começar.</p>
+
+      <form id="entrada-form" class="entrada-form" novalidate>
+        <label class="entrada-campo">
+          <span>Email</span>
+          <input id="entrada-email" type="email" autocomplete="email" inputmode="email"
+                 autocapitalize="none" spellcheck="false" required />
+        </label>
+        <label class="entrada-campo" data-entrada-nome hidden>
+          <span>Nome</span>
+          <input id="entrada-nome" type="text" autocomplete="name" />
+        </label>
+        <label class="entrada-campo">
+          <span>Palavra-passe</span>
+          <input id="entrada-palavra" type="password" autocomplete="current-password" required />
+        </label>
+        <p class="entrada-estado" data-entrada-estado role="status" aria-live="polite"></p>
+        <!-- Só aparece quando o vigia do portão conclui que o serviço de
+             contas não veio (rede à Google em baixo). Recarregar é a única
+             ação que faz sentido: o SDK vem por import estático e não se
+             volta a tentar sem recomeçar a página. -->
+        <button type="button" id="entrada-reload" class="btn btn-ghost btn-block" data-entrada-reload hidden>
+          Tentar de novo
+        </button>
+        <button type="submit" id="entrada-submit" class="btn btn-primary btn-block">Entrar</button>
+      </form>
+
+      <div class="entrada-links">
+        <button type="button" class="linklike" data-entrada-modo>Criar conta</button>
+        <button type="button" class="linklike" data-entrada-recuperar>Esqueci-me da palavra-passe</button>
+      </div>
+
+      <div class="entrada-ou"><span>ou</span></div>
+
+      <button id="entrada-apple" class="btn btn-block btn-apple">
+        <svg class="icon icon-apple"><use href="#i-apple"/></svg> Continuar com a Apple
+      </button>
+      <button id="entrada-google" class="btn btn-ghost btn-block">
+        <svg class="icon"><use href="#i-log-in"/></svg> Continuar com a Google
+      </button>
+
+      <p class="entrada-legal">
+        Ao entrares aceitas os <a href="https://foodboxd.pt/termos" target="_blank" rel="noopener">termos de utilização</a> e a <a href="https://foodboxd.pt/privacidade" target="_blank" rel="noopener">política de privacidade</a>.
+      </p>
     </div>
+  </section>
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="icon brand-icon"><use href="#i-brand"/></svg>
+      <h1>Foodboxd</h1>
+    </div>
+    <button id="add-open-btn" class="btn btn-ghost btn-sm topbar-add" aria-label="Adicionar um sítio">
+      <svg class="icon"><use href="#i-plus"/></svg>
+    </button>
+    <button id="ai-suggest-btn" class="btn btn-ghost btn-sm topbar-ai" aria-label="Pergunta-me">
+      <svg class="icon"><use href="#i-sparkles"/></svg> <span class="ai-btn-label">Pergunta-me</span>
+    </button>
     <button id="install-btn" class="btn btn-ghost btn-sm topbar-install hidden">
       <svg class="icon"><use href="#i-download"/></svg> Instalar
     </button>
@@ -71,110 +188,147 @@
         <svg class="icon"><use href="#i-x"/></svg>
       </button>
     </div>
-    <div class="topbar-progress" id="topbar-progress" title="Visitados">
-      <span id="visited-counter">0 / 0</span>
-    </div>
   </header>
 
-  <div class="layout">
-    <div id="sidebar-scrim" class="sidebar-scrim" aria-hidden="true"></div>
-    <aside id="sidebar" class="sidebar">
-      <div class="sidebar-inner">
-        <button id="sidebar-close" class="icon-btn sidebar-close" aria-label="Fechar lista">
-          <svg class="icon"><use href="#i-x"/></svg>
-        </button>
-        <div class="search-wrap">
-          <svg class="icon search-icon"><use href="#i-search"/></svg>
-          <input id="search-input" type="search" placeholder="Procurar nome, localidade ou prato…" aria-label="Procurar" />
-        </div>
-
-        <div class="progress-block">
-          <div class="progress-head">
-            <span id="progress-label">0 de 0 visitados</span>
-          </div>
-          <div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
-        </div>
-
-        <div class="quick-actions">
-          <button id="pick-random-btn" class="btn btn-primary">
-            <svg class="icon"><use href="#i-sparkles"/></svg> Surpreende-me
+  <section id="screen-mapa" class="screen screen-mapa" data-screen="mapa">
+    <!-- Procura e modos na cabeça do ecrã, não dentro de uma gaveta: Mapa e
+         Lista são dois modos da mesma coisa e o filtro é do ecrã inteiro. -->
+    <div class="mapbar">
+      <div class="search-wrap">
+        <svg class="icon search-icon"><use href="#i-search"/></svg>
+        <input id="search-input" type="search" placeholder="Nome, localidade ou prato" aria-label="Procurar" />
+      </div>
+      <div class="mapbar-row">
+        <div class="segmented" id="map-mode" role="group" aria-label="Modo de vista">
+          <button type="button" class="seg-opt active" data-map-mode="mapa" aria-pressed="true">
+            <svg class="icon"><use href="#i-map"/></svg> Mapa
+          </button>
+          <button type="button" class="seg-opt" data-map-mode="lista" aria-pressed="false">
+            <svg class="icon"><use href="#i-list"/></svg> Lista
           </button>
         </div>
+        <button id="filters-btn" class="filters-btn" type="button" aria-haspopup="dialog" aria-expanded="false">
+          <svg class="icon"><use href="#i-sliders"/></svg>
+          Filtros
+          <span class="filters-count hidden" id="filters-count" aria-hidden="true"></span>
+        </button>
+      </div>
+    </div>
 
-        <div class="chip-row" id="category-filters" role="group" aria-label="Filtrar por tipo"></div>
-
-        <details class="panel" id="more-filters">
-          <summary class="panel-summary">
-            <svg class="icon"><use href="#i-sliders"/></svg> Mais filtros
-            <svg class="icon chev"><use href="#i-chevron-down"/></svg>
-          </summary>
-          <div class="panel-body">
-            <h3 class="field-label">Região</h3>
-            <div id="region-filters" class="check-list"></div>
-            <h3 class="field-label">Preço <span class="muted">(do Google)</span></h3>
-            <div id="price-filters" class="chip-row" role="group" aria-label="Filtrar por preço">
-              <label class="price-chip"><input type="checkbox" data-price="1" checked /> <span>€</span></label>
-              <label class="price-chip"><input type="checkbox" data-price="2" checked /> <span>€€</span></label>
-              <label class="price-chip"><input type="checkbox" data-price="3" checked /> <span>€€€</span></label>
-              <label class="price-chip"><input type="checkbox" data-price="4" checked /> <span>€€€€</span></label>
-            </div>
-            <label class="switch-row">
-              <input type="checkbox" id="hide-visited-checkbox" />
-              <span>Esconder já visitados</span>
-            </label>
+    <div class="map-body">
+      <main class="map-area" data-mode-pane="mapa">
+        <div id="map"></div>
+        <div class="map-controls">
+          <!-- Explorar o mapa sem compromisso: os resultados são pins temporários -->
+          <button id="map-search-btn" class="map-ctl" type="button" aria-label="Procurar nesta área">
+            <svg class="icon"><use href="#i-search"/></svg>
+          </button>
+          <button id="map-recenter-btn" class="map-ctl" type="button" aria-label="Recentrar">
+            <svg class="icon"><use href="#i-locate"/></svg>
+          </button>
+        </div>
+        <div id="map-search" class="map-search hidden">
+          <div class="map-search-bar">
+            <svg class="icon search-icon"><use href="#i-search"/></svg>
+            <input id="map-search-input" type="search" placeholder="Marisqueira, sushi, brunch…" aria-label="Procurar no mapa" />
+            <button class="icon-btn" id="map-search-close" aria-label="Fechar">
+              <svg class="icon"><use href="#i-x"/></svg>
+            </button>
           </div>
-        </details>
-
-        <details class="panel" id="planner-panel">
-          <summary class="panel-summary">
-            <svg class="icon"><use href="#i-map"/></svg> Planear uma viagem
-            <svg class="icon chev"><use href="#i-chevron-down"/></svg>
-          </summary>
-          <div class="panel-body">
-            <p class="hint">De onde partes e para onde vais — mostramos restaurantes perto do caminho.</p>
-            <div class="field">
-              <label for="planner-from">De</label>
-              <input id="planner-from" type="text" placeholder="ex: Lisboa" />
-            </div>
-            <div class="field">
-              <label for="planner-to">Para</label>
-              <input id="planner-to" type="text" placeholder="ex: Évora" />
-            </div>
-            <div class="field">
-              <label for="planner-radius">Distância à rota: <strong id="planner-radius-value">25</strong> km</label>
-              <input id="planner-radius" type="range" min="5" max="60" step="5" value="25" />
-            </div>
-            <div class="planner-actions">
-              <button id="planner-find-btn" class="btn btn-primary btn-sm">Encontrar paragens</button>
-              <button id="planner-clear-btn" class="btn btn-ghost btn-sm">Limpar</button>
-            </div>
-            <p id="planner-status" class="planner-status" aria-live="polite"></p>
-            <ul id="planner-results" class="planner-results"></ul>
+          <button class="btn btn-primary btn-sm map-search-go" id="map-search-go">Procurar nesta área</button>
+          <div id="map-search-results" class="map-search-results"></div>
+        </div>
+        <!-- Cartão do sítio selecionado, ancorado em baixo -->
+        <div id="map-peek" class="map-peek hidden" aria-hidden="true"></div>
+        <div id="map-banner" class="map-banner hidden">
+          <div class="map-banner-card">
+            <svg class="icon map-banner-icon"><use href="#i-pin"/></svg>
+            <h2>O mapa não carregou</h2>
+            <p>Pode ser da ligação. Tenta outra vez daqui a pouco.</p>
+            <p class="muted">Entretanto, a lista, os filtros e a procura funcionam na mesma.</p>
           </div>
-        </details>
+        </div>
+      </main>
 
+      <section class="list-pane" data-mode-pane="lista" hidden>
         <div class="list-head">
           <span id="list-count">0 restaurantes</span>
-          <button id="add-restaurant-btn" class="btn btn-ghost btn-sm list-add-btn">
-            <svg class="icon"><use href="#i-plus"/></svg> Adicionar
-          </button>
         </div>
         <div id="restaurant-list" class="restaurant-list"></div>
-      </div>
-    </aside>
+      </section>
+    </div>
+  </section>
 
-    <main class="map-area">
-      <div id="map"></div>
-      <div id="map-banner" class="map-banner hidden">
-        <div class="map-banner-card">
-          <svg class="icon map-banner-icon"><use href="#i-pin"/></svg>
-          <h2>Mapa por ativar</h2>
-          <p>Adiciona a tua chave da Google Maps em <code>js/config.js</code> para ver o mapa, as rotas e as avaliações/fotos do Google.</p>
-          <p class="muted">A lista, filtros, pesquisa e detalhes básicos funcionam sem chave.</p>
-        </div>
+  <!-- App-level views (overlays above the always-rendered map) -->
+  <!-- Diário: Memórias e Críticas eram a mesma entidade vista de dois ângulos
+       (ambas leem UserData.getRating). Fundidas, com três vistas em chips —
+       e Pratos, que nunca teve onde ser visto. -->
+  <section id="screen-diario" class="screen screen-data" data-screen="diario" hidden>
+    <div class="screen-head screen-head-col">
+      <div class="screen-titles">
+        <h2>Diário</h2>
+        <span class="screen-sub" id="diario-count"></span>
       </div>
-    </main>
-  </div>
+      <div class="chip-tabs" id="diario-seg" role="group" aria-label="Vista do diário">
+        <button class="chip chip-tab" data-dview="restaurantes" aria-pressed="true">Restaurantes</button>
+        <button class="chip chip-tab" data-dview="criticas" aria-pressed="false">Críticas</button>
+        <button class="chip chip-tab" data-dview="pratos" aria-pressed="false">Pratos</button>
+      </div>
+      <div class="criticas-sort" id="criticas-sort" role="group" aria-label="Ordenar críticas" hidden>
+        <button class="chip chip-sort active" data-csort="recent" aria-pressed="true">Recentes</button>
+        <button class="chip chip-sort" data-csort="rating" aria-pressed="false">Melhor avaliados</button>
+      </div>
+    </div>
+    <div id="memorias-list" class="screen-list"></div>
+    <div id="criticas-list" class="screen-list" hidden></div>
+    <div id="pratos-list" class="screen-list screen-list-flat" hidden></div>
+  </section>
+
+  <section id="screen-amigos" class="screen screen-data" data-screen="amigos" hidden>
+    <div class="screen-head screen-head-col">
+      <div class="screen-titles">
+        <h2>Amigos</h2>
+      </div>
+      <div class="chip-tabs" id="amigos-tabs" role="group" aria-label="Vista de amigos">
+        <button class="chip chip-tab" data-atab="atividade" aria-pressed="true">Atividade</button>
+        <button class="chip chip-tab" data-atab="leaderboard" aria-pressed="false">Leaderboard</button>
+      </div>
+      <div class="chip-bar" id="amigos-filter" role="group" aria-label="Filtrar atividade">
+        <button class="chip chip-sort active" data-afilter="all" aria-pressed="true">Tudo</button>
+        <button class="chip chip-sort" data-afilter="rating" aria-pressed="false">Avaliações</button>
+        <button class="chip chip-sort" data-afilter="visit" aria-pressed="false">Visitas</button>
+        <button class="chip chip-sort" data-afilter="upload" aria-pressed="false">Fotos</button>
+      </div>
+    </div>
+    <div id="amigos-invites" class="invites" hidden></div>
+    <div id="amigos-feed" class="screen-list"></div>
+    <div id="amigos-leaderboard" class="screen-list" hidden></div>
+  </section>
+
+  <section id="screen-perfil" class="screen screen-data" data-screen="perfil" hidden>
+    <div class="screen-head">
+      <div class="screen-titles">
+        <h2>Perfil</h2>
+      </div>
+    </div>
+    <div id="perfil-body" class="screen-list screen-list-flat"></div>
+  </section>
+
+  <!-- Bottom tab bar -->
+  <nav id="tabbar" class="tabbar" role="tablist" aria-label="Navegação">
+    <button class="tab active" data-tab-nav="mapa" role="tab" aria-selected="true">
+      <svg class="icon"><use href="#i-map"/></svg><span>Mapa</span>
+    </button>
+    <button class="tab" data-tab-nav="diario" role="tab" aria-selected="false">
+      <svg class="icon"><use href="#i-book"/></svg><span>Diário</span>
+    </button>
+    <button class="tab" data-tab-nav="amigos" role="tab" aria-selected="false">
+      <svg class="icon"><use href="#i-users"/></svg><span>Amigos</span>
+    </button>
+    <button class="tab" data-tab-nav="perfil" role="tab" aria-selected="false">
+      <svg class="icon"><use href="#i-user"/></svg><span>Perfil</span>
+    </button>
+  </nav>
 
   <!-- Restaurant detail drawer -->
   <section id="detail-panel" class="detail-panel" aria-hidden="true">
@@ -183,7 +337,12 @@
       <button class="icon-btn detail-close" data-close-detail aria-label="Fechar">
         <svg class="icon"><use href="#i-x"/></svg>
       </button>
-      <div id="detail-hero" class="detail-hero"></div>
+      <div class="detail-hero-wrap">
+        <div id="detail-hero" class="detail-hero"></div>
+        <button id="hero-cover-btn" class="hero-photo-btn hidden" type="button">
+          <svg class="icon"><use href="#i-camera"/></svg> Mudar foto
+        </button>
+      </div>
       <div id="detail-body" class="detail-body"></div>
     </div>
   </section>
@@ -196,7 +355,7 @@
         <svg class="icon"><use href="#i-x"/></svg>
       </button>
       <h2 class="modal-title">Adicionar restaurante</h2>
-      <p class="modal-intro">Diz-nos só o nome, a localidade e o tipo. Tratamos do resto.</p>
+      <p class="modal-intro">Escreve o nome, a localidade e o tipo.</p>
       <form id="add-restaurant-form">
         <div class="field">
           <label for="form-name">Nome do restaurante</label>
@@ -209,15 +368,76 @@
         <div class="field">
           <label for="form-category">Tipo de sítio</label>
           <select id="form-category">
-            <option value="tradicional">Tradicional / Tasca</option>
-            <option value="petiscos">Petiscos</option>
-            <option value="pastelaria">Pastelaria / Doces</option>
-            <option value="fine-dining">Fine Dining</option>
+            <option value="portuguesa">Portuguesa</option>
+            <option value="mariscos">Mariscos</option>
+            <option value="churrasco">Churrasco</option>
+            <option value="italiana">Italiana</option>
+            <option value="japonesa">Japonesa</option>
+            <option value="asiatica">Asiática</option>
+            <option value="indiana">Indiana</option>
+            <option value="americana">Americana</option>
+            <option value="mexicana">Mexicana</option>
+            <option value="mediterranica">Mediterrânica</option>
+            <option value="vegetariana">Vegetariana</option>
+            <option value="doces">Doces</option>
+            <option value="cafe">Café & Brunch</option>
           </select>
+          <div class="chip-row" id="form-styles" role="group" aria-label="Estilo"></div>
         </div>
         <div class="field">
           <label for="form-notes">O que provar? (opcional)</label>
           <input id="form-notes" type="text" placeholder="ex: cozido de grão" />
+          <button type="button" id="form-ai-suggest-btn" class="linklike ai-draft hidden">
+            <svg class="icon"><use href="#i-sparkles"/></svg> Sugerir tipo e especialidade
+          </button>
+        </div>
+
+        <!-- O último passo, e não uma bifurcação à entrada.
+             Antes eram dois botões diferentes na lista, e quem chegava tinha de
+             escolher antes de saber o que estava a adicionar. A escolha é sobre
+             o sítio, e faz-se quando o sítio já está escrito.
+
+             Fica em markup estático de propósito: o preview e o audit abrem
+             este modal por fora, sem passar pelo open(), e um passo criado por
+             JS seria fotografado e auditado vazio. -->
+        <div class="field form-escolha">
+          <span class="field-label">Já lá foste?</span>
+          <div class="chip-row" role="radiogroup" aria-label="Já lá foste?">
+            <button type="button" class="chip" data-escolha="quero" aria-pressed="true">
+              <svg class="icon"><use href="#i-flame"/></svg> Quero ir
+            </button>
+            <button type="button" class="chip" data-escolha="fui" aria-pressed="false">
+              <svg class="icon"><use href="#i-check-circle"/></svg> Já fui
+            </button>
+          </div>
+          <p class="field-hint" data-escolha-hint>Fica marcado como prioritário no mapa.</p>
+
+          <!-- A foto só aparece no "Já fui", e é aí que faz sentido: estás a
+               registar um sítio onde acabaste de comer, com o telemóvel na mão.
+               Ir buscá-la depois, à ficha, é um passo a mais no pior momento.
+
+               Nota de desenho: a auditoria de UX tinha tirado as fotos do fluxo
+               de REGISTAR VISITA de propósito ("registar é rápido, fotografar é
+               depois"). Isto é outro fluxo — o de acrescentar um sítio — e a
+               decisão de as pôr aqui é do dono, 25/08. -->
+          <div class="form-foto" data-foto-bloco hidden>
+            <div class="form-foto-acoes">
+              <button type="button" class="btn btn-ghost btn-sm" data-foto-galeria>
+                <svg class="icon"><use href="#i-plus"/></svg> Juntar foto
+              </button>
+              <button type="button" class="btn btn-ghost btn-sm" data-foto-camara>
+                <svg class="icon"><use href="#i-camera"/></svg> Tirar foto
+              </button>
+              <input type="file" accept="image/*" data-foto-input hidden />
+              <input type="file" accept="image/*" capture="environment" data-foto-camara-input hidden />
+            </div>
+            <div class="form-foto-previa" data-foto-previa hidden>
+              <img alt="" data-foto-img />
+              <button type="button" class="icon-btn" data-foto-tirar aria-label="Remover a foto">
+                <svg class="icon"><use href="#i-x"/></svg>
+              </button>
+            </div>
+          </div>
         </div>
 
         <button type="submit" class="btn btn-primary btn-block" id="form-submit-btn">Adicionar ao mapa</button>
@@ -227,8 +447,8 @@
           <summary class="panel-summary">Opções avançadas <svg class="icon chev"><use href="#i-chevron-down"/></svg></summary>
           <div class="panel-body">
             <div class="field">
-              <label for="form-region">Região</label>
-              <input id="form-region" type="text" value="Alentejo" />
+              <label for="form-region">Região <span class="muted">(automática)</span></label>
+              <input id="form-region" type="text" placeholder="Detetada pela localização" />
             </div>
             <div class="row">
               <button type="button" id="form-locate-btn" class="btn btn-ghost btn-sm">
@@ -248,24 +468,527 @@
     </div>
   </div>
 
+  <!-- Sign-in prompt modal (dismissible) -->
+  <div id="signin-modal" class="modal hidden">
+    <div class="modal-scrim" data-close-signin></div>
+    <div class="modal-card signin-modal-card" role="dialog" aria-modal="true" aria-label="Iniciar sessão">
+      <button class="icon-btn modal-close" data-close-signin aria-label="Fechar">
+        <svg class="icon"><use href="#i-x"/></svg>
+      </button>
+      <h2 class="modal-title">Desbloqueie todas as funcionalidades</h2>
+      <p class="modal-intro">Entra para marcares prioridades, avaliares e guardares memórias, veres a atividade dos amigos e partilhares fotos.</p>
+      <div class="signin-modal-actions">
+        <!-- A diretriz 4.8 exige que o Sign in with Apple esteja disponível onde
+             quer que haja login social de terceiros, e com o mesmo destaque. Por
+             isso vem primeiro e com o mesmo peso visual, não como alternativa
+             em letra pequena. As cores e o tamanho seguem as regras da Apple,
+             não a paleta da app — é a única peça do interface onde isso é
+             assim, e é de propósito. -->
+        <button id="signin-apple-btn" class="btn btn-block btn-apple">
+          <svg class="icon icon-apple"><use href="#i-apple"/></svg> Iniciar sessão com a Apple
+        </button>
+        <button id="signin-modal-btn" class="btn btn-primary btn-block">
+          <svg class="icon"><use href="#i-log-in"/></svg> Iniciar sessão com a Google
+        </button>
+        <button class="btn btn-ghost btn-block" data-close-signin>Agora não</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Registar uma visita (Fase 4 do handoff). O fluxo central da app: estava
+       escondido dentro do separador "As minhas experiências", partido em dois
+       blocos separados por uma grelha de fotos. -->
+  <div id="visit-sheet" class="sheet hidden" aria-hidden="true">
+    <div class="sheet-scrim" data-close-visit></div>
+    <div class="sheet-card visit-card" role="dialog" aria-modal="true" aria-labelledby="visit-sheet-name">
+      <div class="sheet-handle" data-close-visit></div>
+      <header class="visit-head">
+        <div class="visit-head-thumb" data-visit-thumb></div>
+        <div class="visit-head-text">
+          <span class="eyebrow" data-visit-cuisine></span>
+          <h2 class="visit-head-name" id="visit-sheet-name" data-visit-name></h2>
+        </div>
+        <button type="button" class="icon-btn visit-close" data-close-visit aria-label="Fechar">
+          <svg class="icon"><use href="#i-x"/></svg>
+        </button>
+      </header>
+      <div class="sheet-body" data-visit-body></div>
+      <footer class="sheet-foot">
+        <button type="button" class="btn btn-primary sheet-cta" data-visit-submit disabled>Registar visita</button>
+        <p class="visit-foot-note">A foto vai com a visita — e podes juntar mais na ficha.</p>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Filtros em bottom sheet (Fase 3 do handoff). Os elementos mantêm os ids
+       antigos de propósito: getFiltered() continua a lê-los sem saber que
+       mudaram de sítio. -->
+  <div id="filters-sheet" class="sheet hidden" aria-hidden="true">
+    <div class="sheet-scrim" data-close-filters></div>
+    <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="filters-title">
+      <div class="sheet-handle" data-close-filters></div>
+      <header class="sheet-head">
+        <h2 class="sheet-title" id="filters-title">Filtros</h2>
+        <button type="button" class="linklike sheet-clear" id="filters-clear">Limpar tudo</button>
+      </header>
+      <div class="sheet-body">
+        <section class="sheet-section">
+          <h3 class="sheet-label">Cozinha</h3>
+          <div class="chip-row" id="category-filters" role="group" aria-label="Filtrar por cozinha"></div>
+        </section>
+        <section class="sheet-section">
+          <h3 class="sheet-label">Estilo</h3>
+          <div class="chip-row" id="style-filters" role="group" aria-label="Filtrar por estilo"></div>
+        </section>
+        <section class="sheet-section">
+          <h3 class="sheet-label">Região</h3>
+          <div id="region-filters" class="chip-row" role="group" aria-label="Filtrar por região"></div>
+        </section>
+        <section class="sheet-section">
+          <h3 class="sheet-label">Preço</h3>
+          <div id="price-filters" role="group" aria-label="Filtrar por preço">
+            <label class="price-chip"><input type="checkbox" data-price="1" /> <span>€</span></label>
+            <label class="price-chip"><input type="checkbox" data-price="2" /> <span>€€</span></label>
+            <label class="price-chip"><input type="checkbox" data-price="3" /> <span>€€€</span></label>
+            <label class="price-chip"><input type="checkbox" data-price="4" /> <span>€€€€</span></label>
+          </div>
+        </section>
+        <section class="sheet-section">
+          <div class="switch-row">
+            <span class="switch-label">Esconder visitados</span>
+            <label class="switch"><input type="checkbox" id="hide-visited-checkbox" /><span class="switch-track"></span></label>
+          </div>
+          <div class="switch-row">
+            <span class="switch-label">Só a minha wishlist</span>
+            <label class="switch"><input type="checkbox" id="only-priority-checkbox" /><span class="switch-track"></span></label>
+          </div>
+        </section>
+        <section class="sheet-section">
+          <details class="panel" id="planner-panel">
+            <summary class="panel-summary">
+              <svg class="icon"><use href="#i-map"/></svg> Planear uma viagem
+              <svg class="icon chev"><use href="#i-chevron-down"/></svg>
+            </summary>
+            <div class="panel-body">
+              <p class="hint">Escreve a origem e o destino. Mostramos percursos com paragem nos restaurantes perto da rota.</p>
+              <div class="field">
+                <label for="planner-from">De</label>
+                <input id="planner-from" type="text" placeholder="ex: Lisboa" />
+              </div>
+              <div class="field">
+                <label for="planner-to">Para</label>
+                <input id="planner-to" type="text" placeholder="ex: Évora" />
+              </div>
+              <div class="field">
+                <label for="planner-radius">Distância à rota: <strong id="planner-radius-value">25</strong> km</label>
+                <input id="planner-radius" type="range" min="5" max="60" step="5" value="25" />
+              </div>
+              <div class="planner-actions">
+                <button id="planner-find-btn" class="btn btn-primary btn-sm">Encontrar paragens</button>
+                <button id="planner-clear-btn" class="btn btn-ghost btn-sm">Limpar</button>
+              </div>
+              <p id="planner-status" class="planner-status" aria-live="polite"></p>
+              <ul id="planner-results" class="planner-results"></ul>
+            </div>
+          </details>
+        </section>
+      </div>
+      <footer class="sheet-foot">
+        <button type="button" class="btn btn-primary sheet-cta" id="filters-apply">Ver restaurantes</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Primeira utilização: cidade, sítios que já conhece, quem seguir.
+       Aparece uma vez por conta, antes de qualquer outra coisa (js/onboarding.js). -->
+  <div id="onboarding" class="onboarding hidden" aria-hidden="true">
+    <div class="ob-card" role="dialog" aria-modal="true" aria-labelledby="ob-title">
+      <header class="ob-head">
+        <span class="ob-count" data-ob-count></span>
+        <h2 class="ob-title" id="ob-title" data-ob-title></h2>
+      </header>
+      <div class="ob-body" data-ob-body></div>
+      <footer class="ob-foot">
+        <div class="ob-dots" data-ob-dots aria-hidden="true"></div>
+        <button type="button" class="btn btn-primary ob-cta" data-ob-cta></button>
+        <button type="button" class="linklike ob-skip" data-ob-skip></button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Guided tour (spotlight) -->
+  <div id="tour" class="tour hidden" aria-hidden="true">
+    <div class="tour-dim" data-tour-skip></div>
+    <div class="tour-highlight" id="tour-highlight"></div>
+    <div class="tour-balloon" id="tour-balloon" role="dialog" aria-modal="true" aria-label="Visita guiada">
+      <button class="icon-btn tour-x" data-tour-skip aria-label="Fechar">
+        <svg class="icon"><use href="#i-x"/></svg>
+      </button>
+      <h3 class="tour-title" id="tour-title"></h3>
+      <p class="tour-text" id="tour-text"></p>
+      <div class="tour-dots" id="tour-dots"></div>
+      <div class="tour-nav">
+        <button class="btn btn-ghost btn-sm" id="tour-prev">Anterior</button>
+        <button class="btn btn-ghost btn-sm" data-tour-skip>Saltar</button>
+        <button class="btn btn-primary btn-sm" id="tour-next">Próximo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- iOS "Add to Home Screen" hint -->
+  <div id="ios-a2hs" class="ios-a2hs hidden">
+    <svg class="icon"><use href="#i-download"/></svg>
+    <span>Para ecrã inteiro (sem as barras do Safari): <strong>Partilhar</strong> → <strong>Adicionar ao ecrã principal</strong>.</span>
+    <button class="icon-btn a2hs-x" data-a2hs-close aria-label="Dispensar">
+      <svg class="icon"><use href="#i-x"/></svg>
+    </button>
+  </div>
+
+  <!-- Success modal (experience registered) -->
+  <!-- O snackbar substituiu o modal de sucesso a 25/08: um modal bloqueante
+       para dizer "registado" obrigava a fechar; isto informa sem interromper,
+       e é também onde vive o "Anular" das remoções — a app inteira passa a
+       ter UM padrão para ações reversíveis: age já, desfaz-se em segundos. -->
+  <div id="snackbar" class="snackbar hidden" role="status" aria-live="polite">
+    <span data-snackbar-texto></span>
+    <button type="button" class="snackbar-acao" data-snackbar-acao hidden></button>
+  </div>
+
+  <!-- Profile modal (edit avatar) -->
+  <!-- Photo viewer (in-app lightbox) -->
+  <div id="photo-viewer" class="modal hidden">
+    <div class="modal-scrim" data-close-viewer></div>
+    <button class="icon-btn viewer-close" data-close-viewer aria-label="Fechar">
+      <svg class="icon"><use href="#i-x"/></svg>
+    </button>
+    <div class="viewer-card" role="dialog" aria-modal="true" aria-label="Foto">
+      <img class="viewer-img" data-viewer-img alt="" />
+      <div class="viewer-actions">
+        <button class="btn btn-ghost" data-viewer-cover hidden><svg class="icon"><use href="#i-pin"/></svg> Foto do restaurante</button>
+        <button class="btn btn-ghost" data-viewer-denunciar hidden><svg class="icon"><use href="#i-flag"/></svg> Denunciar</button>
+        <!-- Só nas MINHAS fotos (e só quando o viewer sabe o id/path — as do
+             Google e as antigas sem metadados não têm o que apagar). -->
+        <button class="btn btn-ghost" data-viewer-apagar hidden><svg class="icon"><use href="#i-trash"/></svg> Apagar</button>
+        <button class="btn btn-ghost" data-viewer-download><svg class="icon"><use href="#i-download"/></svg> Descarregar</button>
+        <button class="btn btn-primary" data-viewer-share><svg class="icon"><use href="#i-share"/></svg> Partilhar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Group create / join modal -->
+  <div id="group-modal" class="modal hidden">
+    <div class="modal-scrim" data-close-group></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Grupo">
+      <button class="icon-btn modal-close" data-close-group aria-label="Fechar">
+        <svg class="icon"><use href="#i-x"/></svg>
+      </button>
+      <h2 class="modal-title" data-group-title>Grupo</h2>
+      <p class="modal-intro" data-group-intro></p>
+      <input id="group-input" class="note-input" autocomplete="off" />
+      <p class="form-status" data-group-status></p>
+      <button class="btn btn-primary btn-block" data-group-confirm>Confirmar</button>
+    </div>
+  </div>
+
+  <!-- Find and follow people: the feed is built from who you follow -->
+  <!-- Seguir pessoas: sheet, não modal. "Talvez conheças" com a razão à vista —
+       seguir alguém sem saber porquê é o que faz um feed morrer. -->
+  <div id="people-sheet" class="sheet hidden" aria-hidden="true">
+    <div class="sheet-scrim" data-close-people></div>
+    <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="people-title">
+      <div class="sheet-handle" data-close-people></div>
+      <header class="sheet-head">
+        <h2 class="sheet-title" id="people-title">Seguir pessoas</h2>
+        <button type="button" class="icon-btn sheet-close" data-close-people aria-label="Fechar">
+          <svg class="icon"><use href="#i-x"/></svg>
+        </button>
+      </header>
+      <div class="sheet-body">
+        <div class="search-wrap">
+          <svg class="icon search-icon"><use href="#i-search"/></svg>
+          <input id="people-search" type="search" data-people-search placeholder="Procurar por nome" aria-label="Procurar pessoas" autocomplete="off" />
+        </div>
+        <div id="people-list" class="people-list"></div>
+      </div>
+      <footer class="sheet-foot">
+        <p class="people-foot">Só vês a atividade de quem segues.</p>
+      </footer>
+    </div>
+  </div>
+  </div>
+
+  <!-- Restaurant cover chooser: pick/upload the photo everyone sees -->
+  <div id="cover-modal" class="modal hidden">
+    <div class="modal-scrim" data-close-cover></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Foto do restaurante">
+      <button class="icon-btn modal-close" data-close-cover aria-label="Fechar">
+        <svg class="icon"><use href="#i-x"/></svg>
+      </button>
+      <h2 class="modal-title">Foto do restaurante</h2>
+      <p class="modal-intro">A foto que toda a gente vê nos cartões e na ficha.</p>
+      <label class="btn btn-primary btn-block">
+        <svg class="icon"><use href="#i-camera"/></svg> Carregar foto
+        <input type="file" accept="image/*" data-cover-input hidden />
+      </label>
+      <p class="form-status" data-cover-status></p>
+      <div class="cover-grid" data-cover-grid></div>
+      <button class="btn btn-ghost btn-block" data-cover-google hidden>Usar foto do Google</button>
+    </div>
+  </div>
+
+  <!-- AI suggestion modal -->
+  <div id="ai-modal" class="modal hidden">
+    <div class="modal-scrim" data-close-ai></div>
+    <div class="modal-card ai-card" role="dialog" aria-modal="true" aria-label="Sugestão da IA">
+      <button class="icon-btn modal-close" data-close-ai aria-label="Fechar">
+        <svg class="icon"><use href="#i-x"/></svg>
+      </button>
+      <h2 class="modal-title"><svg class="icon"><use href="#i-sparkles"/></svg> Sugestão</h2>
+      <div id="ai-body" class="ai-body"></div>
+    </div>
+  </div>
+
+  <!-- Apagar conta. Obrigatório para a App Store (5.1.1v), e a única resposta
+       honesta a quem quer sair. O ecrã diz o que desaparece E o que fica: os
+       restaurantes que a pessoa acrescentou estão na lista partilhada e outras
+       pessoas usam-nos. Esconder isso seria prometer um apagamento que não
+       acontece. -->
+  <!-- Moderação de conteúdo: denunciar e bloquear.
+       A diretriz 1.2 da App Store exige as duas coisas em qualquer app com
+       conteúdo de utilizadores, e a App Review testa-as à mão — abre conteúdo
+       de outra pessoa e procura o botão. -->
+  <!-- O perfil de outra pessoa. Abre-se ao tocar num nome ou num avatar, no
+       feed, nos comentários ou na lista de pessoas. -->
+  <!-- Editar o que o meu perfil mostra: destaques, favoritos e quem os vê. -->
+  <div id="meu-perfil-sheet" class="sheet hidden" aria-hidden="true">
+    <div class="sheet-scrim" data-close-meu-perfil></div>
+    <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="meu-perfil-titulo">
+      <div class="sheet-handle" data-close-meu-perfil></div>
+      <header class="sheet-head">
+        <h2 class="sheet-title" id="meu-perfil-titulo">O meu perfil público</h2>
+      </header>
+      <div class="sheet-body">
+        <p class="muted">É isto que aparece a quem tocar no teu nome.</p>
+
+        <div class="field">
+          <span class="field-label">Quem vê</span>
+          <div class="chip-row" role="radiogroup" aria-label="Quem vê o meu perfil">
+            <button type="button" class="chip" data-vis="todos">Toda a gente</button>
+            <button type="button" class="chip" data-vis="seguidores">Só quem me segue</button>
+            <button type="button" class="chip" data-vis="ninguem">Ninguém</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="field-label">O que gosto</span>
+          <p class="field-hint">Frases curtas, escolhidas por ti. Até cinco.</p>
+          <div class="chip-row" data-destaques></div>
+          <div class="destaque-novo">
+            <input type="text" class="note-input" data-destaque-texto maxlength="40" placeholder="ex: peixe grelhado sem pressas" />
+            <button type="button" class="btn btn-ghost btn-sm" data-destaque-add>Juntar</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="field-label">Favoritos</span>
+          <p class="field-hint">Escolhidos do teu diário. Até seis.</p>
+          <div data-favoritos></div>
+        </div>
+
+        <p class="photo-status" data-meu-perfil-estado></p>
+      </div>
+      <div class="sheet-foot">
+        <button type="button" class="btn btn-primary btn-block" data-meu-perfil-guardar>Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="pessoa-sheet" class="sheet hidden" aria-hidden="true">
+    <div class="sheet-scrim" data-close-pessoa></div>
+    <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="pessoa-nome">
+      <div class="sheet-handle" data-close-pessoa></div>
+      <div class="sheet-body" data-pessoa-corpo>
+        <div class="pessoa-cab">
+          <span data-pessoa-avatar></span>
+          <h2 class="sheet-title" id="pessoa-nome"></h2>
+          <p class="muted" data-pessoa-sub></p>
+        </div>
+        <div data-pessoa-conteudo></div>
+      </div>
+      <div class="sheet-foot">
+        <button type="button" class="btn btn-ghost btn-block" data-close-pessoa>Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="mod-sheet" class="sheet hidden" aria-hidden="true">
+    <div class="sheet-scrim" data-close-mod></div>
+    <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="mod-title">
+      <div class="sheet-handle" data-close-mod></div>
+      <header class="sheet-head">
+        <h2 class="sheet-title" id="mod-title">Este conteúdo</h2>
+      </header>
+      <div class="sheet-body">
+        <p class="muted" data-mod-de></p>
+        <button type="button" class="btn btn-ghost btn-block" data-mod-denunciar>
+          <svg class="icon"><use href="#i-flag"/></svg> Denunciar conteúdo
+        </button>
+        <button type="button" class="btn btn-ghost btn-block" data-mod-bloquear>
+          <svg class="icon"><use href="#i-x"/></svg> <span data-mod-bloquear-label>Bloquear</span>
+        </button>
+        <p class="hint" data-mod-dica>Bloquear esconde tudo o que esta pessoa publica. Ela não é avisada.</p>
+        <p class="photo-status" data-mod-status></p>
+        <button type="button" class="btn btn-ghost btn-block" data-close-mod>Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="apagar-sheet" class="sheet hidden" aria-hidden="true">
+    <div class="sheet-scrim" data-close-apagar></div>
+    <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="apagar-title">
+      <div class="sheet-handle" data-close-apagar></div>
+      <header class="sheet-head">
+        <h2 class="sheet-title" id="apagar-title">Apagar a conta</h2>
+      </header>
+      <div class="sheet-body">
+        <p class="apagar-lead">Isto não se desfaz.</p>
+
+        <div class="apagar-bloco apagar-vai">
+          <span class="sheet-label">Desaparece para sempre</span>
+          <ul class="apagar-lista">
+            <li>As tuas críticas, estrelas, notas e pratos</li>
+            <li>As fotografias que enviaste</li>
+            <li>O teu diário de visitas e a tua wishlist</li>
+            <li>O teu perfil de gosto e o que escreveste sobre ti</li>
+            <li>Quem segues, e quem te segue</li>
+          </ul>
+        </div>
+
+        <div class="apagar-bloco apagar-fica">
+          <span class="sheet-label">Fica</span>
+          <ul class="apagar-lista">
+            <li>Os restaurantes que acrescentaste à lista partilhada — outras
+              pessoas já os usam, e deixariam de os ter</li>
+          </ul>
+        </div>
+
+        <label class="apagar-confirma">
+          <span>Para confirmar, escreve <strong>APAGAR</strong></span>
+          <input id="apagar-input" type="text" autocomplete="off" autocapitalize="characters"
+            spellcheck="false" aria-label="Escreve APAGAR para confirmar" />
+        </label>
+        <p class="apagar-status" data-apagar-status aria-live="polite"></p>
+      </div>
+      <div class="sheet-foot">
+        <button id="apagar-confirmar" class="btn btn-danger-solid sheet-cta" type="button" disabled>
+          Apagar a minha conta
+        </button>
+        <button class="linklike apagar-cancelar" type="button" data-close-apagar>Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contexto de execução numa classe no <html>: todo o CSS condicional entre
+       PWA, standalone e nativo pendura-se daqui, sem duplicar base de código. -->
+  <script>
+    (function () {
+      const r = document.documentElement;
+      const nativo = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+      if (nativo) r.classList.add("is-native");
+      if (window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches) r.classList.add("is-standalone");
+      if (!nativo) return;
+
+      // Os plugins estavam no package.json desde o início e nunca eram usados:
+      // a barra de estado ficava com o estilo por omissão (texto claro sobre o
+      // creme da app, ilegível) e o splash só desaparecia por temporizador.
+      const P = window.Capacitor.Plugins || {};
+      // Fundo creme, texto escuro. `setStyle("LIGHT")` no Capacitor quer dizer
+      // "conteúdo claro" — para texto ESCURO é "DARK". A nomenclatura é
+      // contraintuitiva e é onde isto se engana.
+      if (P.StatusBar) {
+        P.StatusBar.setStyle({ style: "DARK" }).catch(function () {});
+        // setBackgroundColor é só Android: no iOS rejeita com UNIMPLEMENTED e
+        // despejava um erro na consola em cada arranque. O .catch já o
+        // engolia, mas o ruído escondia erros a sério.
+        if (window.Capacitor.getPlatform && window.Capacitor.getPlatform() === "android") {
+          P.StatusBar.setBackgroundColor({ color: "#f6f1e7" }).catch(function () {});
+        }
+      }
+      // A barra de acessórios do teclado — as setas e o visto — é a barra
+      // nativa do iOS e NÃO há CSS que a esconda. Numa app que só tem campos de
+      // uma linha, ela não serve para nada e é um dos sinais de que aquilo é
+      // uma webview.
+      //
+      // O `resize: "none"` fica no capacitor.config.json de propósito: a app já
+      // compensa o teclado sozinha, pelo `visualViewport`, e deixar o plugin
+      // redimensionar a webview mudaria o `100dvh` de todos os ecrãs de uma vez.
+      if (P.Keyboard) {
+        P.Keyboard.setAccessoryBarVisible({ isVisible: false }).catch(function () {});
+      }
+      // Esconder quando a app está pronta, e não ao fim de 600ms às cegas: num
+      // arranque lento via-se a app por baixo do splash a meio de se montar.
+      if (P.SplashScreen) {
+        window.addEventListener("load", function () {
+          P.SplashScreen.hide().catch(function () {});
+        });
+      }
+    })();
+  </script>
   <script src="js/config.js"></script>
+  <!-- Fora de produção, uma pílula fixa a dizer onde estamos. Não há forma
+       de confundir o canal de QA ou o emulador com a app a sério. -->
+  <script>
+    if (window.CONFIG && CONFIG.ENV !== "produção") {
+      var b = document.createElement("div");
+      b.className = "env-badge";
+      b.textContent = CONFIG.ENV;
+      document.addEventListener("DOMContentLoaded", function () { document.body.appendChild(b); });
+    }
+  </script>
   <script src="js/storage.js"></script>
+  <script src="js/imagem.js"></script>
   <script src="js/db.js"></script>
   <script src="js/userdata.js"></script>
+  <script src="js/filtro.js"></script>
+  <script src="js/erros.js"></script>
+  <script src="js/push.js"></script>
   <script src="js/auth.js"></script>
+  <!-- Clustering dos pins (F4): a lib oficial da Google, por CDN — a exceção
+       deliberada à regra "sem bibliotecas" (aprovada no plano de 25/08). O
+       js/map.js tem guarda: sem este global (offline), pins soltos como antes. -->
+  <script src="https://unpkg.com/@googlemaps/markerclusterer@2.5.3/dist/index.min.js" defer></script>
   <script src="js/map.js"></script>
   <script src="js/geocode.js"></script>
   <script src="js/places.js"></script>
   <script src="js/planner.js"></script>
+  <script src="js/geoValidate.js"></script>
   <script src="js/addRestaurant.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/onboarding.js"></script>
   <script src="js/app.js"></script>
   <script>
-    window.initApp = function () {
-      App.init({ googleMapsLoaded: true });
-    };
+    // A app arranca UMA vez, e nunca fica à espera do Google Maps para o fazer.
+    //
+    // Havia aqui três caminhos — o callback da Google, a ausência de chave, e o
+    // onerror do script — e faltava o do meio: o script carrega com 200 e a
+    // Google recusa-se a arrancar. É o que acontece com RefererNotAllowedMapError,
+    // com a quota esgotada, ou com a faturação em falta. O onerror não dispara
+    // (o ficheiro veio), o callback nunca é chamado, e App.init() não corria.
+    // A app não ficava degradada: ficava morta, sem sequer mostrar o cartão de
+    // "o mapa não carregou", porque quem o desenha é a app que não arrancou.
+    let arrancou = false;
+    function arrancar(comMapa) {
+      if (arrancou) return;
+      arrancou = true;
+      App.init({ googleMapsLoaded: comMapa });
+    }
+    window.initApp = function () { arrancar(true); };
+    // Hook oficial da Google para chave recusada: rápido e preciso.
+    window.gm_authFailure = function () { arrancar(false); };
+
     (function loadGoogleMaps() {
       if (!CONFIG.GOOGLE_MAPS_API_KEY) {
-        App.init({ googleMapsLoaded: false });
+        arrancar(false);
         return;
       }
       const script = document.createElement('script');
@@ -274,8 +997,17 @@
         encodeURIComponent(CONFIG.GOOGLE_MAPS_API_KEY) +
         '&libraries=places,geometry&v=weekly&callback=initApp';
       script.async = true;
-      script.onerror = function () { App.init({ googleMapsLoaded: false }); };
+      script.onerror = function () { arrancar(false); };
       document.head.appendChild(script);
+
+      // Rede de segurança para tudo o que o gm_authFailure não cobre: rede que
+      // engasga, script servido mas nunca executado, um erro futuro da Google
+      // que ainda não tem nome. Ao fim do prazo pergunta-se ao próprio SDK se
+      // chegou a carregar, em vez de assumir — assim uma ligação lenta que
+      // ainda venha a trazer o mapa não fica sem ele por causa do relógio.
+      setTimeout(function () {
+        arrancar(!!(window.google && window.google.maps));
+      }, 10000);
     })();
 
     // PWA: register the service worker (relative scope for GitHub Pages subpath).
@@ -285,13 +1017,54 @@
       // there was no controller yet) to avoid an unnecessary reload.
       var hadController = !!navigator.serviceWorker.controller;
       var reloading = false;
-      navigator.serviceWorker.addEventListener("controllerchange", function () {
-        if (reloading || !hadController) return;
+      var pendente = false;
+      // Recarregar a meio de uma folha aberta perde o que a pessoa estava a
+      // escrever. Se estiver ocupada, guarda-se para quando voltar e fechar.
+      // "Ocupado" quer dizer: a pessoa está a meio de alguma coisa, e recarregar
+      // por baixo dela perde trabalho. Vale para tudo o que ELA abriu.
+      //
+      // O convite de sessão é a exceção, e é a única: abre-se sozinho a quem não
+      // tem sessão (`maybePromptSignin`), e ninguém o começou. Enquanto contava
+      // como ocupado, a app ficava ocupada para sempre — quem chegasse sem
+      // sessão e não o dispensasse nunca mais recebia uma atualização. E não se
+      // perde nada ao recarregar por baixo dele: reaparece do outro lado.
+      function ocupado() {
+        return !!document.querySelector(
+          // O #entrada está de fora pela MESMA razão do #signin-modal, e é a
+          // lição nº5: um ecrã que se abre sozinho a quem não tem sessão e que
+          // ninguém fecha deixaria a app ocupada para sempre — nunca mais
+          // aplicava uma versão nova. Tudo o que a PESSOA abre continua a
+          // suspender; o que a app abre por ela, não.
+          ".sheet:not(.hidden), .modal:not(.hidden):not(#signin-modal), " +
+          "#onboarding:not(.hidden), #tour:not(.hidden)"
+        );
+      }
+      function recarregarSePuder() {
+        if (reloading || !pendente || ocupado()) return;
         reloading = true;
         window.location.reload();
+      }
+      window.__foodboxdRecarregarSePuder = recarregarSePuder;
+      navigator.serviceWorker.addEventListener("controllerchange", function () {
+        if (!hadController) return; // primeira instalação: nada para atualizar
+        pendente = true;
+        // Marca observável: há uma versão à espera de a app estar livre. Serve
+        // para o ensaio de atualização não ter de adivinhar o momento, e fica
+        // disponível caso um dia se queira mostrar "nova versão" na interface.
+        document.documentElement.dataset.atualizacaoPendente = "1";
+        recarregarSePuder();
       });
       window.addEventListener("load", function () {
-        navigator.serviceWorker.register("sw.js").catch(function () {});
+        navigator.serviceWorker.register("sw.js").then(function (reg) {
+          // Installed PWAs can run a stale build for a long time, so check for a
+          // new version whenever the app returns to the foreground. A new SW then
+          // takes control and the controllerchange handler above reloads once.
+          document.addEventListener("visibilitychange", function () {
+            if (document.visibilityState !== "visible") return;
+            recarregarSePuder(); // ficou uma versão à espera de a app estar livre
+            reg.update();
+          });
+        }).catch(function () {});
       });
     }
 
@@ -327,11 +1100,13 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import {
-      getAuth, GoogleAuthProvider, signInWithPopup, signOut,
-      onAuthStateChanged, setPersistence, browserLocalPersistence
+      getAuth, initializeAuth, GoogleAuthProvider, OAuthProvider, signInWithPopup, signOut,
+      onAuthStateChanged, setPersistence, browserLocalPersistence, connectAuthEmulator,
+      getAdditionalUserInfo, updateProfile, signInWithCredential,
+      createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
     import {
-      getStorage, ref as storageRef, uploadBytes, getDownloadURL
+      getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject, connectStorageEmulator
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
 
     if (window.CONFIG && CONFIG.FIREBASE_PROJECT_ID && CONFIG.FIREBASE_API_KEY) {
@@ -342,15 +1117,325 @@
           projectId: CONFIG.FIREBASE_PROJECT_ID,
           storageBucket: CONFIG.FIREBASE_PROJECT_ID + ".firebasestorage.app"
         });
-        const auth = getAuth(app);
+        // Na app nativa o `getAuth()` NUNCA termina de inicializar, e isso não
+        // se vê: não há erro, não há aviso, o objeto existe e responde. Só que
+        // `_isInitialized` fica false para sempre, o `authStateReady()` nunca
+        // resolve e o `onAuthStateChanged` nunca chama o callback — por isso o
+        // botão "Entrar" ficava escondido e o login não chegava a ser tentado.
+        //
+        // A causa é o resolver de popup/redirect que o `getAuth()` do bundle
+        // browser regista por omissão: valida a origem, e `capacitor://` não é
+        // http(s). Medido no simulador — com `initializeAuth` sem resolver,
+        // `_isInitialized=true` e o `onChange` dispara no arranque.
+        //
+        // Não dá para fugir mudando o esquema: o Capacitor não deixa o
+        // `iosScheme` ser `https`, e pôr lá `https` é ignorado em silêncio
+        // (testado, com instalação limpa — a origem continuou `capacitor://`).
+        //
+        // O que isto NÃO resolve é entrar: sem resolver, o `signInWithPopup`
+        // não tem como abrir a janela. Resolve o que vinha antes disso — a
+        // sessão passa a poder existir, o Firestore e o Storage ficam com
+        // token, e o `signInWithCredential` do plugin nativo tem onde assentar.
+        //
+        // Na web fica tudo como estava: lá o popup é o caminho e funciona.
+        let auth;
+        if (CONFIG.NATIVO) {
+          auth = initializeAuth(app, { persistence: browserLocalPersistence });
+        } else {
+          auth = getAuth(app);
+        }
+        // Só em localhost (ver CONFIG.EMULATORS em js/config.js). Em produção e
+        // no canal de QA isto nunca corre.
+        if (CONFIG.EMULATORS) {
+          connectAuthEmulator(auth, "http://127.0.0.1:" + CONFIG.EMU.auth, { disableWarnings: true });
+        }
         setPersistence(auth, browserLocalPersistence).catch(function () {});
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: "select_account" });
+
+        // Sign in with Apple (diretriz 4.8). Pedem-se os dois âmbitos porque a
+        // Apple só os devolve se forem pedidos — e só na PRIMEIRA autorização.
+        const apple = new OAuthProvider("apple.com");
+        apple.addScope("email");
+        apple.addScope("name");
+        apple.setCustomParameters({ locale: "pt" });
+
+        // O nome vem uma vez só, na primeira vez, e o Firebase NÃO o grava
+        // sozinho no perfil. Quem não tratar disto fica com contas sem nome para
+        // sempre — e com "Ocultar o meu email" ativo, o email é um endereço de
+        // reencaminhamento que não serve como nome de pessoa.
+        // A Apple manda o nome UMA vez, na primeira autorização, e não o volta a
+        // dar sem um "parar de usar" em appleid.apple.com. É uma passagem só, e
+        // se o código estiver errado o nome queima-se em silêncio: uma conta sem
+        // nome é indistinguível de uma autorização repetida, que também não traz
+        // nome nenhum e é o caso normal.
+        //
+        // Isto separa os dois casos. O `isNewUser` diz se ESTA foi a primeira
+        // autorização; se foi, e mesmo assim não veio nome, houve perda e há um
+        // aviso em voz alta com a forma inteira da resposta — para quem vier a
+        // seguir poder ver onde é que o nome estava, em vez de adivinhar.
+        //
+        // ONDE ISTO FICA, e porque não é no `console.log`.
+        //
+        // A primeira versão disto escrevia só para a consola e o handoff mandava
+        // lê-la com `simctl spawn booted log stream`. **Não funciona.** O
+        // `console.log` de dentro da WKWebView **não chega ao log do sistema** —
+        // procurei-o em 17 mil linhas do log do processo `App`, à volta de uma
+        // entrada real, e não há lá nada. Um instrumento que não sabe responder
+        // à pergunta que se lhe faz é pior do que não ter instrumento nenhum,
+        // porque dá a impressão de estar coberto.
+        //
+        // Por isso o registo fica no `localStorage`, que **sobrevive** à sessão
+        // e se lê de fora sem depender de ninguém ter uma consola aberta:
+        //
+        //   xcrun simctl get_app_container booted pt.foodboxd.app data
+        //   → Library/WebKit/pt.foodboxd.app/WebsiteData/…/LocalStorage/localstorage.sqlite3
+        //   (os valores estão em UTF-16: `select hex(value)` e descodificar)
+        //
+        // Guarda as últimas cinco entradas: uma tentativa que corre mal seguida
+        // de outra não pode apagar a prova da primeira.
+        const APPLE_DIAG = "foodboxd.appleDiag";
+        function registarRespostaDaApple(caminho, r, nome) {
+          try {
+            const info = (r && r.additionalUserInfo) || {};
+            const primeira = info.isNewUser === true;
+            const forma = {
+              quando: new Date().toISOString(),
+              caminho,
+              primeiraAutorizacao: primeira,
+              nomeApanhado: nome || null,
+              temUser: !!(r && r.user),
+              // As chaves, não os valores: o que se quer saber é ONDE o nome
+              // estaria, e os valores trazem identificadores que não têm nada
+              // que ficar gravados à espera de alguém os ler.
+              chavesDoUser: r && r.user ? Object.keys(r.user) : [],
+              chavesDoPerfil: info.profile ? Object.keys(info.profile) : [],
+              // O único valor que interessa mesmo, e é o que se está a tentar
+              // salvar: o que o plugin pôs no displayName.
+              displayNameDoPlugin: (r && r.user && r.user.displayName) || null
+            };
+            try {
+              const antes = JSON.parse(localStorage.getItem(APPLE_DIAG) || "[]");
+              antes.push(forma);
+              localStorage.setItem(APPLE_DIAG, JSON.stringify(antes.slice(-5)));
+            } catch (e) { /* sem localStorage resta a consola */ }
+            if (primeira && !nome) {
+              console.warn("apple: PRIMEIRA autorizacao e o nome NAO veio", JSON.stringify(forma));
+            } else {
+              console.log("apple:", JSON.stringify(forma));
+            }
+          } catch (e) { /* um registo que falha não pode impedir alguém de entrar */ }
+        }
+
+        async function guardarNomeDaApple(cred) {
+          const u = cred && cred.user;
+          if (!u || u.displayName) return cred;
+          let nome = "";
+          // A Apple NÃO manda o nome dentro do ID token — manda-o no corpo do
+          // POST da primeira autorização, e o Firebase expõe-no em
+          // `_tokenResponse`. A primeira versão disto procurava em
+          // `getAdditionalUserInfo().profile`, que para a Apple traz as claims
+          // do token (email, sub) e nunca o nome. Resultado: a conta ficava sem
+          // nome e o Perfil mostrava o endereço de reencaminhamento como se
+          // fosse o nome da pessoa.
+          try {
+            const t = cred._tokenResponse || {};
+            nome = [t.firstName, t.lastName].filter(Boolean).join(" ").trim()
+              || (typeof t.displayName === "string" ? t.displayName : "");
+          } catch (e) { /* segue-se para o caminho seguinte */ }
+          // Caminho documentado, mantido por precaução: se um dia o SDK passar a
+          // trazer o nome aqui, isto apanha-o sem ninguém ter de voltar cá.
+          if (!nome) {
+            try {
+              const extra = getAdditionalUserInfo(cred);
+              const p = (extra && extra.profile) || {};
+              const n = p.name || {};
+              nome = [n.firstName, n.lastName].filter(Boolean).join(" ").trim()
+                || (typeof p.name === "string" ? p.name : "");
+            } catch (e) { /* sem nome: segue-se sem inventar um */ }
+          }
+          // No SDK modular o `additionalUserInfo` não está pendurado na
+          // credencial — chega-se lá pelo acessor. Sem isto o `isNewUser` vinha
+          // sempre indefinido e o aviso nunca dispararia no caminho web.
+          let extraInfo = null;
+          try { extraInfo = getAdditionalUserInfo(cred); } catch (e) { /* segue sem */ }
+          registarRespostaDaApple("web", { user: u, additionalUserInfo: extraInfo }, nome);
+          if (nome) { try { await nomeGuardado(u, nome); } catch (e) {} }
+          return cred;
+        }
+
+        // ---- Entrar na app nativa ----------------------------------------
+        //
+        // Na web entra-se por popup. Na app nativa não há popup que sirva: o
+        // `initializeAuth` acima é sem resolver (é o que faz o Auth arrancar de
+        // todo em `capacitor://`), portanto o `signInWithPopup` não tem janela
+        // para abrir.
+        //
+        // O plugin trata da parte nativa — a folha do sistema, a conta, o
+        // consentimento — e devolve uma credencial. Essa credencial entra no
+        // SDK web por `signInWithCredential`, e a partir daí é tudo igual à
+        // web: mesmo `currentUser`, mesmo token, Firestore e Storage sem saber
+        // que houve caminho diferente.
+        //
+        // `skipNativeAuth: true` de propósito: sem isto entrava-se DUAS vezes,
+        // uma no SDK nativo e outra no web, com dois estados de sessão a viver
+        // lado a lado. Quem manda é o SDK web, que é quem a app inteira lê.
+        //
+        // Não há import do plugin: a app é vanilla, sem bundler. O Capacitor
+        // pendura os plugins nativos em `window.Capacitor.Plugins`, tal como já
+        // acontece com o StatusBar e o Haptics.
+        // Canal SÓ para mudanças de perfil, separado do `onChange`.
+        //
+        // A separação não é arrumação: é o que impede um estrago. O ouvinte do
+        // `onChange` (js/auth.js) não desenha só — corre o `onAuthChange`
+        // inteiro, que faz `await UserData.setUser(...)` e, a seguir, chama o
+        // `startOnboarding()` se a conta ainda não estiver marcada. Se o aviso
+        // de perfil passasse por aí, corria tudo outra vez com o primeiro ainda
+        // pendurado no await: as duas passagens viam `isOnboarded()` falso — a
+        // marca só se escreve depois do `setUser` — e o onboarding arrancava
+        // duas vezes. Precisamente na primeira autorização da Apple, que é a
+        // única que existe, e a única onde a primeira impressão conta.
+        const perfilOuvintes = [];
+        async function nomeGuardado(user, nome) {
+          if (!nome || !user || user.displayName === nome) return;
+          await updateProfile(user, { displayName: nome });
+          // reload() para o objeto em memória passar a ter o nome novo; sem ele
+          // os ouvintes voltavam a ver o displayName antigo.
+          try { await user.reload(); } catch (e) {}
+          perfilOuvintes.slice().forEach(function (cb) {
+            try { cb(auth.currentUser); } catch (e) {}
+          });
+        }
+
+        function pluginAuth() {
+          const P = (window.Capacitor && window.Capacitor.Plugins) || {};
+          return P.FirebaseAuthentication || null;
+        }
+
+        async function entrarNativo(qual) {
+          const P = pluginAuth();
+          if (!P) throw new Error("plugin de autenticação nativo não está presente");
+          if (qual === "apple") {
+            // Os dois âmbitos pedidos aqui pela mesma razão do caminho web: a
+            // Apple só os devolve se forem pedidos, e só na PRIMEIRA vez.
+            const r = await P.signInWithApple({ skipNativeAuth: true, scopes: ["email", "name"] });
+            const c = r.credential || {};
+            const cred = new OAuthProvider("apple.com").credential({
+              idToken: c.idToken,
+              rawNonce: c.nonce
+            });
+            const res = await signInWithCredential(auth, cred);
+            // O nome da Apple não vem no token (ver guardarNomeDaApple). No
+            // caminho nativo vem no resultado do plugin, noutro sítio ainda:
+            // `r.user.displayName`. Se não o guardarmos agora, perde-se — e a
+            // Apple não o volta a dar.
+            //
+            // Lido no Swift do plugin (AppleAuthProviderHandler), e vale a pena
+            // saber porque estreita: o `displayName` só é composto se vierem os
+            // DOIS, `givenName` **e** `familyName`. Se a pessoa apagar o
+            // apelido na folha da Apple, o plugin deita o nome fora e — com
+            // `skipNativeAuth` — o `r.user` vem `null` inteiro. Daqui não há
+            // como o recuperar: a credencial que mandamos ao Firebase é
+            // construída em JS e não leva `fullName`.
+            const nome = (r.user && r.user.displayName) || "";
+            // O `isNewUser` NÃO vem no resultado do plugin.
+            //
+            // Com `skipNativeAuth: true` o plugin não faz o sign-in no Firebase,
+            // portanto não tem `additionalUserInfo` para devolver — quem sabe se
+            // esta autorização é a primeira é o `signInWithCredential`, que é
+            // quem falou com o Firebase. Lendo do sítio errado, o diagnóstico
+            // classificou uma primeira autorização a sério como "repetida", com
+            // o nome à frente. Apanhado a 25/08 com o registo já a funcionar.
+            let extraNativo = null;
+            try { extraNativo = getAdditionalUserInfo(res); } catch (e) { /* segue sem */ }
+            registarRespostaDaApple("nativo", { user: r.user, additionalUserInfo: extraNativo }, nome);
+            if (nome && res.user && !res.user.displayName) {
+              try { await nomeGuardado(res.user, nome); } catch (e) {}
+            }
+            return res;
+          }
+          const r = await P.signInWithGoogle({ skipNativeAuth: true });
+          const c = r.credential || {};
+          const cred = GoogleAuthProvider.credential(c.idToken, c.accessToken);
+          return signInWithCredential(auth, cred);
+        }
+
         window.FirebaseAuth = {
           configured: true,
-          signIn: function () { return signInWithPopup(auth, provider); },
-          signOut: function () { return signOut(auth); },
+          signIn: function () {
+            return CONFIG.NATIVO ? entrarNativo("google") : signInWithPopup(auth, provider);
+          },
+          signInApple: function () {
+            return CONFIG.NATIVO
+              ? entrarNativo("apple")
+              : signInWithPopup(auth, apple).then(guardarNomeDaApple);
+          },
+          signOut: function () {
+            // No nativo há duas coisas a fechar: a sessão do SDK web, que é a
+            // que a app lê, e a do plugin, que guarda a conta escolhida. Sem a
+            // segunda, o "entrar" seguinte não voltava a perguntar com que
+            // conta — reentrava com a anterior, sem perguntar nada.
+            const P = CONFIG.NATIVO ? pluginAuth() : null;
+            const nativo = P ? P.signOut().catch(function () {}) : Promise.resolve();
+            return nativo.then(function () { return signOut(auth); });
+          },
           onChange: function (cb) { return onAuthStateChanged(auth, cb); },
+
+          // Mudanças de PERFIL, que o `onAuthStateChanged` não avisa — ele
+          // dispara quando a SESSÃO muda, e escrever um nome numa sessão que já
+          // existe não é isso.
+          //
+          // Sem este canal havia uma corrida com um sintoma mau: no login com a
+          // Apple, o `signInWithCredential` resolve, o onAuthStateChanged dispara
+          // já com `displayName` a null, a interface desenha "Amigo" — e só
+          // depois é que o `updateProfile` guarda o nome. O nome ficava certo na
+          // conta e errado no ecrã até ao arranque seguinte. Vale para os dois
+          // caminhos: o nativo e o `signInWithPopup(...).then(guardarNomeDaApple)`
+          // da web, que está em produção.
+          //
+          // Devolve como se cancela, e o cancelar remove mesmo — senão o array
+          // só crescia e quem cancelasse deixava de receber do Firebase e
+          // continuava a receber daqui.
+          onProfileChange: function (cb) {
+            perfilOuvintes.push(cb);
+            return function () {
+              const i = perfilOuvintes.indexOf(cb);
+              if (i >= 0) perfilOuvintes.splice(i, 1);
+            };
+          },
+          // Email e palavra-passe.
+          //
+          // É o caminho mais simples dos três, ao contrário do que parece: não
+          // abre popup e não precisa de resolver, portanto NÃO tropeça no
+          // problema que obrigou o `initializeAuth` a existir — o `getAuth()`
+          // do bundle browser regista um resolver que valida a origem, e
+          // `capacitor://` não é http(s). Estes três passam pelo SDK direto e
+          // funcionam no nativo sem plugin nenhum.
+          //
+          // O nome vem depois: uma conta criada por email não traz displayName,
+          // e sem ele o Perfil e a lista de amigos mostrariam "Amigo" para
+          // sempre. Grava-se no momento do registo, com o `updateProfile`, e
+          // avisa-se pelo canal `onProfileChange` — o `onAuthStateChanged` não
+          // avisa mudanças de perfil, só de sessão, que é a lição que a Apple
+          // já ensinou aqui.
+          criarComEmail: async function (email, palavra, nome) {
+            const res = await createUserWithEmailAndPassword(auth, email, palavra);
+            // `nomeGuardado` e não um updateProfile à mão: já faz o reload() do
+            // objeto em memória (sem ele os ouvintes voltavam a ver o
+            // displayName antigo) e já avisa o canal de perfil.
+            const limpo = (nome || "").trim();
+            if (limpo && res.user) {
+              try { await nomeGuardado(res.user, limpo); } catch (e) {}
+            }
+            return res;
+          },
+          entrarComEmail: function (email, palavra) {
+            return signInWithEmailAndPassword(auth, email, palavra);
+          },
+          recuperarPalavra: function (email) {
+            return sendPasswordResetEmail(auth, email);
+          },
+
           getToken: function () { return auth.currentUser ? auth.currentUser.getIdToken() : Promise.resolve(null); },
           current: function () { return auth.currentUser; }
         };
@@ -358,12 +1443,19 @@
         // Cloud Storage for user-uploaded photos. upload() returns the public
         // download URL. Errors bubble up (e.g. if Storage isn't enabled yet).
         const storage = getStorage(app);
+        if (CONFIG.EMULATORS) connectStorageEmulator(storage, "127.0.0.1", CONFIG.EMU.storage);
         window.FirebaseStorage = {
           configured: true,
           upload: async function (path, file) {
             const r = storageRef(storage, path);
             await uploadBytes(r, file, { contentType: file.type });
             return await getDownloadURL(r);
+          },
+          // Apagar um ficheiro (25/08). As regras do Storage exigem que o nome
+          // comece pelo uid de quem apaga — a mesma convenção da escrita.
+          remove: async function (path) {
+            await deleteObject(storageRef(storage, path));
+            return true;
           }
         };
 

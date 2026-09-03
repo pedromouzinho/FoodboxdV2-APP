@@ -1,0 +1,67 @@
+# Corre os arneses a cada push. Existe porque a regra "se mexeres em ficheiros
+# que a app corre, corre-os" dependia de disciplina — e a disciplina falha.
+# Um push que parta o test:gesto passava despercebido até alguém se lembrar.
+#
+# O test:apagar fica de fora: precisa do emulador (e de JDK), e o que ele
+# guarda — a cascata destrutiva — corre-se à mão nas fases que lhe tocam.
+name: Testes
+
+on:
+  push:
+    branches: ["claude/**", "qa/**"]
+  workflow_dispatch:
+
+# Um push novo substitui a corrida do anterior em vez de acumular.
+concurrency:
+  group: testes-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  arneses:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Os arneses usam o Chromium do Playwright quando CHROMIUM_PATH não está
+      # definido — instala-se o do próprio Playwright e não se aponta a nada
+      # escrito à mão (a lição do caminho do contentor, duas vezes aprendida).
+      - name: Chromium do Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: test:persistencia (node puro, primeiro porque é o mais rápido)
+        run: npm run test:persistencia
+
+      - name: audit
+        run: npm run audit
+
+      - name: test:map
+        run: npm run test:map
+
+      - name: test:update
+        run: npm run test:update
+
+      - name: test:gesto
+        run: npm run test:gesto
+
+      - name: test:portao
+        run: npm run test:portao
+
+      - name: test:visita
+        run: npm run test:visita
+
+      - name: test:fotos
+        run: npm run test:fotos
+
+      - name: test:foto-url
+        run: npm run test:foto-url

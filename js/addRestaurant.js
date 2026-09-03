@@ -5,8 +5,18 @@
 // "Opções avançadas" for the rare case the auto-location is off.
 
 const AddRestaurantModule = (() => {
-  let modal, form, closeBtn, locateBtn, locateStatus, copyJsonBtn, submitBtn, statusEl;
-  let nameInput, townInput, regionInput, categorySelect, notesInput, latInput, lngInput;
+  let modal, form, closeBtn, locateBtn, locateStatus, copyJsonBtn, submitBtn, statusEl, aiSuggestBtn, titleEl, introEl;
+  let nameInput, townInput, regionInput, categorySelect, notesInput, latInput, lngInput, stylesWrap;
+  // "quero" = um sítio onde quero ir (fica prioritário); "fui" = já lá fui
+  // (fica marcado como visitado e abre a experiência para avaliar). É o último
+  // passo do formulário, e não uma bifurcação à entrada.
+  let escolha = "quero";
+  // A foto fica em memória até o restaurante existir: o `id` do documento só
+  // nasce na gravação, e é dele que depende o caminho no Storage. Guardar o
+  // ficheiro e enviá-lo a seguir é mais simples do que inventar um id antes.
+  let fotoEscolhida = null;
+  let fotoPreviaUrl = "";
+  let pendingGeoConfirm = false; // second submit click confirms an out-of-region pin
 
   function slugify(text) {
     return text
@@ -34,31 +44,203 @@ const AddRestaurantModule = (() => {
     regionInput = document.getElementById("form-region");
     categorySelect = document.getElementById("form-category");
     notesInput = document.getElementById("form-notes");
+    stylesWrap = document.getElementById("form-styles");
+    if (stylesWrap && typeof STYLES !== "undefined") {
+      stylesWrap.innerHTML = "";
+      Object.entries(STYLES).forEach(([key, st]) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip";
+        chip.dataset.styleKey = key;
+        chip.textContent = st.label;
+        chip.setAttribute("aria-pressed", "false");
+        chip.addEventListener("click", () =>
+          chip.setAttribute("aria-pressed", chip.getAttribute("aria-pressed") === "true" ? "false" : "true"));
+        stylesWrap.appendChild(chip);
+      });
+    }
     latInput = document.getElementById("form-lat");
     lngInput = document.getElementById("form-lng");
 
-    document.getElementById("add-restaurant-btn").addEventListener("click", open);
+    titleEl = modal.querySelector(".modal-title");
+    introEl = modal.querySelector(".modal-intro");
+    // A porta única: o "+" da barra de cima. Serve o mapa e a lista, e é o
+    // único sítio da app que abre este formulário.
+    const abrir = document.getElementById("add-open-btn");
+    if (abrir) abrir.addEventListener("click", () => open());
+    document.querySelectorAll("#add-restaurant-modal [data-escolha]").forEach((b) =>
+      b.addEventListener("click", () => { escolha = b.dataset.escolha; pintarEscolha(); }));
+
+    const fotoIn = modal.querySelector("[data-foto-input]");
+    const camIn = modal.querySelector("[data-foto-camara-input]");
+    const btnGal = modal.querySelector("[data-foto-galeria]");
+    const btnCam = modal.querySelector("[data-foto-camara]");
+    const btnTirar = modal.querySelector("[data-foto-tirar]");
+    if (btnGal && fotoIn) btnGal.addEventListener("click", () => fotoIn.click());
+    if (btnCam && camIn) btnCam.addEventListener("click", () => camIn.click());
+    [fotoIn, camIn].forEach((el) => {
+      if (!el) return;
+      el.addEventListener("change", () => {
+        const f = el.files && el.files[0];
+        // Limpar o valor: sem isto, escolher a MESMA foto duas vezes seguidas
+        // não dispara o `change` na segunda.
+        el.value = "";
+        escolherFoto(f);
+      });
+    });
+    if (btnTirar) btnTirar.addEventListener("click", limparFoto);
     modal.querySelectorAll("[data-close-modal]").forEach((el) => el.addEventListener("click", close));
 
     locateBtn.addEventListener("click", manualLocate);
     copyJsonBtn.addEventListener("click", copyAsJson);
     form.addEventListener("submit", onSubmit);
+
+    // AI: suggest a category + specialty from the name/town (signed-in only).
+    aiSuggestBtn = document.getElementById("form-ai-suggest-btn");
+    if (aiSuggestBtn && typeof AIModule !== "undefined" && AIModule.available()) {
+      aiSuggestBtn.classList.remove("hidden");
+      aiSuggestBtn.addEventListener("click", aiSuggest);
+    }
   }
 
+  async function aiSuggest() {
+    if (!nameInput.value.trim()) { locateStatus.textContent = "Escreve o nome primeiro."; return; }
+    if (typeof UserData === "undefined" || !UserData.isCloud()) return;
+    aiSuggestBtn.disabled = true;
+    const prev = aiSuggestBtn.innerHTML;
+    aiSuggestBtn.innerHTML = "A sugerir…";
+    try {
+      const out = await AIModule.categorize({
+        name: nameInput.value.trim(),
+        town: townInput.value.trim(),
+        googleTypes: []
+      });
+      if (out && out.cuisine) categorySelect.value = out.cuisine;
+      if (out && Array.isArray(out.styles) && stylesWrap) {
+        stylesWrap.querySelectorAll("[data-style-key]").forEach((c) =>
+          c.setAttribute("aria-pressed", String(out.styles.includes(c.dataset.styleKey))));
+      }
+      if (out && out.specialty && !notesInput.value.trim()) notesInput.value = out.specialty;
+    } catch (e) {
+      locateStatus.textContent = e.message;
+    }
+    aiSuggestBtn.innerHTML = prev;
+    aiSuggestBtn.disabled = false;
+  }
+
+  // Uma porta só.
+  //
+  // Havia dois botões na cabeça da lista — "Wishlist" e "Já fui" — e obrigavam
+  // a escolher ANTES de escrever o nome, quando a escolha é sobre o sítio e só
+  // se sabe depois de o ter à frente. Passou a haver um "+" na barra de cima,
+  // que serve o mapa e a lista, e a escolha é o último campo do formulário.
+  //
+  // O `open()` deixa de receber modo. Fica sem parâmetros de propósito: o modo
+  // era a única coisa que os dois botões diziam de diferente.
   function open() {
+    pendingGeoConfirm = false;
+    escolha = "quero";
+    pintarEscolha();
     modal.classList.remove("hidden");
     statusEl.textContent = "";
     statusEl.className = "form-status";
-    nameInput.focus();
+    // O `focus()` era imediato, e por isso o teclado subia no mesmo instante em
+    // que o modal aparecia — o cartão nascia já arrastado para fora do ecrã pelo
+    // topo, com o título debaixo da Dynamic Island. Não era preciso arrastar
+    // nada para o defeito aparecer: bastava abrir.
+    //
+    // Adiado para depois da animação de entrada (0.2s no `.modal-card`), para o
+    // cartão assentar primeiro e só então o teclado subir. Continua a poupar um
+    // toque a quem já sabe o que vai escrever.
+    setTimeout(() => { try { nameInput.focus({ preventScroll: true }); } catch (e) { nameInput.focus(); } }, 260);
   }
 
   function close() {
     modal.classList.add("hidden");
     form.reset();
-    regionInput.value = "Alentejo";
+    pendingGeoConfirm = false;
+    escolha = "quero";
+    limparFoto();
+    pintarEscolha();
+    regionInput.value = "";
     locateStatus.textContent = "";
     statusEl.textContent = "";
     statusEl.className = "form-status";
+  }
+
+  // O texto do botão depende de duas coisas que mudam em momentos diferentes: a
+  // escolha, e o aviso do GeoValidate (que troca o botão para "Guardar mesmo
+  // assim" e ficava pendurado até ao open() seguinte). Recalcular num sítio só
+  // é o que evita as duas ficarem a discutir.
+  function limparFoto() {
+    fotoEscolhida = null;
+    // Revogar sempre: um object URL por foto escolhida, sem revogar, é memória
+    // que só sai quando a página sair.
+    if (fotoPreviaUrl) { URL.revokeObjectURL(fotoPreviaUrl); fotoPreviaUrl = ""; }
+    const previa = document.querySelector("#add-restaurant-modal [data-foto-previa]");
+    if (previa) previa.hidden = true;
+  }
+
+  function escolherFoto(file) {
+    if (!file) return;
+    if (!/^image\//.test(file.type)) { setStatus("Isso não é uma imagem.", "error"); return; }
+    if (file.size > 6 * 1024 * 1024) { setStatus("Imagem demasiado grande (máx. 6 MB).", "error"); return; }
+    limparFoto();
+    fotoEscolhida = file;
+    fotoPreviaUrl = URL.createObjectURL(file);
+    const previa = document.querySelector("#add-restaurant-modal [data-foto-previa]");
+    const img = document.querySelector("#add-restaurant-modal [data-foto-img]");
+    if (img) img.src = fotoPreviaUrl;
+    if (previa) previa.hidden = false;
+    setStatus("");
+  }
+
+  // O mesmo slug que a app usa nos caminhos do Storage. Duplicado de propósito
+  // e não importado: o `slugifyId` vive dentro do IIFE do App e não é
+  // exportado, e abrir a fronteira dos dois módulos por uma linha era pior.
+  function slugParaStorage(texto) {
+    return String(texto || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  }
+
+  // A foto sobe DEPOIS de o restaurante estar gravado, porque é o id do
+  // documento que dá o caminho no Storage. Falhar aqui não desfaz nada: o sítio
+  // já está adicionado, e uma foto que não subiu é menos mau do que uma adição
+  // perdida — daí devolver o erro em vez de o atirar.
+  async function enviarFoto(restaurante) {
+    if (!fotoEscolhida || !window.FirebaseStorage) return null;
+    if (typeof UserData === "undefined" || !UserData.isCloud()) return null;
+    const me = UserData.me();
+    const file = fotoEscolhida;
+    try {
+      const enviavel = typeof Imagem !== "undefined" ? await Imagem.comprimir(file) : file;
+      const ext = (enviavel.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const caminho = `restaurants/${slugParaStorage(restaurante.id)}/${me.uid}-${Date.now()}.${ext}`;
+      const url = await window.FirebaseStorage.upload(caminho, enviavel);
+      const fb = window.FirebaseAuth;
+      const token = fb ? await fb.getToken() : null;
+      await DB.addPhoto({ restaurantId: restaurante.id, uid: me.uid, author: me.displayName, url, path: caminho }, token);
+      return null;
+    } catch (e) {
+      return "O sítio foi adicionado, mas a foto não subiu. Podes juntá-la na ficha.";
+    }
+  }
+
+  function pintarEscolha() {
+    const fui = escolha === "fui";
+    const bloco = document.querySelector("#add-restaurant-modal [data-foto-bloco]");
+    if (bloco) bloco.hidden = !fui;
+    if (!fui) limparFoto();
+    document.querySelectorAll("#add-restaurant-modal [data-escolha]").forEach((b) => {
+      b.setAttribute("aria-pressed", String(b.dataset.escolha === escolha));
+    });
+    const dica = document.querySelector("#add-restaurant-modal [data-escolha-hint]");
+    if (dica) dica.textContent = fui
+      ? "Fica marcado como visitado, e podes avaliar a seguir."
+      : "Fica marcado como prioritário no mapa.";
+    if (submitBtn && !pendingGeoConfirm) {
+      submitBtn.textContent = fui ? "Adicionar e avaliar" : "Adicionar à lista";
+    }
   }
 
   function setStatus(message, type) {
@@ -70,15 +252,16 @@ const AddRestaurantModule = (() => {
   // user can see/adjust them before saving.
   async function manualLocate() {
     if (!nameInput.value || !townInput.value) {
-      locateStatus.textContent = "Indica o nome e a localidade primeiro.";
+      locateStatus.textContent = "Escreve o nome e a localidade primeiro.";
       return;
     }
     locateStatus.textContent = "A procurar...";
-    const coords = await Geocode.locate(nameInput.value.trim(), townInput.value.trim());
+    const coords = await Geocode.locate(nameInput.value.trim(), townInput.value.trim(), regionInput.value.trim());
     if (coords) {
       latInput.value = coords.lat.toFixed(5);
       lngInput.value = coords.lng.toFixed(5);
-      locateStatus.textContent = "Localização encontrada ✓";
+      if (coords.region && !regionInput.value.trim()) regionInput.value = coords.region;
+      locateStatus.textContent = coords.region ? `Localização encontrada · ${coords.region}` : "Localização encontrada ✓";
     } else {
       locateStatus.textContent = "Não encontrado. Preenche as coordenadas manualmente.";
     }
@@ -87,8 +270,17 @@ const AddRestaurantModule = (() => {
   function buildRestaurantFromForm(coords) {
     const name = nameInput.value.trim();
     const town = townInput.value.trim();
-    const region = (regionInput.value || "Alentejo").trim();
-    const category = categorySelect.value;
+    const inferredRegion = typeof Geocode !== "undefined" ? Geocode.regionForTown(town) : null;
+    // Country comes from geocoding; Portugal only as the last resort. Foreign
+    // places use their country as the region, so they group and filter naturally.
+    const country = (coords && coords.country) || "Portugal";
+    const foreign = typeof Geocode !== "undefined" && Geocode.isPortugal ? !Geocode.isPortugal(country) : false;
+    const region = regionInput.value.trim() || (coords && coords.region) || (foreign ? country : inferredRegion) || "Portugal";
+    const cuisine = categorySelect.value; // the select now holds the CUISINE
+    const styles = stylesWrap
+      ? [...stylesWrap.querySelectorAll('[data-style-key][aria-pressed="true"]')].map((c) => c.dataset.styleKey)
+      : [];
+    const category = typeof legacyCategoryFor === "function" ? legacyCategoryFor(cuisine, styles) : "tradicional";
     const notes = notesInput.value.trim();
     const lat = coords ? coords.lat : parseFloat(latInput.value);
     const lng = coords ? coords.lng : parseFloat(lngInput.value);
@@ -98,19 +290,22 @@ const AddRestaurantModule = (() => {
       name,
       town,
       region,
+      country,
       category,
+      cuisine,
+      styles,
       lat: isNaN(lat) ? null : lat,
       lng: isNaN(lng) ? null : lng,
       notes,
-      tags: [category],
-      mapsQuery: `${name}, ${town}, Portugal`
+      tags: [cuisine].concat(styles),
+      mapsQuery: `${name}, ${town}, ${country}`
     };
   }
 
   async function onSubmit(e) {
     e.preventDefault();
     if (!nameInput.value.trim() || !townInput.value.trim()) {
-      setStatus("Indica o nome e a localidade.", "error");
+      setStatus("Escreve o nome e a localidade.", "error");
       return;
     }
 
@@ -126,23 +321,56 @@ const AddRestaurantModule = (() => {
         coords = { lat, lng };
       } else {
         setStatus("A localizar no mapa...", "info");
-        coords = await Geocode.locate(nameInput.value.trim(), townInput.value.trim());
+        coords = await Geocode.locate(nameInput.value.trim(), townInput.value.trim(), regionInput.value.trim());
       }
 
       if (!coords) {
         setStatus(
-          "Não consegui encontrar essa localização. Tenta uma cidade mais específica, ou abre \"Opções avançadas\".",
+          "Não foi possível encontrar essa localização. Tente uma cidade mais específica ou abra as \"Opções avançadas\".",
           "error"
         );
         submitBtn.disabled = false;
         return;
       }
 
+      // Geo sanity-check: warn (once) if the pin falls outside the region the
+      // place will be filed under. The effective region mirrors buildRestaurantFromForm.
+      if (!pendingGeoConfirm && typeof GeoValidate !== "undefined") {
+        const effectiveRegion = regionInput.value.trim()
+          || (coords && coords.region)
+          || (typeof Geocode !== "undefined" && Geocode.regionForTown ? (Geocode.regionForTown(townInput.value.trim()) || "") : "");
+        try {
+          const check = GeoValidate.isWithinRegion(effectiveRegion, coords.lat, coords.lng, coords.country);
+          if (check && !check.ok) {
+            const where = effectiveRegion || coords.country || "Portugal";
+            setStatus(`Esta localização parece estar fora de ${where}. Carrega novamente para guardar mesmo assim.`, "warning");
+            pendingGeoConfirm = true;
+            // Depois do pintarEscolha(), senão a escolha voltava a escrever o
+            // texto por cima deste. Os dois escrevem no mesmo botão.
+            submitBtn.textContent = "Guardar mesmo assim";
+            submitBtn.disabled = false;
+            return;
+          }
+        } catch (e) { /* fail-open: never block saving on a validation error */ }
+      }
+
       const restaurant = buildRestaurantFromForm(coords);
 
+      // "comunidade" tag only when Google has no real match for the place.
+      // If Google Maps has rating/reviews/photos/phone, treat it as verified.
+      restaurant.verified = false;
+      if (typeof PlacesModule !== "undefined" && PlacesModule.isAvailable()) {
+        setStatus("A verificar no Google…", "info");
+        try {
+          const d = await PlacesModule.fetchDetails(restaurant);
+          restaurant.verified = !!(d && (d.rating || d.userRatingsTotal || d.phone || (d.photos && d.photos.length)));
+        } catch (e) { /* keep unverified */ }
+      }
+
       // Stamp "quem recomendou" when the person is signed in.
+      const signedIn = typeof UserData !== "undefined" && UserData.isCloud();
       let token = null;
-      if (typeof UserData !== "undefined" && UserData.isCloud()) {
+      if (signedIn) {
         const me = UserData.me();
         restaurant.addedByUid = me.uid;
         restaurant.addedByName = me.displayName;
@@ -151,15 +379,33 @@ const AddRestaurantModule = (() => {
         }
       }
 
-      if (DB.isAvailable()) {
+      // The shared list requires a signed-in author (Firestore rules enforce
+      // addedByUid == auth.uid). Without a session, save locally instead.
+      // Post-add behaviour depends on the CTA used.
+      // "Já fui" passa a marcar VISITADO, que é o que a palavra promete. Até
+      // aqui só abria a ficha e deixava a pessoa registar à mão — dizia uma
+      // coisa e fazia outra. Decisão do dono, 25/08.
+      const opts = escolha === "fui"
+        ? { tab: "experiencia", visited: true }
+        : { priority: true };
+      if (DB.isAvailable() && signedIn) {
         setStatus("A guardar para todos...", "info");
         const saved = await DB.add(restaurant, token);
-        App.onRestaurantAdded(saved);
-        setStatus("Adicionado para todos! 🎉", "success");
+        // A foto ANTES do onRestaurantAdded: esse abre a ficha do sítio, e uma
+        // foto que chega depois de a ficha estar pintada não aparece lá.
+        const avisoFoto = await enviarFoto(saved);
+        App.onRestaurantAdded(saved, opts);
+        setStatus(avisoFoto || (escolha === "fui" ? "Adicionado. Avalia a tua experiência." : "Adicionado à tua lista."),
+          avisoFoto ? "warning" : "success");
       } else {
         Storage.addCustomRestaurant(restaurant);
-        App.onRestaurantAdded(restaurant);
-        setStatus("Adicionado (guardado só neste navegador).", "success");
+        App.onRestaurantAdded(restaurant, opts);
+        setStatus(
+          DB.isAvailable()
+            ? "Guardado só neste navegador."
+            : "Adicionado (guardado só neste navegador).",
+          "success"
+        );
       }
 
       setTimeout(close, 900);

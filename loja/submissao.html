@@ -1,0 +1,924 @@
+<title>Submeter o Foodboxd</title>
+<meta name="description" content="A ordem exata dos passos para pôr o Foodboxd na App Store, com os campos prontos a copiar." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
+
+<style>
+  /* Paleta do Foodboxd — a da app, não uma inventada para este documento.
+     O mono é a adição deliberada: metade disto são valores para colar. */
+  :root {
+    --paper:   #fbf7ef;
+    --well:    #f2ebdd;
+    --card:    #ffffff;
+    --ink:     #241f18;
+    --ink-2:   #6b6152;
+    --ink-3:   #918674;
+    --line:    #e6dcc8;
+    --line-2:  #d6c9ad;
+    --accent:  #b04a1c;
+    --accent-soft: #f7e4d6;
+    --stop:    #9c2f21;
+    --stop-soft: #f6e1dc;
+    --go:      #4e6a3a;
+    --go-soft: #e6ecd9;
+    --shadow:  0 1px 2px rgba(74, 54, 28, .06), 0 8px 24px -16px rgba(74, 54, 28, .35);
+
+    --display: "Fraunces", Georgia, "Times New Roman", serif;
+    --body: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  :root:not([data-theme="light"]) { }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:   #16120c;
+      --well:    #221c13;
+      --card:    #1e1810;
+      --ink:     #efe8db;
+      --ink-2:   #b0a693;
+      --ink-3:   #8b8171;
+      --line:    #342c1f;
+      --line-2:  #453a29;
+      --accent:  #e8825a;
+      --accent-soft: #3a2418;
+      --stop:    #f0846c;
+      --stop-soft: #3a1d17;
+      --go:      #a5c084;
+      --go-soft: #24301b;
+      --shadow:  0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:   #16120c;
+    --well:    #221c13;
+    --card:    #1e1810;
+    --ink:     #efe8db;
+    --ink-2:   #b0a693;
+    --ink-3:   #8b8171;
+    --line:    #342c1f;
+    --line-2:  #453a29;
+    --accent:  #e8825a;
+    --accent-soft: #3a2418;
+    --stop:    #f0846c;
+    --stop-soft: #3a1d17;
+    --go:      #a5c084;
+    --go-soft: #24301b;
+    --shadow:  0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16.5px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 50rem;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* ---- cabeçalho ---- */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .74rem;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 12px;
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(2.1rem, 5.5vw, 3rem);
+    line-height: 1.08;
+    letter-spacing: -.015em;
+    text-wrap: balance;
+    margin: 0 0 14px;
+  }
+  .lede {
+    font-size: 1.1rem;
+    color: var(--ink-2);
+    max-width: 40rem;
+    margin: 0 0 8px;
+  }
+
+  /* ---- estado: o que já está feito ---- */
+  .feito {
+    margin: 36px 0 8px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--card);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .feito-cab {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .feito-cab h2 { margin: 0; font-family: var(--display); font-size: 1.12rem; font-weight: 600; }
+  .feito-cab span { font-size: .9rem; color: var(--ink-3); }
+  .feito ul {
+    margin: 0;
+    padding: 14px 20px 18px;
+    list-style: none;
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  }
+  .feito li {
+    display: flex;
+    gap: 9px;
+    align-items: baseline;
+    font-size: .93rem;
+    color: var(--ink-2);
+  }
+  .feito li::before {
+    content: "✓";
+    color: var(--go);
+    font-weight: 700;
+    flex: none;
+  }
+
+  /* ---- espinha numerada ----
+     Os passos dependem uns dos outros de verdade: não há build para enviar
+     antes de existir registo, nem submissão antes de haver build. Por isso
+     são numerados e ligados — a numeração diz algo, não decora. */
+  .fase { margin-top: 52px; }
+  .fase-cab {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .fase-num {
+    font-family: var(--mono);
+    font-size: .78rem;
+    font-weight: 600;
+    letter-spacing: .1em;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 4px;
+    padding: 3px 8px;
+    flex: none;
+  }
+  .fase h2 {
+    font-family: var(--display);
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .fase > p {
+    color: var(--ink-2);
+    margin: 0 0 22px;
+    font-size: .98rem;
+  }
+
+  .passos { display: flex; flex-direction: column; gap: 0; }
+
+  .passo {
+    display: grid;
+    grid-template-columns: 34px 1fr;
+    gap: 0 16px;
+    position: relative;
+  }
+  .passo-marca {
+    grid-column: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .passo-n {
+    width: 30px; height: 30px;
+    flex: none;
+    border-radius: 8px;
+    border: 1px solid var(--line-2);
+    background: var(--card);
+    color: var(--ink-2);
+    font-family: var(--mono);
+    font-size: .84rem;
+    font-weight: 600;
+    display: grid;
+    place-items: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .passo-linha {
+    width: 1px;
+    flex: 1;
+    background: var(--line);
+    margin: 6px 0 0;
+    min-height: 12px;
+  }
+  .passo:last-child .passo-linha { background: transparent; }
+
+  .passo-corpo { grid-column: 2; padding-bottom: 26px; }
+  .passo h3 {
+    margin: 4px 0 6px;
+    font-size: 1.04rem;
+    font-weight: 700;
+    letter-spacing: -.005em;
+    line-height: 1.35;
+  }
+  .passo p { margin: 0 0 10px; color: var(--ink-2); }
+  .passo p:last-child { margin-bottom: 0; }
+  .passo strong { color: var(--ink); font-weight: 600; }
+
+  .onde {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    border: 1px solid var(--line-2);
+    border-radius: 4px;
+    padding: 2px 7px;
+    margin-bottom: 2px;
+  }
+
+  /* ---- campos: o documento imita o formulário que ajuda a preencher ---- */
+  .campo {
+    margin: 14px 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+    overflow: hidden;
+  }
+  .campo-cab {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 12px;
+    background: var(--well);
+    border-bottom: 1px solid var(--line);
+  }
+  .campo-nome {
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  .campo-cont {
+    font-size: .68rem;
+    font-family: var(--mono);
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+  .campo pre {
+    margin: 0;
+    padding: 12px 14px;
+    font-family: var(--mono);
+    font-size: .85rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--ink);
+  }
+  .campo.longo pre { max-height: 22rem; overflow-y: auto; }
+
+  button.copiar {
+    font-family: var(--body);
+    font-size: .76rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: transparent;
+    border: 1px solid var(--line-2);
+    border-radius: 999px;
+    padding: 3px 11px;
+    cursor: pointer;
+    flex: none;
+    transition: background .15s ease, color .15s ease;
+  }
+  button.copiar:hover { background: var(--accent-soft); }
+  button.copiar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.copiar[data-estado="feito"] { color: var(--go); border-color: var(--go); }
+
+  /* ---- comandos ---- */
+  .cmd {
+    font-family: var(--mono);
+    font-size: .85rem;
+    background: var(--well);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 9px 12px;
+    margin: 10px 0;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* ---- avisos ---- */
+  .nota, .trava {
+    border-radius: 10px;
+    padding: 13px 16px;
+    margin: 14px 0;
+    font-size: .94rem;
+  }
+  .nota {
+    background: var(--well);
+    border-left: 3px solid var(--line-2);
+    color: var(--ink-2);
+  }
+  .trava {
+    background: var(--stop-soft);
+    border-left: 3px solid var(--stop);
+    color: var(--ink);
+  }
+  .trava b, .nota b { color: var(--ink); }
+  .trava-tit {
+    display: block;
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--stop);
+    margin-bottom: 5px;
+  }
+
+  /* ---- tabelas ---- */
+  .tab-wrap { overflow-x: auto; margin: 14px 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 26rem;
+    font-size: .9rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    background: var(--well);
+    font-weight: 500;
+  }
+  tr:last-child td { border-bottom: 0; }
+  td code, p code, li code {
+    font-family: var(--mono);
+    font-size: .84em;
+    background: var(--well);
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+
+  ol.limpa, ul.limpa { margin: 10px 0; padding-left: 1.15rem; }
+  ol.limpa li, ul.limpa li { margin: 5px 0; color: var(--ink-2); }
+  ol.limpa strong, ul.limpa strong { color: var(--ink); font-weight: 600; }
+
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+  footer {
+    margin-top: 72px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+    color: var(--ink-3);
+    font-size: .88rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+  @media (max-width: 34rem) {
+    .passo { grid-template-columns: 26px 1fr; gap: 0 12px; }
+    .passo-n { width: 24px; height: 24px; font-size: .74rem; }
+  }
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">Foodboxd · iOS 1.0</p>
+  <h1>Submeter o Foodboxd</h1>
+  <p class="lede">
+    A ordem exata, com os campos prontos a copiar. Os passos dependem uns dos
+    outros: não há build para enviar antes de existir registo, nem submissão
+    antes de haver build. Por isso estão numerados.
+  </p>
+
+  <div class="feito">
+    <div class="feito-cab">
+      <h2>O que já está feito</h2>
+      <span>Não refaças nada disto — está medido e no ar.</span>
+    </div>
+    <ul>
+      <li>Apagar a conta funciona (5.1.1(v))</li>
+      <li>Denunciar e bloquear (1.2)</li>
+      <li>Entrar com email, com a Apple ou com a Google</li>
+      <li>A app exige conta, e há conta de teste para a revisão</li>
+      <li>O nome da Apple é capturado</li>
+      <li>Localização só no «Pergunta-me», uma caixa</li>
+      <li>Política em <code>/privacidade</code></li>
+      <li>Ajuda em <code>/ajuda</code></li>
+      <li>Equipa <code>LGN8A4342T</code> no projeto</li>
+      <li>Conformidade de exportação no <code>Info.plist</code></li>
+      <li>6 screenshots em 1320×2868 — <b>cinco por refazer</b>, ver Fase 6</li>
+    </ul>
+  </div>
+
+  <!-- ============ FASE 1 ============ -->
+  <section class="fase">
+    <div class="fase-cab"><span class="fase-num">Fase 1</span><h2>Criar o registo da app</h2></div>
+    <p>Tem de existir antes de haver build para enviar — o Xcode envia para um registo, não para o vazio.</p>
+
+    <div class="passos">
+
+      <div class="passo">
+        <div class="passo-marca"><div class="passo-n">1</div><div class="passo-linha"></div></div>
+        <div class="passo-corpo">
+          <span class="onde">App Store Connect</span>
+          <h3>Apps → <b>+</b> → New App</h3>
+          <p>Preenche exatamente assim. O <strong>Bundle ID</strong> tem de aparecer na lista; se não aparecer, o App ID não está registado no portal e é aí que se resolve.</p>
+          <div class="tab-wrap">
+            <table>
+              <tr><th>Campo</th><th>Valor</th></tr>
+              <tr><td>Platforms</td><td>iOS</td></tr>
+              <tr><td>Name</td><td><code>Foodboxd</code></td></tr>
+              <tr><td>Primary Language</td><td>Portuguese (Portugal)</td></tr>
+              <tr><td>Bundle ID</td><td><code>pt.foodboxd.app</code></td></tr>
+              <tr><td>SKU</td><td><code>foodboxd-ios-1</code> — só te diz respeito a ti, nunca aparece a ninguém</td></tr>
+              <tr><td>User Access</td><td>Full Access</td></tr>
+            </table>
+          </div>
+          <div class="nota"><b>O nome pode estar tomado.</b> «Foodboxd» é invulgar, mas se a App Store recusar, é preciso outro — e o nome da loja não tem de ser igual ao que aparece por baixo do ícone.</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ FASE 2 ============ -->
+  <section class="fase">
+    <div class="fase-cab"><span class="fase-num">Fase 2</span><h2>Arquivar e enviar a build</h2></div>
+    <p>É a parte que pode falhar por assinatura. Faz esta antes de escrever textos: se houver problema de certificados, é melhor descobri-lo agora.</p>
+
+    <div class="passos">
+
+      <div class="passo">
+        <div class="passo-marca"><div class="passo-n">2</div><div class="passo-linha"></div></div>
+        <div class="passo-corpo">
+          <span class="onde">Terminal</span>
+          <h3>Abrir o projeto já sincronizado</h3>
+          <p>Isto gera o <code>www/</code>, corre o <code>cap sync</code>, repõe os textos de permissão, os entitlements e a equipa de assinatura, e abre o Xcode.</p>
+          <div class="cmd">npm run ios</div>
+        </div>
+      </div>
+
+      <div class="passo">
+        <div class="passo-marca"><div class="passo-n">3</div><div class="passo-linha"></div></div>
+        <div class="passo-corpo">
+          <span class="onde">Xcode</span>
+          <h3>Confirmar a assinatura</h3>
+          <p>Target <strong>App</strong> → <em>Signing &amp; Capabilities</em>. A equipa já lá está escrita pelo script; confirma que diz <code>LGN8A4342T</code> e que <em>Automatically manage signing</em> está ligado.</p>
+          <p>Confirma também que aparece a capacidade <strong>Sign in with Apple</strong>. Se não aparecer, não faças nada ainda — o passo 5 diz quando é preciso.</p>
+        </div>
+      </div>
+
+      <div class="passo">
+        <div class="passo-marca"><div class="passo-n">4</div><div class="passo-linha"></div></div>
+        <div class="passo-corpo">
+          <span class="onde">Xcode</span>
+          <h3>Escolher o destino e arquivar</h3>
+          <p>Na barra do topo, onde diz o simulador, escolhe <strong>Any iOS Device (arm64)</strong>. Sem isto o menu <em>Archive</em> fica cinzento — arquivar para simulador não existe.</p>
+          <p>Depois: <strong>Product → Archive</strong>. Demora alguns minutos. No fim abre a janela <em>Organizer</em>.</p>
+        </div>
+      </div>
+
+      <div class="passo">
+        <div class="passo-marca"><div class="passo-n">5</div><div class="passo-linha"></div></div>
+        <div class="passo-corpo">
+          <span class="onde">Portal · só se falhar</span>
+          <h3>Se o build parar no <i>applesignin</i></h3>
+          <div class="trava">
+            <span class="trava-tit">A mensagem exata</span>
+            <b>“Provisioning profile doesn't include the com.apple.developer.applesignin entitlement.”</b>
+            <p style="margin:8px 0 0">Não é o código. O <code>applesignin</code> está no <code>ios-entitlements.plist</code> e é escrito a cada sync — o que falta é a capacidade estar ligada no portal.</p>
+          </div>
+          <p><a href="https://developer.apple.com/account/resources/identifiers/list">developer.apple.com → Certificates, Identifiers &amp; Profiles → Identifiers</a> → <code>pt.foodboxd.app</code> → liga <strong>Sign in with Apple</strong> → <em>Save</em>. Depois, no Xcode, <em>Product → Clean Build Folder</em> e arquiva outra vez.</p>
+        </div>
+      </div>
+
+      <div class="passo">
+        <div class="passo-marca"><div class="passo-n">6</div><div class="passo-linha"></div></div>
+        <div class="passo-corpo">
+          <span class="onde">Xcode · Organizer</span>
+          <h3>Distribuir</h3>
+          <p><strong>Distribute App → App Store Connect → Upload</strong>, e aceita as opções por omissão.</p>
+          <p>A build fica <em>a processar</em> do lado da Apple durante 5 a 30 minutos. Só depois é que aparece para escolher na Fase 6 — se não estiver lá, ainda não acabou, e não há nada a corrigir.</p>
+          <div class="nota"><b>Não vais ter de responder à conformidade de exportação.</b> O <code>ITSAppUsesNonExemptEncryption = false</code> vai dentro do <code>Info.plist</code>, escrito a cada sync. Se a Apple perguntar à mesma, é sinal de que o sync não correu antes do archive.</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ FASE 3 ============ -->
+  <section class="fase">
+    <div class="fase-cab"><span class="fase-num">Fase 3</span><h2>Informação da app</h2></div>
+    <p>Enquanto a build processa. <em>App Store Connect → a tua app → App Information</em>.</p>
+
+    <div class="passos">
+
+      <div class="passo">
+        <div class="passo-marca"><div class="passo-n">7</div><div class="passo-linha"></div></div>
+        <div class="passo-corpo">
+          <span class="onde">App Store Connect</span>
+          <h3>Subtítulo e categorias</h3>
+          <div class="campo">
+            <div class="campo-cab"><span class="campo-nome">Subtitle</span><span class="campo-cont">28 / 30</span><button class="copiar" data-alvo="c-sub">Copiar</button></div>
+            <pre id="c-sub">O teu diário de restaurantes</pre>
+          </div>
+          <div class="tab-wrap">
+            <table>
+              <tr><th>Campo</th><th>Valor</th></tr>
+              <tr><td>Primary Category</td><td>Food &amp; Drink</td></tr>
+              <tr><td>Secondary Category</td><td>Travel</td></tr>
+              <tr><td>Content Rights</td><td>Não contém, mostra ou acede a conteúdo de terceiros<br><span style="color:var(--ink-3)">As fotos e avaliações da Google vêm da API do Google Places, sob licença — não é conteúdo de terceiros no sentido desta pergunta.</span></td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="passo">
+        <div class="passo-marca"><div class="passo-n">8</div><div class="passo-linha"></div></div>
+        <div class="passo-corpo">
+          <span class="onde">App Store Connect</span>
+          <h3>Classificação etária</h3>
+          <p>Uma resposta importa; o resto é <strong>Nenhum</strong> ou <strong>Não</strong>.</p>
+          <div class="tab-wrap">
+            <table>
+              <tr><th>Pergunta</th><th>Resposta</th></tr>
+              <tr><td>Conteúdo gerado por utilizadores</td><td><b>Sim</b> — fotografias e críticas escritas por pessoas, visíveis a outras</td></tr>
+              <tr><td>Violência, conteúdo sexual, jogo a dinheiro, terror</td><td>Nenhum</td></tr>
+              <tr><td>Álcool, tabaco, drogas como <i>tema</i></td><td>Nenhum — que apareçam num prato ou numa carta de vinhos não conta</td></tr>
+              <tr><td>Acesso irrestrito à web</td><td>Não — a app abre o Google Maps e as suas páginas no browser do sistema, que são destinos fixos</td></tr>
+            </table>
+          </div>
+          <div class="nota"><b>Espera-se 12+</b>, por causa do conteúdo de utilizadores. Se o formulário devolver outra coisa, vale a pena reler as respostas antes de aceitar.</div>
+          <p>O «sim» da primeira linha é o que obriga a ter denunciar e bloquear. <strong>Já lá está</strong>, medido: bandeira em cada comentário alheio, <em>Denunciar</em> nas fotografias, bloquear na mesma folha e desbloquear no Perfil.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ FASE 4 ============ -->
+  <section class="fase">
+    <div class="fase-cab"><span class="fase-num">Fase 4</span><h2>Preço e disponibilidade</h2></div>
+    <p>O passo mais curto de todos.</p>
+    <div class="passos">
+      <div class="passo">
+        <div class="passo-marca"><div class="passo-n">9</div><div class="passo-linha"></div></div>
+        <div class="passo-corpo">
+          <span class="onde">App Store Connect</span>
+          <h3>Grátis, e onde</h3>
+          <p><em>Pricing and Availability</em> → preço <strong>0 (Free)</strong>.</p>
+          <p>Disponibilidade: por omissão são todos os países. <strong>Portugal chega</strong> — a app é toda em português e a lista é portuguesa. Alargar depois é um clique; recolher depois de alguém instalar é que é feio.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FASE 5 ============ -->
+  <section class="fase">
+    <div class="fase-cab"><span class="fase-num">Fase 5</span><h2>Privacidade</h2></div>
+    <p>A parte que a Apple confere contra o que a app faz. Tudo isto foi levantado ficheiro a ficheiro — não é palpite.</p>
+
+    <div class="passos">
+
+      <div class="passo">
+        <div class="passo-marca"><div class="passo-n">10</div><div class="passo-linha"></div></div>
+        <div class="passo-corpo">
+          <span class="onde">App Store Connect</span>
+          <h3>O URL da política</h3>
+          <div class="campo">
+            <div class="campo-cab"><span class="campo-nome">Privacy Policy URL</span><button class="copiar" data-alvo="c-priv">Copiar</button></div>
+            <pre id="c-priv">https://foodboxd.pt/privacidade</pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="passo">
+        <div class="passo-marca"><div class="passo-n">11</div><div class="passo-linha"></div></div>
+        <div class="passo-corpo">
+          <span class="onde">App Store Connect</span>
+          <h3>As etiquetas, uma a uma</h3>
+          <p>Em <em>App Privacy → Data Types</em>. Para <strong>todas</strong>: finalidade <em>App Functionality</em> e <em>Personalization</em>, <strong>associadas à identidade</strong>, e <strong>não</strong> usadas para seguimento.</p>
+          <div class="tab-wrap">
+            <table>
+              <tr><th>Categoria</th><th>Tipo</th><th>Partilhado com terceiros</th></tr>
+              <tr><td>Contact Info</td><td>Name</td><td>Sim</td></tr>
+              <tr><td>Contact Info</td><td>Email Address</td><td>Sim</td></tr>
+              <tr><td>User Content</td><td>Photos or Videos</td><td>Sim</td></tr>
+              <tr><td>User Content</td><td>Other User Content</td><td>Sim — críticas, notas, pratos, perfil de gosto</td></tr>
+              <tr><td>Location</td><td><b>Precise Location</b></td><td><b>Sim</b></td></tr>
+              <tr><td>Identifiers</td><td>User ID</td><td>Sim</td></tr>
+            </table>
+          </div>
+          <div class="trava">
+            <span class="trava-tit">A linha em que se erra</span>
+            <b>A localização precisa É partilhada com terceiros.</b>
+            <p style="margin:8px 0 0">Não é óbvio: o «Pergunta-me» não envia coordenadas, envia a <b>distância a cada restaurante</b> — e distâncias a vários pontos conhecidos localizam uma pessoa. Declarar o contrário seria falso, e é dos itens que a Apple verifica.</p>
+          </div>
+          <p>Quem recebe o quê: <strong>Google</strong> (Firebase, Maps, Places), <strong>Anthropic</strong> (o «Pergunta-me») e <strong>OpenStreetMap</strong> (só o texto procurado, nunca a localização).</p>
+          <div class="nota"><b>Tracking: nenhum.</b> Não há SDK de analytics, de anúncios nem de atribuição — procurados no código, zero ocorrências. O <code>GoogleService-Info.plist</code> vem com analytics e anúncios desligados. Logo <b>não</b> é preciso pedir permissão de seguimento.</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ FASE 6 ============ -->
+  <section class="fase">
+    <div class="fase-cab"><span class="fase-num">Fase 6</span><h2>A página da versão 1.0</h2></div>
+    <p>É a montra. Os textos estão escritos e contados; os screenshots estão em <code>loja/screenshots/</code>.</p>
+
+    <div class="passos">
+
+      <div class="passo">
+        <div class="passo-marca"><div class="passo-n">12</div><div class="passo-linha"></div></div>
+        <div class="passo-corpo">
+          <span class="onde">App Store Connect</span>
+          <h3>Screenshots — pela ordem dos ficheiros</h3>
+          <p>Arrasta os seis para <strong>iPhone 6.9"</strong>. As outras medidas derivam desta; não é preciso tirá-las.</p>
+          <div class="tab-wrap">
+            <table>
+              <tr><th>#</th><th>Ficheiro</th><th>Porquê aqui</th></tr>
+              <tr><td>1</td><td><code>01-mapa.png</code></td><td>O que a app é à primeira vista</td></tr>
+              <tr><td>2</td><td><code>02-pergunta-me.png</code></td><td>O que mais nenhuma app faz</td></tr>
+              <tr><td>3</td><td><code>03-diario.png</code></td><td>A razão para voltar</td></tr>
+              <tr><td>4</td><td><code>04-lista.png</code></td><td>Densidade</td></tr>
+              <tr><td>5</td><td><code>05-ficha.png</code></td><td>O que se ganha ao tocar</td></tr>
+              <tr><td>6</td><td><code>06-filtros.png</code></td><td>Dobra-se ao que apetece</td></tr>
+            </table>
+          </div>
+          <div class="nota"><b>A ordem não é decorativa.</b> Os dois primeiros aparecem nos resultados de pesquisa sem ninguém abrir a página da app. Por isso o mapa abre e o «Pergunta-me» vem logo a seguir.</div>
+          <div class="trava">
+            <span class="trava-tit">Cinco dos seis são anteriores a 25/08</span>
+            <b>Já não mostram esta app.</b> O 1 e o 3 têm a barra de cima sem o botão <b>+</b>; o 4, o 5 e o 6 têm lá o botão <b>Entrar</b>, um estado a que hoje não se chega; e o 4 mostra ainda os botões <b>Wishlist</b> e <b>Já fui</b> no topo da lista, que deixaram de existir. Só o 2 escapa, porque é uma folha que tapa a barra toda.
+            <p style="margin:8px 0 0">A diretriz <b>2.3.3</b> é sobre isto. Tirá-los outra vez é trabalho a fazer <b>antes</b> de submeter — não é uma decisão de gosto.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="passo">
+        <div class="passo-marca"><div class="passo-n">13</div><div class="passo-linha"></div></div>
+        <div class="passo-corpo">
+          <span class="onde">App Store Connect</span>
+          <h3>Os textos</h3>
+
+          <div class="campo">
+            <div class="campo-cab"><span class="campo-nome">Promotional Text</span><span class="campo-cont">153 / 170</span><button class="copiar" data-alvo="c-promo">Copiar</button></div>
+            <pre id="c-promo">Um mapa dos sítios que valem a pena e um diário do que comeste. Cria conta, marca onde já foste e onde queres ir, e pergunta à app o que te apetece hoje.</pre>
+          </div>
+
+          <div class="campo longo">
+            <div class="campo-cab"><span class="campo-nome">Description</span><span class="campo-cont">1590 / 4000</span><button class="copiar" data-alvo="c-desc">Copiar</button></div>
+<pre id="c-desc">O Foodboxd é um mapa dos restaurantes que valem a pena e um diário do que comeste neles.
+
+Não é mais um agregador de avaliações anónimas. É o teu registo: onde foste, o que pediste, e o que achaste — para não voltares a olhar para uma lista de sítios sem saber qual deles já te correu bem.
+
+PARA COMEÇAR
+Precisas de conta. Cria uma com email e palavra-passe, ou entra com a Apple ou com a Google. Não começas do zero: a lista de restaurantes já lá está, com avaliação, escala de preços, telefone e a especialidade da casa.
+
+O MAPA
+Todos os sítios num mapa, de Braga ao Algarve. Filtra por cozinha, por estilo — tasca, petiscos, casual, fine dining — por região e por preço. Ou escreve o nome de um prato e encontra quem o faz.
+
+O DIÁRIO
+Marca como visitado, dá estrelas, escreve o que quiseres e regista os pratos que provaste. Junta fotografias. Da próxima vez que passares à porta, sabes o que pedir.
+
+A LISTA DE DESEJOS
+Marca os sítios onde ainda queres ir. Deixa de haver aquele restaurante de que te lembras vagamente e nunca mais encontras.
+
+PERGUNTA-ME
+Descreve o que te apetece — «peixe fresco, barato, perto e tranquilo» — e a app sugere, cruzando o teu gosto, a tua lista e onde estás. A localização é pedida só aqui, nunca ao abrir, e a app funciona sem ela.
+
+OS AMIGOS
+Segue quem quiseres acompanhar e vê onde andaram e o que acharam. Cria grupos para separares a malta do trabalho da malta do costume.
+
+O QUE NÃO HÁ
+Sem publicidade. Sem seguimento para publicidade. Sem venda de dados. Apagas a conta dentro da app, e apaga mesmo — incluindo as fotografias.
+
+Feito em Portugal.</pre>
+          </div>
+
+          <div class="campo">
+            <div class="campo-cab"><span class="campo-nome">Keywords</span><span class="campo-cont">90 / 100</span><button class="copiar" data-alvo="c-kw">Copiar</button></div>
+            <pre id="c-kw">restaurantes,tascas,petiscos,onde comer,diario,mapa,marisqueira,portugal,avaliacoes,pratos</pre>
+          </div>
+
+          <div class="campo">
+            <div class="campo-cab"><span class="campo-nome">Support URL</span><button class="copiar" data-alvo="c-sup">Copiar</button></div>
+            <pre id="c-sup">https://foodboxd.pt/ajuda</pre>
+          </div>
+
+          <div class="campo">
+            <div class="campo-cab"><span class="campo-nome">Marketing URL</span><button class="copiar" data-alvo="c-mkt">Copiar</button></div>
+            <pre id="c-mkt">https://foodboxd.pt</pre>
+          </div>
+
+          <div class="nota"><b>O texto promocional muda sem submeter versão nova.</b> É o sítio para novidades sazonais; a descrição exige uma submissão.</div>
+        </div>
+      </div>
+
+      <div class="passo">
+        <div class="passo-marca"><div class="passo-n">14</div><div class="passo-linha"></div></div>
+        <div class="passo-corpo">
+          <span class="onde">App Store Connect</span>
+          <h3>Escolher a build</h3>
+          <p>Na secção <em>Build</em>, <b>+</b> e escolhe a que enviaste. Se não estiver lá, ainda está a processar — espera e recarrega.</p>
+          <p>Versão <code>1.0</code>, build <code>1</code>. Ambas saem do projeto e não se escrevem aqui.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ FASE 7 ============ -->
+  <section class="fase">
+    <div class="fase-cab"><span class="fase-num">Fase 7</span><h2>Informação para a revisão</h2></div>
+    <p>O campo que evita a rejeição mais estúpida de todas: a que diz «não conseguimos entrar».</p>
+
+    <div class="passos">
+
+      <div class="passo">
+        <div class="passo-marca"><div class="passo-n">15</div><div class="passo-linha"></div></div>
+        <div class="passo-corpo">
+          <span class="onde">App Store Connect</span>
+          <h3><i>Sign-In Required</i>: ligado, com a conta de teste</h3>
+          <div class="trava">
+            <span class="trava-tit">Mudou a 25/08 — era o contrário até esse dia</span>
+            <b>A app exige conta.</b> O ecrã de entrada cobre tudo enquanto não houver sessão: sem entrar não se vê mapa, nem lista, nem filtros, nem ficha nenhuma. Liga o <i>Sign-In Required</i> e preenche o <i>User Name</i> e a <i>Password</i> ao lado, com a conta de teste.
+            <p style="margin:8px 0 0">Deixá-lo desligado agora é a rejeição <b>2.1</b> servida em bandeja: a revisão abre a app, dá com o ecrã de entrada, e não tem por onde passar.</p>
+          </div>
+          <div class="nota"><b>[[CREDENCIAIS: o dono preenche no formulário]]</b> — o email e a palavra-passe da conta de teste escrevem-se aqui, na consola, e não neste ficheiro nem no repositório. A nota do passo seguinte aponta para estes campos, e por isso cola-se tal como está.</div>
+        </div>
+      </div>
+
+      <div class="passo">
+        <div class="passo-marca"><div class="passo-n">16</div><div class="passo-linha"></div></div>
+        <div class="passo-corpo">
+          <span class="onde">App Store Connect</span>
+          <h3>A nota, em inglês</h3>
+          <div class="campo longo">
+            <div class="campo-cab"><span class="campo-nome">Notes</span><span class="campo-cont">2308 / 4000</span><button class="copiar" data-alvo="c-nota">Copiar</button></div>
+<pre id="c-nota">Foodboxd is a restaurant diary for Portugal: a map of places worth
+going to, and a private log of what you ate and what you thought of it.
+
+AN ACCOUNT IS REQUIRED. The app opens on a sign-in screen and shows
+nothing until you are signed in. There are two ways in, and either one
+is enough to review the whole app.
+
+1. The demo account. Its email and password are in the Sign-In
+   Information fields of this same App Review Information section. Type
+   them into "Email" and "Palavra-passe" on the first screen, then tap
+   "Entrar".
+
+2. Your own Apple ID. Tap "Continuar com a Apple". Sign in with Apple is
+   fully supported, including "Hide My Email" - the app works normally
+   with a privaterelay.appleid.com address. "Continuar com a Google"
+   works the same way, and "Criar conta" opens an account from any email
+   and password. There is no email verification step.
+
+Once you are in, the shared list of 68 restaurants across Portugal is
+there immediately, with rating, price range, phone number and signature
+dishes. On a brand-new account the Diário and the Amigos feed start
+empty. That is intended: both are built from what you log and who you
+follow, and the empty feed offers "Descobrir pessoas" to get started.
+
+Where things are (bottom tab bar):
+  Mapa    - the map and the restaurant list; tap any pin or card
+  Diário  - your own visits, reviews and dishes
+  Amigos  - activity feed and leaderboard
+  Perfil  - your account, and "Apagar conta"
+
+Adding a place: the "+" button in the top bar. You choose "Quero ir"
+(want to go) or "Já fui" (been there); "Já fui" also marks the place as
+visited and lets you attach a photo.
+
+Location (5.1.1): asked only inside "Pergunta-me", the sparkle button in
+the top bar, and only when you ask it for a suggestion. Never at launch.
+The app works without it.
+
+Reporting and blocking (1.2): open any photo or comment posted by
+another person and use the flag icon / "Denunciar". Blocking is offered
+in the same sheet. Blocked people can be restored in Perfil, in the
+"Pessoas bloqueadas" row that appears once you have blocked someone.
+
+Account deletion (5.1.1(v)): Perfil -> "Apagar conta". It asks you to
+type APAGAR to confirm, then deletes the account for real: the Firestore
+data, the photos in Storage, and the Auth user.
+
+The app is in Portuguese.</pre>
+          </div>
+          <p>E o contacto — nome, telefone e email — para a Apple falar contigo se travar em alguma coisa.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ FASE 8 ============ -->
+  <section class="fase">
+    <div class="fase-cab"><span class="fase-num">Fase 8</span><h2>Submeter</h2></div>
+
+    <div class="passos">
+      <div class="passo">
+        <div class="passo-marca"><div class="passo-n">17</div><div class="passo-linha"></div></div>
+        <div class="passo-corpo">
+          <span class="onde">App Store Connect</span>
+          <h3>Add for Review</h3>
+          <p>Escolhe <strong>publicar automaticamente quando for aprovada</strong>, ou manualmente se quiseres escolher o dia. Depois: <em>Submit for Review</em>.</p>
+          <p>O estado passa a <em>Waiting for Review</em>. A primeira revisão costuma demorar <strong>um a três dias</strong>, e chega por email.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SE VOLTAR ============ -->
+  <section class="fase">
+    <div class="fase-cab"><span class="fase-num">Se voltar</span><h2>O que a Apple costuma levantar</h2></div>
+    <p>E o que já foi feito para cada uma. Se a rejeição for por um destes, a resposta é apontar para a prova, não reescrever código.</p>
+
+    <div class="tab-wrap">
+      <table>
+        <tr><th>Diretriz</th><th>O que costuma ser</th><th>O que já está feito</th></tr>
+        <tr><td><b>5.1.1(v)</b></td><td>Apagar a conta não existe ou não apaga</td><td>Perfil → Apagar conta, confirmado com <code>APAGAR</code>; apaga Firestore, Storage e Auth. Medido no emulador, 26 afirmações</td></tr>
+        <tr><td><b>1.2</b></td><td>UGC sem denunciar nem bloquear</td><td>Bandeira em cada comentário alheio, <i>Denunciar</i> nas fotografias, bloquear e desbloquear. Denúncias em <code>reports</code></td></tr>
+        <tr><td><b>4.8</b></td><td>Login social sem Sign in with Apple</td><td>Está lá, e o nome é capturado na primeira autorização</td></tr>
+        <tr><td><b>5.1.1</b></td><td>Permissão pedida sem contexto</td><td>Localização só dentro do «Pergunta-me», nunca ao arrancar, e a app funciona sem ela</td></tr>
+        <tr><td><b>2.1</b></td><td>«Não conseguimos entrar»</td><td><i>Sign-in required</i> ligado, com a conta de teste; e a nota diz que também dá para entrar com o Apple ID do próprio revisor</td></tr>
+        <tr><td><b>4.2</b></td><td>«A app parece vazia»</td><td>68 restaurantes assim que se entra, com fotos e avaliações. O Diário e os Amigos é que começam vazios, e a nota diz porquê</td></tr>
+      </table>
+    </div>
+
+    <div class="nota">
+      <b>Uma que não se resolve com prova nenhuma:</b> se a revisão achar que a app é «demasiado simples». O argumento é o que os dois primeiros screenshots mostram — um diário pessoal e um assistente que cita o teu gosto, não um directório.
+    </div>
+  </section>
+
+  <!-- ============ DEPOIS ============ -->
+  <section class="fase">
+    <div class="fase-cab"><span class="fase-num">Depois</span><h2>O que fica a saber-se</h2></div>
+    <ul class="limpa">
+      <li><strong>O Node 20 das Cloud Functions é decomissionado a 30/10/2026.</strong> A app não pára nesse dia — o que se perde é poder corrigir o servidor. Migrar com calma, não em cima de um incidente.</li>
+      <li><strong>As contas Google e Apple são separadas de propósito.</strong> Quem entrar pela Google e um dia tocar no botão da Apple vê zero de tudo. Decidido não ligar, e escrito porquê no handoff.</li>
+      <li><strong>Cada versão nova exige subir o service worker</strong> em <code>sw.js</code> e voltar a publicar o site, além do archive.</li>
+    </ul>
+    <p style="color:var(--ink-2)">O estado a sério vive na tabela «O que falta, por ordem» do <code>HANDOFF-IOS-AGENTE.md</code>. Esta página é o companheiro para a consola; aquela tabela é a verdade.</p>
+  </section>
+
+  <footer>
+    Foodboxd · iOS 1.0 · <code>pt.foodboxd.app</code> · equipa <code>LGN8A4342T</code>
+  </footer>
+
+</div>
+
+<script>
+  // Copiar sem prometer o que pode não acontecer: se a área de transferência
+  // estiver fechada pelo sandbox, seleciona o texto para a pessoa copiar à mão,
+  // e diz isso — em vez de piscar "copiado" sobre uma coisa que não copiou.
+  document.querySelectorAll("button.copiar").forEach(function (b) {
+    b.addEventListener("click", async function () {
+      var el = document.getElementById(b.dataset.alvo);
+      if (!el) return;
+      var texto = el.textContent;
+      try {
+        await navigator.clipboard.writeText(texto);
+        b.textContent = "Copiado";
+        b.dataset.estado = "feito";
+      } catch (e) {
+        var sel = window.getSelection();
+        var r = document.createRange();
+        r.selectNodeContents(el);
+        sel.removeAllRanges();
+        sel.addRange(r);
+        b.textContent = "Selecionado";
+      }
+      setTimeout(function () {
+        b.textContent = "Copiar";
+        delete b.dataset.estado;
+      }, 2200);
+    });
+  });
+</script>

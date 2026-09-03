@@ -45,23 +45,41 @@ const MapModule = (() => {
   }
 
   const PIN_PATH = "M12 0C7 0 3 4 3 9c0 6.6 9 15 9 15s9-8.4 9-15c0-5-4-9-9-9z";
+  const PRIORITY_COLOR = "#b04a1c"; // --primary (alinhado na Fase 1; era #b5531f)
 
-  function getMarkerIcon(category, visited) {
-    const color = (CATEGORIES[category] && CATEGORIES[category].hex) || "#555555";
+  // The pin carries three things at once: category (colour), whether you've been
+  // (filled vs hollow) and whether it's on your wishlist (corner badge). Drawn as
+  // an inline SVG rather than a Maps symbol + text label, so it renders the same
+  // on every platform.
+  function getMarkerIcon(category, visited, priority) {
+    const color = (CUISINES[category] && CUISINES[category].hex) || "#555555";
+    const fill = visited ? color : "#ffffff";
+    const stroke = visited ? "#ffffff" : color;
+    const width = visited ? 2 : 2.5;
+    const badge = priority
+      ? `<circle cx="20" cy="6" r="5" fill="${PRIORITY_COLOR}" stroke="#ffffff" stroke-width="1.6"/>`
+      : "";
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 26 26" width="39" height="39">` +
+      `<g transform="translate(1,1)"><path d="${PIN_PATH}" fill="${fill}" stroke="${stroke}" ` +
+      `stroke-width="${width}" stroke-linejoin="round"/></g>${badge}</svg>`;
     return {
-      path: PIN_PATH,
-      fillColor: color,
-      fillOpacity: visited ? 0.45 : 1,
-      strokeColor: "#ffffff",
-      strokeWeight: 2,
-      scale: 1.5,
-      anchor: new google.maps.Point(12, 24),
-      labelOrigin: new google.maps.Point(12, 9)
+      url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+      scaledSize: new google.maps.Size(39, 39),
+      anchor: new google.maps.Point(19.5, 37.5) // the pin's tip
     };
   }
 
-  function getMarkerLabel(visited) {
-    return visited ? { text: "✓", color: "#ffffff", fontSize: "12px", fontWeight: "700" } : null;
+  // What you still have to do sits above what you've already done.
+  function markerZIndex(visited, priority) {
+    return priority ? 3 : (visited ? 1 : 2);
+  }
+
+  // The marks live in UserData (cloud when signed in, localStorage otherwise) —
+  // reading Storage directly here used to show a stale state for signed-in users.
+  function markStateOf(id) {
+    if (typeof UserData === "undefined") return { visited: Storage.isVisited(id), priority: false };
+    return { visited: UserData.isVisited(id), priority: UserData.isPriority(id) };
   }
 
   function highlightMarker(id) {
@@ -72,32 +90,120 @@ const MapModule = (() => {
     setTimeout(() => marker.setAnimation(null), 700);
   }
 
+  // O clusterer (F4): a lib oficial @googlemaps/markerclusterer, por CDN. A
+  // guarda existe porque o CDN pode não vir (offline; o sw não faz cache
+  // cross-origin) — sem o global, os pins ficam soltos como sempre estiveram.
+  // O renderer é da casa: uma bolha terracota com a contagem, em vez do
+  // balão azul default que não é de ninguém.
+  let clusterer = null;
+  function bolhaDeCluster(count, position) {
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">` +
+      `<circle cx="22" cy="22" r="18" fill="#b04a1c" stroke="#ffffff" stroke-width="3"/>` +
+      `<text x="22" y="27" text-anchor="middle" font-family="-apple-system,sans-serif" ` +
+      `font-size="14" font-weight="700" fill="#ffffff">${count}</text></svg>`;
+    return new google.maps.Marker({
+      position,
+      icon: { url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg), scaledSize: new google.maps.Size(44, 44) },
+      zIndex: 5
+    });
+  }
+
   function renderMarkers(restaurants, onClick) {
     if (!available) return;
 
+    if (clusterer && clusterer.clearMarkers) clusterer.clearMarkers();
+    clusterer = null;
     markers.forEach((marker) => marker.setMap(null));
     markers.clear();
 
     restaurants.forEach((restaurant) => {
-      const visited = Storage.isVisited(restaurant.id);
+      const { visited, priority } = markStateOf(restaurant.id);
       const marker = new google.maps.Marker({
         position: { lat: restaurant.lat, lng: restaurant.lng },
         map,
         title: restaurant.name,
-        icon: getMarkerIcon(restaurant.category, visited),
-        label: getMarkerLabel(visited)
+        icon: getMarkerIcon(typeof cuisineOf === "function" ? cuisineOf(restaurant) : restaurant.category, visited, priority),
+        zIndex: markerZIndex(visited, priority)
       });
       marker.addListener("click", () => onClick(restaurant));
       markers.set(restaurant.id, marker);
     });
+
+    const MC = window.markerClusterer && window.markerClusterer.MarkerClusterer;
+    if (MC && markers.size) {
+      clusterer = new MC({
+        map,
+        markers: [...markers.values()],
+        renderer: { render: ({ count, position }) => bolhaDeCluster(count, position) }
+      });
+    }
   }
 
-  function setMarkerVisited(id, category, visited) {
+  // ---- Temporary search results (the map magnifier) ----
+  // Deliberately different from your own pins: grey, hollow, dashed, and on top —
+  // they are places you are only LOOKING at, and vanish when the search closes.
+  let searchMarkers = [];
+  function searchMarkerIcon() {
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 26 26" width="34" height="34">` +
+      `<g transform="translate(1,1)"><path d="${PIN_PATH}" fill="#ffffff" stroke="#6b6259" ` +
+      `stroke-width="2" stroke-dasharray="3 2.4" stroke-linejoin="round"/></g>` +
+      `<circle cx="12" cy="10" r="2.6" fill="#6b6259"/></svg>`;
+    return {
+      url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+      scaledSize: new google.maps.Size(34, 34),
+      anchor: new google.maps.Point(17, 32.7)
+    };
+  }
+  function setSearchMarkers(places, onClick) {
+    if (!available) return;
+    clearSearchMarkers();
+    (places || []).forEach((p) => {
+      if (typeof p.lat !== "number") return;
+      const marker = new google.maps.Marker({
+        position: { lat: p.lat, lng: p.lng },
+        map, title: p.name, icon: searchMarkerIcon(), zIndex: 10
+      });
+      marker.addListener("click", () => onClick && onClick(p));
+      searchMarkers.push(marker);
+    });
+  }
+  function clearSearchMarkers() {
+    searchMarkers.forEach((m) => m.setMap(null));
+    searchMarkers = [];
+  }
+  // Centre + a radius that covers what's actually on screen, so "search this area"
+  // means this area.
+  function getViewport() {
+    if (!available || !map) return null;
+    const c = map.getCenter();
+    if (!c) return null;
+    const b = map.getBounds();
+    let radiusKm = 5;
+    if (b) {
+      const ne = b.getNorthEast();
+      const dLat = Math.abs(ne.lat() - c.lat()) * 111;
+      const dLng = Math.abs(ne.lng() - c.lng()) * 111 * Math.cos((c.lat() * Math.PI) / 180);
+      radiusKm = Math.max(1, Math.min(50, Math.sqrt(dLat * dLat + dLng * dLng)));
+    }
+    return { lat: c.lat(), lng: c.lng(), radiusKm };
+  }
+
+  function panTo(lat, lng, zoom) {
+    if (!available || typeof lat !== "number") return;
+    map.panTo({ lat, lng });
+    if (typeof zoom === "number") map.setZoom(zoom);
+  }
+
+  function setMarkerState(id, category, state) {
     if (!available) return;
     const marker = markers.get(id);
     if (!marker) return;
-    marker.setIcon(getMarkerIcon(category, visited));
-    marker.setLabel(getMarkerLabel(visited));
+    const visited = !!(state && state.visited);
+    const priority = !!(state && state.priority);
+    marker.setIcon(getMarkerIcon(category, visited, priority));
+    marker.setZIndex(markerZIndex(visited, priority));
   }
 
   function openInfoWindow(restaurant, contentHtml, onDomReady) {
@@ -119,6 +225,20 @@ const MapModule = (() => {
     map.setZoom(13);
   }
 
+  // Remember the current camera so we can return to it later (e.g. after the
+  // user closes a restaurant's detail). Restore clears the saved state.
+  let savedCamera = null;
+  function saveCamera() {
+    if (!available) return;
+    savedCamera = { center: map.getCenter(), zoom: map.getZoom() };
+  }
+  function restoreCamera() {
+    if (!available || !savedCamera) return;
+    map.panTo(savedCamera.center);
+    map.setZoom(savedCamera.zoom);
+    savedCamera = null;
+  }
+
   function getDirectionsService() {
     return directionsService;
   }
@@ -131,6 +251,81 @@ const MapModule = (() => {
   function clearRoute() {
     if (!available) return;
     directionsRenderer.setDirections({ routes: [] });
+  }
+
+  // Extremidades de uma lista de sítios. Ignora quem não tem coordenadas, e
+  // devolve null quando não sobra nada — o chamador é que decide o que fazer.
+  function boundsOf(list) {
+    const pts = (list || []).filter((r) => typeof r.lat === "number" && typeof r.lng === "number");
+    if (!pts.length) return null;
+    return pts.reduce((b, r) => ({
+      south: Math.min(b.south, r.lat), north: Math.max(b.north, r.lat),
+      west: Math.min(b.west, r.lng), east: Math.max(b.east, r.lng)
+    }), { south: pts[0].lat, north: pts[0].lat, west: pts[0].lng, east: pts[0].lng });
+  }
+
+  // Enquadra os sítios todos, que é a vista que diz mais num mapa pessoal: onde
+  // já estive, de uma só olhada. O limite de zoom existe para o caso de haver um
+  // só sítio — sem ele o fitBounds mergulha até à rua.
+  // Enquadrar NA ZONA em vez de em tudo (F4). O defeito medido a 25/08: um
+  // punhado de pins fora de Portugal (Madrid, Barcelona) esticava o fitBounds
+  // e a app abria com a Península inteira — o conteúdo real ficava num monte
+  // ilegível na costa. Com homeTown, a zona são os pins a ≤80 km de casa; sem
+  // ele, o maior aglomerado numa grelha de ~0,5° com as células vizinhas.
+  // Devolve false quando não há nada — o chamador cai no fitToMarkers de
+  // sempre, e por fim no resetView.
+  const ZONA_KM = 80;
+  function distanciaKm(a, b) {
+    const rad = Math.PI / 180;
+    const dLat = (b.lat - a.lat) * rad;
+    const dLng = (b.lng - a.lng) * rad;
+    const s = Math.sin(dLat / 2) ** 2 +
+      Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
+    return 6371 * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+  }
+  function fitToZone(list, home) {
+    if (!available) return false;
+    const pts = (list || []).filter((r) => typeof r.lat === "number" && typeof r.lng === "number");
+    if (!pts.length) return false;
+    let nucleo = [];
+    if (home && typeof home.lat === "number" && typeof home.lng === "number") {
+      nucleo = pts.filter((r) => distanciaKm(home, r) <= ZONA_KM);
+    }
+    if (!nucleo.length) {
+      const celulas = new Map();
+      pts.forEach((r) => {
+        const k = `${Math.round(r.lat * 2)}|${Math.round(r.lng * 2)}`;
+        if (!celulas.has(k)) celulas.set(k, []);
+        celulas.get(k).push(r);
+      });
+      let vencedora = null;
+      celulas.forEach((v, k) => { if (!vencedora || v.length > celulas.get(vencedora).length) vencedora = k; });
+      const [cl, cn] = vencedora.split("|").map(Number);
+      nucleo = pts.filter((r) =>
+        Math.abs(Math.round(r.lat * 2) - cl) <= 1 && Math.abs(Math.round(r.lng * 2) - cn) <= 1);
+    }
+    if (!nucleo.length) return false;
+    return fitToMarkers(nucleo);
+  }
+
+  const FIT_PADDING = 40;
+  const FIT_MAX_ZOOM = 14;
+  function fitToMarkers(list) {
+    if (!available) return false;
+    const b = boundsOf(list);
+    if (!b) return false;
+    map.fitBounds(
+      new google.maps.LatLngBounds(
+        new google.maps.LatLng(b.south, b.west),
+        new google.maps.LatLng(b.north, b.east)
+      ),
+      FIT_PADDING
+    );
+    // O fitBounds é assíncrono; o zoom só se corrige depois de ele assentar.
+    google.maps.event.addListenerOnce(map, "idle", () => {
+      if (map.getZoom() > FIT_MAX_ZOOM) map.setZoom(FIT_MAX_ZOOM);
+    });
+    return true;
   }
 
   function fitToRoute(bounds) {
@@ -154,9 +349,18 @@ const MapModule = (() => {
     getMap,
     highlightMarker,
     renderMarkers,
-    setMarkerVisited,
+    setMarkerState,
+    setSearchMarkers,
+    clearSearchMarkers,
+    getViewport,
+    panTo,
+    boundsOf,
+    fitToMarkers,
+    fitToZone,
     openInfoWindow,
     focusRestaurant,
+    saveCamera,
+    restoreCamera,
     getDirectionsService,
     drawRoute,
     clearRoute,

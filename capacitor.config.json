@@ -1,0 +1,31 @@
+{
+  "appId": "pt.foodboxd.app",
+  "appName": "Foodboxd",
+  "webDir": "www",
+  "backgroundColor": "#f6f1e7",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#f6f1e7",
+    "scrollEnabled": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 600,
+      "backgroundColor": "#f6f1e7",
+      "showSpinner": false
+    },
+    "FirebaseAuthentication": {
+      "skipNativeAuth": true,
+      "providers": [
+        "apple.com",
+        "google.com"
+      ]
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    },
+    "Keyboard": {
+      "resize": "none"
+    }
+  }
+}

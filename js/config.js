@@ -23,3 +23,43 @@ const CONFIG = {
 // NOT become a property of window, so module scripts can't see bare CONFIG —
 // without this, window.CONFIG is undefined and Firebase never initialises.
 window.CONFIG = CONFIG;
+
+// ---------------------------------------------------------------------------
+//  Ambiente. Três sítios onde a app pode correr, e só um deles toca em dados
+//  reais de escrita:
+//
+//    produção   foodboxd.pt              — a app a sério
+//    canal QA   …--qa-xxxx.web.app       — build novo, MESMA base de dados
+//    emulador   localhost                — tudo local, dados de brincar
+//
+//  A deteção é por hostname e falha sempre para o lado seguro: qualquer domínio
+//  que não seja localhost fala com a nuvem real, nunca com um emulador que pode
+//  não estar a correr.
+// ---------------------------------------------------------------------------
+//  A app nativa é a quarta hipótese, e não estava prevista: a WKWebView do
+//  Capacitor serve os ficheiros de `capacitor://localhost`, portanto o
+//  hostname É "localhost" e a app instalada dava-se como emulador. Auth,
+//  Firestore, Storage, o "Pergunta-me" e o apagar conta ficavam todos
+//  apontados a 127.0.0.1 dentro do telemóvel, onde não há emulador nenhum —
+//  nada que precise da nuvem funcionava, a começar pelo login.
+const EM_NATIVO = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+CONFIG.EMULATORS = !EM_NATIVO && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+CONFIG.IS_PREVIEW = /--[a-z0-9-]+\.web\.app$/.test(location.hostname);
+CONFIG.NATIVO = EM_NATIVO;
+
+//  Onde vivem as funções, visto de dentro da app.
+//
+//  Na web é um caminho relativo, que a reescrita do Firebase Hosting apanha.
+//  Na app nativa NÃO PODE SER: a origem é `capacitor://localhost` e um `/api/`
+//  relativo resolve para o handler local de ficheiros, que devolve 404. Foi
+//  assim que o "Pergunta-me" e o apagar conta ficaram partidos no nativo sem
+//  ninguém dar por isso — não há erro de rede, há um 404 de um ficheiro que
+//  nunca existiu.
+//
+//  As funções já respondem com CORS (`cors: true` nas duas), por isso o pedido
+//  entre origens passa sem mudar nada do lado delas.
+CONFIG.API_BASE = EM_NATIVO ? "https://foodboxd.pt" : "";
+CONFIG.ENV = CONFIG.EMULATORS ? "emulador" : (CONFIG.IS_PREVIEW ? "QA" : "produção");
+
+// Portas iguais às de firebase.json.
+CONFIG.EMU = { firestore: 8080, auth: 9099, functions: 5001, storage: 9199 };

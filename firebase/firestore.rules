@@ -1,26 +1,68 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Shared restaurant list. Anyone can read the map and add a new place,
-    // but existing entries cannot be deleted from the browser.
+    // Shared restaurant list. Anyone can read the map; only a signed-in user
+    // can add a new place, stamped with their own uid. Entries can't be edited,
+    // and only the author can delete what they added.
     match /restaurants/{doc} {
       allow read: if true;
-      allow create: if true;
-      allow update, delete: if false;
+      allow create: if request.auth != null
+                    && request.resource.data.addedByUid == request.auth.uid;
+      allow update: if false;
+      allow delete: if request.auth != null
+                    && resource.data.addedByUid == request.auth.uid;
     }
     // Shared edits (e.g. category changes) keyed by restaurant id. Anyone can
-    // read and set them so corrections show up for everyone.
+    // read them; writing passou a exigir sessão a 25/08 — era `if true`, e
+    // qualquer pessoa SEM conta podia mover pinos e trocar capas de toda a
+    // gente. Nenhum caminho da app escrevia anonimamente (os botões estão
+    // atrás de sessão); a regra é que ainda dizia o contrário. A lista de
+    // campos é fechada: um override só corrige o que a app sabe corrigir.
     match /overrides/{doc} {
       allow read: if true;
-      allow create, update: if true;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasOnly(
+                         ['category', 'cuisine', 'styles', 'photoURL', 'lat', 'lng', 'updatedAt']);
+      allow update: if request.auth != null
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+                         ['category', 'cuisine', 'styles', 'photoURL', 'lat', 'lng', 'updatedAt']);
       allow delete: if false;
     }
     // Per-person marks (visited / priority / ratings / notes / history).
-    // Signed-in friends can read each other's (the group view); you can only
-    // write your own document.
+    // You can always read/write your own. Others can read it only when you share
+    // it: globally (audienceGlobal == true, the default and for legacy docs) or
+    // with specific people you've added to `visibleTo` (the members of the groups
+    // you chose to share with). Queries must be constrained to match this.
     match /userData/{uid} {
+      // Your activity is visible to you and to whoever follows you. `exists()`
+      // cannot run inside a query, so bulk listing is off: the client reads the
+      // docs of the people it follows one by one.
+      allow get: if request.auth != null && (
+        request.auth.uid == uid
+        || exists(/databases/$(database)/documents/follows/$(request.auth.uid + '_' + uid))
+      );
+      allow list: if false;
+      allow write: if request.auth != null && request.auth.uid == uid;
+      // ROLLBACK (pre-follow model): replace the two rules above with
+      // allow read: if request.auth != null && (request.auth.uid == uid
+      //   || !('audienceGlobal' in resource.data) || resource.data.audienceGlobal == true
+      //   || ('visibleTo' in resource.data && request.auth.uid in resource.data.visibleTo));
+    }
+    // Public identity, so people can be found and followed without exposing any
+    // activity. Deliberately minimal: name + photo.
+    match /profiles/{uid} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    // follows/{followerUid}_{targetUid} — deterministic id, so following and
+    // unfollowing are idempotent and need no queries to check.
+    match /follows/{edge} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.followerUid == request.auth.uid
+                    && edge == request.auth.uid + '_' + request.resource.data.targetUid;
+      allow delete: if request.auth != null && resource.data.followerUid == request.auth.uid;
+      allow update: if false;
     }
     // Shared comments per restaurant. Anyone can read; only signed-in users
     // can post, and only the author can edit or delete their own.
@@ -31,6 +73,124 @@ service cloud.firestore {
       allow update, delete: if request.auth != null
                     && request.auth.uid == resource.data.uid;
     }
+    // Groups: any signed-in user can create one (as owner+member) and read
+    // groups (so they can be found by code to join). The owner can edit/delete;
+    // anyone else may only join — i.e. add their own uid to `members` while
+    // leaving name/code/ownerUid untouched and removing no existing member.
+    match /groups/{doc} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.ownerUid == request.auth.uid
+                    && request.auth.uid in request.resource.data.members;
+      allow delete: if request.auth != null
+                    && request.auth.uid == resource.data.ownerUid;
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.ownerUid
+        || (
+          // join: add only my own uid, remove no one, leave name/code/owner intact
+          request.resource.data.ownerUid == resource.data.ownerUid
+          && request.resource.data.code == resource.data.code
+          && request.resource.data.name == resource.data.name
+          && resource.data.members.toSet().difference(request.resource.data.members.toSet()).size() == 0
+          && request.resource.data.members.toSet().difference(resource.data.members.toSet()) == [request.auth.uid].toSet()
+        )
+        || (
+          // leave: remove only my own uid, add no one, leave name/code/owner intact
+          request.resource.data.ownerUid == resource.data.ownerUid
+          && request.resource.data.code == resource.data.code
+          && request.resource.data.name == resource.data.name
+          && request.resource.data.members.toSet().difference(resource.data.members.toSet()).size() == 0
+          && resource.data.members.toSet().difference(request.resource.data.members.toSet()) == [request.auth.uid].toSet()
+        )
+      );
+    }
+    // Joint-visit invites. A user records a visit and tags friends who came along;
+    // each tagged friend gets an invite they can accept (which then writes the visit
+    // into their OWN doc — nobody can write another person's userData).
+    match /visitInvites/{doc} {
+      allow create: if request.auth != null
+                    && request.resource.data.fromUid == request.auth.uid
+                    && request.resource.data.status == 'pending';
+      allow read: if request.auth != null
+                  && (request.auth.uid == resource.data.fromUid
+                   || request.auth.uid == resource.data.toUid);
+      // Only the recipient responds, and only the status/respondedAt may change.
+      allow update: if request.auth != null
+                    && request.auth.uid == resource.data.toUid
+                    && request.resource.data.diff(resource.data)
+                         .affectedKeys().hasOnly(['status', 'respondedAt'])
+                    && request.resource.data.status in ['accepted', 'declined'];
+      allow delete: if request.auth != null && request.auth.uid == resource.data.fromUid;
+    }
+    // Content reports (App Store guideline 1.2). Write-only from the client:
+    // anyone signed in can file one about someone else's content, and nobody
+    // can read, edit or delete them from the app. They are reviewed in the
+    // Firestore console.
+    //
+    // `denuncianteUid` has to be the caller so a report can't be filed in
+    // someone else's name; `alvoUid` can't be the caller so the collection
+    // can't be used as free storage against oneself.
+    match /reports/{doc} {
+      allow read: if false;
+      allow update, delete: if false;
+      allow create: if request.auth != null
+                    && request.resource.data.denuncianteUid == request.auth.uid
+                    && request.resource.data.alvoUid != request.auth.uid
+                    && request.resource.data.tipo in ['comentario', 'foto'];
+    }
+
+    // Tokens de push (F3): um documento por pessoa, com os tokens dos SEUS
+    // dispositivos. Só o dono lhe toca e só o dono o lê — quem envia as
+    // notificações é o Admin SDK, que não passa pelas regras.
+    match /pushTokens/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Eventos de atividade que alimentam as notificações (F3). O cliente cria
+    // o SEU e mais nada: ninguém os lê daqui (a função lê com Admin SDK), e um
+    // evento não se edita nem apaga — é um facto, não um estado.
+    match /activity/{doc} {
+      allow read: if false;
+      allow update, delete: if false;
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.tipo in ['visita', 'avaliacao', 'foto']
+                    && request.resource.data.restaurantId is string
+                    && request.resource.data.restaurantId.size() > 0
+                    && request.resource.data.createdAt is string;
+    }
+
+    // Cache partilhada dos detalhes da Google (js/places.js): o primeiro
+    // dispositivo que busca um sítio paga a chamada, os outros leem daqui.
+    // Escrever exige sessão e a forma exata {dados, quando} — é conteúdo
+    // derivado da Google, não dados de pessoas; o risco de alguém autenticado
+    // escrever lixo limita-se a estrelinhas erradas até ao refresh seguinte.
+    match /placesCache/{doc} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+                    && request.resource.data.keys().hasOnly(['dados', 'quando'])
+                    && request.resource.data.quando is string;
+      allow delete: if false;
+    }
+
+    // Erros do cliente (js/erros.js). Write-only, como os reports: a app
+    // grava e ninguém os lê daqui — leem-se na consola do Firestore. Sessão
+    // obrigatória, e o uid tem de ser o de quem chama: abrir isto ao
+    // anonimato seria reabrir o buraco fechado nos overrides. O preço é que
+    // um erro no ecrã de entrada (sem sessão) não fica gravado — aceite, e
+    // dito aqui em vez de descoberto mais tarde.
+    match /errosClient/{doc} {
+      allow read: if false;
+      allow update, delete: if false;
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.msg is string
+                    && request.resource.data.msg.size() > 0
+                    && request.resource.data.msg.size() <= 500
+                    && request.resource.data.keys().hasOnly(
+                         ['uid', 'msg', 'stack', 'onde', 'ua', 'quando']);
+    }
+
     // Photo metadata per restaurant (the file itself lives in Cloud Storage).
     // Anyone can read; only signed-in users can add, and only the uploader can
     // remove their own.

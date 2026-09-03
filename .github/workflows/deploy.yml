@@ -1,0 +1,116 @@
+# Publica em PRODUÇÃO (foodboxd.pt). Só à mão.
+#
+# Nunca corre sozinho: `workflow_dispatch` obriga a alguém carregar no botão em
+# Actions > Deploy (produção) > Run workflow. Um push não chega a produção por
+# acidente — para isso existe o canal de QA em qa.yml.
+#
+# Requer o mesmo segredo FIREBASE_SERVICE_ACCOUNT (Settings > Secrets and
+# variables > Actions) que o canal de QA. Sem ele os dois falham.
+name: Deploy (produção)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch ou commit a publicar (ex.: claude/beautiful-davinci-vsyokk)"
+        required: true
+      permitir_retrocesso:
+        description: "Publicar mesmo que seja uma versão MAIS ANTIGA do que a que está no ar"
+        type: boolean
+        default: false
+      funcoes:
+        description: "Publicar também as funções (mais lento; só quando functions/ mudou)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-producao
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  producao:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      # A versão da cache do service worker é o que faz a app instalada
+      # apanhar o build novo. Se não subiu, o deploy não chega a ninguém que
+      # já tenha a app — e isso é um erro silencioso, não um aviso.
+      # A versão da cache do service worker é o que faz a app instalada apanhar o
+      # build novo — e é também a única forma barata de saber se este deploy
+      # avança ou recua.
+      #
+      # Existe porque aconteceu: com `default: main` no campo do ref, um deploy
+      # foi buscar o main (v42) e reverteu produção que estava em v77. O deploy
+      # correu "com sucesso"; só o site é que ficou meses atrasado. Nada no
+      # workflow tinha como dar por isso.
+      - name: Versão, e não publicar para trás
+        id: sw
+        run: |
+          novo=$(grep -oP 'foodboxd-v\K\d+' sw.js | head -1)
+          atual=$(curl -sf --max-time 20 https://foodboxd.pt/sw.js | grep -oP 'foodboxd-v\K\d+' | head -1 || echo 0)
+          echo "ref pedido: ${{ inputs.ref }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "em produção: v$atual · a publicar: v$novo" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$novo" -lt "$atual" ] && [ "${{ inputs.permitir_retrocesso }}" != "true" ]; then
+            echo "::error::Isto RECUA produção de v$atual para v$novo. Confirma o ref '${{ inputs.ref }}'. Se o retrocesso é mesmo o que queres, volta a correr com 'permitir_retrocesso'."
+            exit 1
+          fi
+          echo "v=foodboxd-v$novo" >> "$GITHUB_OUTPUT"
+
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: app-restaurantes-499400
+          channelId: live
+
+      # As regras vão SEMPRE com o deploy, sem botão próprio. Descoberto a
+      # 25/08: este workflow publicava hosting e funções mas nunca as regras —
+      # a Fase 0 endureceu overrides e Storage e nada disso chegava a produção
+      # por aqui. Regras dessincronizadas do código são exatamente o tipo de
+      # divergência silenciosa que ninguém vê até doer; publicar sempre é
+      # barato (segundos) e idempotente.
+      - name: Regras do Firestore e do Storage
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx --yes firebase-tools@latest deploy --only firestore:rules,storage \
+            --project app-restaurantes-499400 --non-interactive
+          rm -f "$RUNNER_TEMP/sa.json"
+
+      # As funções são opcionais porque a maioria dos deploys é só de hosting e
+      # publicar funções é lento. Escolhe-se no botão "Run workflow".
+      #
+      # Só é seguro porque a chave da Anthropic passou para o Secret Manager: o
+      # functions/.env está no .gitignore, portanto o checkout do CI não o tem, e
+      # enquanto a chave era uma variável de ambiente um deploy daqui apagava-a e
+      # deixava a IA em baixo sem dizer nada.
+      # `firebase deploy --only functions` lê o código para descobrir o que
+      # publicar, e para isso precisa do firebase-functions instalado. Sem este
+      # passo falha com "Couldn't find firebase-functions package in your source
+      # code" — que foi o que aconteceu à primeira.
+      - name: Dependências das funções
+        if: ${{ inputs.funcoes }}
+        run: npm ci --prefix functions
+
+      - name: Funções
+        if: ${{ inputs.funcoes }}
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx --yes firebase-tools@latest deploy --only functions \
+            --project app-restaurantes-499400 --non-interactive
+          rm -f "$RUNNER_TEMP/sa.json"
+
+      - name: Confirmar o que ficou em produção
+        run: |
+          servida=$(curl -sf --max-time 20 https://foodboxd.pt/sw.js | grep -oP 'foodboxd-v\d+' | head -1)
+          echo "foodboxd.pt serve: $servida" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$servida" != "${{ steps.sw.outputs.v }}" ]; then
+            echo "AVISO: esperava ${{ steps.sw.outputs.v }}. Pode ser cache de borda — confirma daqui a um minuto." >> "$GITHUB_STEP_SUMMARY"
+          fi

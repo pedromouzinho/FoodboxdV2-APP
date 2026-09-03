@@ -1,220 +1,156 @@
-# Restaurantes Portugal 🍽️
+# Foodboxd 🍽️
 
-An interactive map of restaurants in Portugal you want to visit — built as a static site for GitHub Pages. Each restaurant links straight to Google Maps for reviews, photos, hours and directions.
+**"Letterboxd para restaurantes"** — um mapa interativo + diário social onde
+avalias sítios, registas os pratos que comeste, guardas memórias/experiências, e
+vês a atividade e os leaderboards dos amigos.
 
-First batch: 10 spots in the **Alentejo**, taken from a personal wishlist.
+- **Produção:** https://foodboxd.pt (e https://app-restaurantes-499400.web.app)
+- **Stack:** vanilla JS (sem framework, sem build) · PWA · Firebase
+  (Hosting + Firestore + Storage + Auth) · Google Maps/Places.
+- **App iOS nativa (opcional):** casca Capacitor — ver [`SETUP_IOS.md`](SETUP_IOS.md).
+- **Continuidade / handoff técnico completo:** ver [`CONTEXT.md`](CONTEXT.md).
+- **Handoff de design (UI/UX):** índice e estado em [`DESIGN-HANDOFF.md`](DESIGN-HANDOFF.md); o pacote em [`design/handoff/`](design/handoff/).
+- **Brief de marca (ícone e formatos):** [`DESIGN-BRIEF-MARCA.md`](DESIGN-BRIEF-MARCA.md).
 
-## Features
+## Funcionalidades
 
-- 🗺️ Interactive map (Google Maps) with color-coded pins by category
-- 📋 Sidebar list grouped by region, with search and filters (region, category, dish tags, **price**)
-- 👥 Sign in with Google to make it a **group app** — your own visited list, "quero ir já" priorities, star ratings, personal notes and visit history, all synced and **visible to your friends** (with a group average and a "sugerido por" credit), plus **shared comments** per place
-- ✅ "Visited" tracker — check off places you've been (saved in your browser when signed out, in your cloud profile when signed in)
-- 🎲 "Surpreende-me" — randomly picks an unvisited restaurant for your next trip
-- 🚗 Trip planner — enter a "from" and "to", and it suggests restaurants near your driving route
-- ➕ "Adicionar restaurante" — add new places with a dead-simple form (just name + town + type). The location is found automatically; with Firebase set up, additions are shared with everyone instantly
-- ⭐ Optional live Google ratings, photos, opening hours, phone (Call CTA) via the Places API
-- 🏷️ In-app category editing (shared via Firebase) plus an automatic **category suggestion** from Google's place types
-- 📱 Installable as a PWA (Add to Home Screen) and works offline for the base list
+- 🗺️ Mapa interativo (Google Maps) com pins por categoria; lista lateral
+  agrupada por **região**, com pesquisa e filtros (região, categoria, preço).
+- 📱 Navegação por **bottom tab bar**: Mapa · Memórias · Críticas · Amigos.
+- 👥 **Login Google** torna isto numa app de grupo: visitados, prioridades,
+  estrelas, **nota pessoal e pratos**, histórico de visitas — sincronizado e
+  visível aos amigos. Comentários (críticas) e **fotos** por restaurante.
+- 🧭 Detalhe do restaurante em **tabs**: Restaurante · As minhas experiências ·
+  Críticas · Amigos. A "experiência" é uma jornada: nota → pratos → fotos → nota
+  → *Marcar visita de hoje* → registo partilhado.
+- 🏆 **Leaderboards**: amigos por nº de visitas (sempre / este mês) e restaurantes
+  por média de estrelas do grupo.
+- 📸 Fotos com **lightbox** (descarregar/partilhar in‑app) e **"Tirar foto"**
+  (câmara no telemóvel). Foto de **perfil** editável.
+- ➕ **Adicionar restaurante** com um formulário simples (nome + cidade + tipo).
+  A localização e a **região** são detetadas automaticamente. Se o Google tiver
+  correspondência (rating/reviews/fotos/telefone) entra como **verificado**;
+  caso contrário recebe a tag **"comunidade"**. O autor pode **remover** o que
+  adicionou.
+- 🎓 **Tutorial guiado** no primeiro login (sempre fechável).
+- 📲 Instalável como **PWA** (Adicionar ao ecrã principal); gestos nativos
+  (arrastar para fechar, pull‑to‑refresh), safe‑areas e splash no iOS.
 
-## Category criteria
+## Categorias
 
-Categories describe **what the place is**, not just one dish:
-
-| Category | When to use |
+| Categoria | Quando usar |
 | --- | --- |
-| **Tradicional** | Full sit-down regional / home cooking (default for a tasca / restaurante típico) |
-| **Petiscos / Tasca** | Small plates, snacks, beer, casual (snack-bar, cervejaria) |
-| **Doces / Pastelaria** | Main draw is pastry / sweets / coffee |
-| **Fine Dining** | Chef-driven, tasting menu, reservation-led, higher price |
+| **Tradicional** | Restaurante/tasca típico, comida regional |
+| **Petiscos** | Pratos pequenos, cervejaria, casual |
+| **Doces / Pastelaria** | Pastelaria, doces, café |
+| **Fine Dining** | Chef‑driven, menu de degustação, reserva |
 
-The colour of each pin follows the category. You can change a restaurant's category from
-inside the detail drawer (shared with everyone when Firebase is configured), and when live
-Google data is available the app may suggest a better category to apply with one tap.
+A cor do pin segue a categoria. Pode ser editada no detalhe (partilhada via
+Firebase) e o Google pode sugerir uma categoria com um toque.
 
-## Publishing on GitHub Pages
+## Configuração (`js/config.js`)
 
-1. Push this repo to GitHub (already done if you're reading this from the repo).
-2. In the repo, go to **Settings → Pages**.
-3. Under "Build and deployment", set **Source** to "Deploy from a branch".
-4. Choose the branch (e.g. `main`) and folder `/ (root)`, then save.
-5. After a minute, your site will be live at `https://<your-username>.github.io/<repo-name>/`.
-
-No build step is needed — it's plain HTML/CSS/JS.
-
-## Optional: enable the Google Maps integration
-
-Without any setup, the app works fully: you get the restaurant list, search, filters, visited tracker, and "Open in Google Maps" links. Adding a Google Maps API key unlocks the **interactive map**, the **trip planner**, and **live ratings/photos/hours**.
-
-### 1. Create a Google Cloud project and API key
-
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a new project (or reuse one).
-2. Enable billing for the project (Google requires this even for free-tier usage — for personal/low-traffic use you'll typically stay within the free monthly allowances).
-3. Enable these APIs (APIs & Services → Library):
-   - **Maps JavaScript API**
-   - **Places API**
-   - **Directions API**
-   - **Geocoding API**
-4. Go to **APIs & Services → Credentials → Create Credentials → API key**.
-5. **Restrict the key** (important, since it will be public in this repo):
-   - Application restrictions → **HTTP referrers** → add `https://<your-username>.github.io/*`
-   - API restrictions → limit to the 4 APIs enabled above.
-
-### 2. Add the key to the app
-
-Open `js/config.js` and paste your key:
+Chaves de **cliente** (públicas; o acesso é controlado pelas regras de
+segurança):
 
 ```js
 const CONFIG = {
-  GOOGLE_MAPS_API_KEY: "YOUR_KEY_HERE"
+  GOOGLE_MAPS_API_KEY: "…",                 // Maps JS, Places, Directions, Geocoding
+  FIREBASE_PROJECT_ID: "app-restaurantes-499400",
+  FIREBASE_API_KEY: "…"
 };
 ```
 
-Commit and push. Because the key is restricted to your GitHub Pages domain, it's safe to have it in the public repo.
+A app degrada bem: sem Maps key → lista + links do Google; sem Firebase →
+adições guardadas só no browser. **Authorized domains** do Firebase Auth devem
+incluir `foodboxd.pt` e `*.web.app`. A Maps key deve permitir esses domínios
+(HTTP referrers).
 
-## Project structure
+## Deploy
 
-```
-index.html              – page structure
-css/style.css           – styling
-js/config.js            – Google Maps key + Firebase config (optional)
-js/app.js                – main app: state, filters, rendering
-js/map.js                – Google Maps setup, markers, info windows
-js/db.js                 – shared cloud data (Firebase Firestore REST): restaurants, overrides, userData, comments
-js/auth.js               – Google Sign-In UI glue (topbar button / avatar)
-js/userdata.js           – per-person marks + group view (cloud when signed in, localStorage otherwise)
-js/geocode.js            – auto-locate a place from its name + town
-js/storage.js            – localStorage helpers (visited, custom restaurants, Places cache)
-js/planner.js            – trip planner (route + nearby restaurants)
-js/addRestaurant.js      – "Add restaurant" form
-js/places.js             – optional Places API enrichment
-data/restaurants.json    – the curated restaurant data (in git)
+Site estático servido pelo **Firebase Hosting** (`firebase.json` → `public: "."`,
+com `ignore` para `www/`, `ios/`, `scripts/`, `package.json`, etc.).
+
+```bash
+firebase deploy --only hosting --project app-restaurantes-499400
+# regras: --only firestore:rules,storage
 ```
 
-## Optional: shared "add a restaurant" via Firebase (recommended)
+**A cada deploy com mudança de assets, faz bump do `CACHE` em `sw.js`**
+(`foodboxd-vN`). Detalhes do fluxo de deploy/admin (service account, scripts
+Firestore REST, CORS) estão no [`CONTEXT.md`](CONTEXT.md).
 
-By default, when someone uses the **"➕ Adicionar restaurante"** form, the place is saved **only in their own browser**. To let anyone (e.g. friends) add a restaurant and have it appear for **everyone**, connect a free **Firebase Firestore** database. This uses the **same Google account** as your Maps key.
+## Ambiente de qualidade
 
-Once set up, the form needs nothing technical from your friends: they type a name, a town and a type, hit one button, and it's geocoded and saved for everyone automatically — no GitHub, no accounts, no coordinates.
+Nada vai para produção sem passar por um destes dois. A regra é simples: se a
+alteração só se **vê**, chega o canal; se ela **escreve**, é o emulador.
 
-### 1. Create the database
+| | Onde | Dados |
+|---|---|---|
+| Interface, CSS, layout | canal de pré-visualização | os reais, só de leitura |
+| Regras, migrações, funções, escritas | emulador local | de brincar |
 
-1. Go to the [Firebase console](https://console.firebase.google.com/) and click **Add project**. You can pick the **same Google Cloud project** you used for the Maps key.
-2. In the left menu, open **Build → Firestore Database → Create database**.
-3. Choose a location (e.g. `eur3` / Europe) and start in **production mode**.
+**Canal de pré-visualização.** Um push para `claude/**` publica-o sozinho
+(`.github/workflows/qa.yml`, precisa do segredo `FIREBASE_SERVICE_ACCOUNT`). À
+mão: `npm run qa`. O URL é secreto, expira em 30 dias e serve este build contra
+a base de dados a sério — dá para ver o interface com conteúdo real, não para
+testar escritas.
 
-### 2. Allow reading and adding (security rules)
+**Emulador.** `npm run emu:start` e, noutro terminal, `npm run emu:seed`. Depois
+abre a app em `localhost`: `js/config.js` deteta o hostname e desvia Firestore,
+Auth, Storage e a função da IA para as portas locais. Fora de `localhost` isso
+nunca acontece — a deteção falha sempre para o lado da nuvem real. O emulador
+aplica as mesmas `firebase/firestore.rules` da produção, por isso é o sítio
+certo para testar alterações às regras.
 
-In **Firestore → Rules**, paste the following and **Publish**. This lets anyone read the list and add a restaurant, but not edit or delete existing ones (you stay in control — you can delete anything from the Firebase console). The same rules are saved in `firebase/firestore.rules`.
+**Ver antes de publicar.** `npm run preview` abre a app num Chromium com
+viewport de iPhone, em claro e escuro, guarda capturas em `.preview/` e reporta
+erros de JavaScript, campos abaixo de 16px (o iOS amplia a página) e alvos de
+toque abaixo de 44px. Existe porque uma consolidação de CSS já produziu um
+ficheiro perfeitamente válido — chavetas certas, zero duplicados — em que todos
+os chips da app eram pontos de 8px. Verificação estática nenhuma apanha isso.
+Precisa de `npm i` e de `npx playwright install chromium` uma vez.
+
+Fora de produção a app mostra uma pílula fixa com o ambiente (`emulador` / `QA`),
+para não haver enganos.
+
+## Estrutura
 
 ```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /restaurants/{doc} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if false;
-    }
-    match /overrides/{doc} {
-      allow read: if true;
-      allow create, update: if true;
-      allow delete: if false;
-    }
-    match /userData/{uid} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == uid;
-    }
-    match /comments/{doc} {
-      allow read: if true;
-      allow create: if request.auth != null
-                    && request.auth.uid == request.resource.data.uid;
-      allow update, delete: if request.auth != null
-                    && request.auth.uid == resource.data.uid;
-    }
-  }
-}
+index.html            – markup, sprite de ícones, bootstrap Firebase, tabbar, modais
+css/style.css         – design system (um ficheiro)
+js/config.js          – chaves Google Maps + Firebase
+js/app.js             – núcleo: estado, render, detalhe (tabs), screens+router, leaderboards, modais, gestos
+js/db.js              – Firestore REST (restaurants, overrides, userData, comments, photos)
+js/userdata.js        – marcas por pessoa + grupo (cloud quando com sessão)
+js/auth.js            – Google Sign‑In UI glue
+js/map.js             – Google Maps (markers, focus, save/restore câmara)
+js/places.js          – enriquecimento Places (rating/fotos/horário/telefone)
+js/geocode.js         – nome+cidade → {lat,lng,region} (distrito→NUTS‑II)
+js/addRestaurant.js   – formulário de adicionar
+js/storage.js         – localStorage (visited, custom, places cache, overrides)
+js/planner.js         – planeador de viagem
+data/restaurants.json – lista curada (em git)
+firebase/*.rules      – regras Firestore + Storage
+sw.js, manifest.webmanifest – PWA
+capacitor.config.json, package.json, scripts/build-www.js, SETUP_IOS.md – app iOS
+CONTEXT.md            – handoff técnico completo
+DESIGN-HANDOFF.md, design/handoff/ – handoff de design: índice, desenhos e auditoria
 ```
 
-What each collection is for:
+## Regras de segurança (atuais)
 
-- `overrides` — shared edits (like changing a restaurant's category from inside the app) so corrections show up for everyone.
-- `userData/{uid}` — **one document per signed-in person**: their visited list, "quero ir já" priorities, star ratings, personal notes and visit history. Signed-in friends can read each other's (the group view in the detail drawer); you can only write your own.
-- `comments` — shared comments per restaurant. Anyone can read; only signed-in people can post (and only edit/delete their own).
+- `restaurants`: leitura pública; criar só autenticado e com `addedByUid ==
+  uid`; **apagar só o autor**; editar bloqueado.
+- `userData/{uid}`: leitura por qualquer autenticado (group view); escrita só o
+  próprio.
+- `comments` / `photos`: leitura pública; criar/apagar só o autor (uid match).
+- Storage `restaurants/*` e `avatars/*`: leitura pública; escrita só imagens
+  <6 MB com nome prefixado pelo uid.
 
-### 3. Get your config values
+Os ficheiros canónicos são `firebase/firestore.rules` e `firebase/storage.rules`.
 
-1. In the Firebase console, open **Project settings** (gear icon) → **General**.
-2. Under "Your apps", click the **Web** icon (`</>`) to register a web app (any nickname; you don't need Hosting).
-3. From the shown `firebaseConfig`, copy the **`projectId`** and the **`apiKey`**.
-4. Paste them into `js/config.js`:
+## Adicionar restaurantes à mão (curados, em git)
 
-```js
-const CONFIG = {
-  GOOGLE_MAPS_API_KEY: "...",
-  FIREBASE_PROJECT_ID: "your-project-id",
-  FIREBASE_API_KEY: "your-web-api-key"
-};
-```
-
-These two values are safe to publish — the API key only identifies the project, and the security rules above are what actually control access.
-
-Commit and push. From now on, restaurants added via the form are shared with everyone and tagged **"comunidade"** in the list. Curated places in `data/restaurants.json` always take priority and stay version-controlled.
-
-> Tip: to lock additions down later (e.g. stop spam), tighten the `create` rule or add [Firebase App Check](https://firebase.google.com/docs/app-check).
-
-### 4. Enable Google Sign-In (for the group features)
-
-Signing in turns the map into a small social app for your group of friends: each
-person gets their own **visited list, "quero ir já" priorities, star ratings,
-personal notes and visit history** — all synced to the cloud and **visible to the
-others** in each restaurant's detail drawer, alongside **shared comments** and a
-"sugerido por" credit on community-added places. Signed-out visitors still get the
-full map, search, filters and a local (per-browser) visited tracker.
-
-To switch it on:
-
-1. Firebase console → **Build → Authentication → Get started**.
-2. **Sign-in method → Add new provider → Google → Enable**, pick a support email, **Save**.
-3. **Authentication → Settings → Authorized domains** → add the domain you serve from
-   (e.g. `your-project.web.app`, `your-project.firebaseapp.com`, and/or
-   `<your-username>.github.io`). The two `*.web.app`/`*.firebaseapp.com` domains are
-   usually added automatically with Firebase Hosting.
-
-No code changes are needed — the app loads Firebase Auth from the CDN and shows an
-**"Entrar"** button in the top bar once the provider is on. Marks made before signing
-in (your local "visited") are merged into your cloud profile on first login.
-
-> If you serve the app from a custom domain (incl. GitHub Pages), also add that domain
-> to your **Google Maps API key** referrer allowlist, or the map won't render there.
-
-## Adding restaurants by hand (permanent, in git)
-
-You can also add your own curated entries directly to `data/restaurants.json`. Use **"Opções avançadas → Copiar como JSON"** in the form to get a ready-made entry, then paste it into the array, e.g.:
-
-```json
-{
-  "id": "my-new-spot-town",
-  "name": "My New Spot",
-  "town": "Town",
-  "region": "Alentejo",
-  "category": "tradicional",
-  "lat": 38.1234,
-  "lng": -8.1234,
-  "notes": "What to order",
-  "tags": ["tradicional"],
-  "mapsQuery": "My New Spot, Town, Portugal"
-}
-```
-
-Fields:
-- `category`: one of `tradicional`, `petiscos`, `pastelaria`, `fine-dining` (controls the pin color)
-- `region`: groups restaurants in the sidebar (add new regions freely as you expand beyond Alentejo)
-- `tags`: free-form, used by the search box
-- `mapsQuery`: text used to build the "Open in Google Maps" / "Directions" links
-
-Commit and push — the new restaurant will show up for everyone visiting the site.
-
-## Notes on the trip planner
-
-The "🚗 Planeador de viagem" section geocodes your "from"/"to" with Google, draws the driving route on the map, and lists restaurants within the chosen distance of that route — handy for picking a lunch stop on a road trip.
+Usa **"Opções avançadas → Copiar como JSON"** no formulário e cola em
+`data/restaurants.json`. Os curados têm prioridade e ficam versionados.

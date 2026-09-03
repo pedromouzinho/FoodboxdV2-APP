@@ -1,0 +1,48 @@
+{
+  "name": "foodboxd",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Foodboxd — diário de restaurantes (PWA + casca iOS via Capacitor).",
+  "scripts": {
+    "build:www": "node scripts/build-www.js",
+    "sync": "npm run build:www && npx cap sync ios && npx capacitor-assets generate --ios && node scripts/ios-info.mjs",
+    "ios": "npm run sync && npx cap open ios",
+    "preview": "node scripts/preview.mjs",
+    "emu:start": "node scripts/emu.mjs",
+    "emu:seed": "node scripts/seed-emulator.js",
+    "qa": "firebase hosting:channel:deploy qa-local --expires 30d --project app-restaurantes-499400",
+    "audit": "node scripts/audit.mjs",
+    "preview:pwa": "PWA_SAFE=1 node scripts/preview.mjs",
+    "test:map": "node scripts/test-map.mjs",
+    "test:persistencia": "node scripts/test-persistencia.mjs",
+    "test:portao": "node scripts/test-portao.mjs",
+    "test:visita": "node scripts/test-visita.mjs",
+    "test:update": "node scripts/test-update.mjs",
+    "ai:diff": "node scripts/ai-diff.mjs",
+    "test:taste": "node scripts/test-taste.mjs",
+    "test:fotos": "node scripts/test-fotos.mjs",
+    "test:apagar": "node scripts/test-apagar.mjs",
+    "test:gesto": "node scripts/test-gesto.mjs",
+    "ios:info": "node scripts/ios-info.mjs",
+    "ios:apple-diag": "node scripts/ler-apple-diag.mjs",
+    "ios:build": "npm run sync && xcodebuild -workspace ios/App/App.xcworkspace -scheme App -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=- build",
+    "test:foto-url": "node scripts/test-foto-url.mjs"
+  },
+  "dependencies": {
+    "@capacitor-firebase/authentication": "^6.3.1",
+    "@capacitor/app": "^6.0.2",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/geolocation": "^6.1.1",
+    "@capacitor/haptics": "^6.0.2",
+    "@capacitor/ios": "^6.2.0",
+    "@capacitor/keyboard": "^6.0.4",
+    "@capacitor/push-notifications": "^6.0.5",
+    "@capacitor/splash-screen": "^6.0.3",
+    "@capacitor/status-bar": "^6.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^6.2.0",
+    "playwright": "^1.56.1"
+  }
+}

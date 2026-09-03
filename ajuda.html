@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<!--
+  Página de ajuda do Foodboxd — o *Support URL* da App Store Connect.
+
+  Porque existe, e porque não é a de privacidade: o campo é obrigatório, e a
+  saída fácil era apontá-lo para /privacidade, que já tem o email. Mas quem
+  carrega em "Support" quer resolver uma coisa, não ler um texto legal — e um
+  atalho desses nota-se.
+
+  Faz também um segundo serviço, que a diretriz 1.2 exige: contacto publicado
+  para quem quiser reportar conteúdo ou pedir ajuda com uma conta.
+
+  Mesma estrutura da /privacidade: autónoma, sem o css/style.css (que é
+  construído à volta da casca da app), com os tokens que precisa.
+-->
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Ajuda · Foodboxd</title>
+<meta name="description" content="Perguntas frequentes do Foodboxd e como falar connosco." />
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" />
+<style>
+  :root {
+    --bg: #f6f1e7;
+    --surface: #fffefb;
+    --surface-2: #f0e8d8;
+    --text: #29231b;
+    --text-muted: #6b6152;
+    --border: #e3d8c3;
+    --primary: #b04a1c;
+    --font-body: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17130d;
+      --surface: #211b13;
+      --surface-2: #2b241a;
+      --text: #f2ece0;
+      --text-muted: #b5aa96;
+      --border: #3a3125;
+      --primary: #e8825a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap {
+    max-width: 42rem;
+    margin: 0 auto;
+    padding: max(24px, env(safe-area-inset-top)) 20px calc(48px + env(safe-area-inset-bottom));
+  }
+  header { padding: 8px 0 24px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+  .brand-mark { width: 22px; height: 22px; border-radius: 6px 2px 2px 6px; background: var(--primary); flex: none; }
+  .brand-name { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; }
+  h1 { font-family: var(--font-display); font-size: 2rem; line-height: 1.15; margin: 24px 0 4px; }
+  h2 { font-family: var(--font-display); font-size: 1.3rem; margin: 40px 0 8px; }
+  h3 { font-size: 1.02rem; margin: 24px 0 2px; }
+  .sub { color: var(--text-muted); margin: 0 0 8px; }
+  a { color: var(--primary); position: relative; }
+  /* alvo de toque de 44px sem mexer no desenho (F5) */
+  a::after { content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: max(100%, 44px); height: 44px; }
+  ul { padding-left: 1.25rem; }
+  li { margin: 6px 0; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px 18px;
+    margin: 20px 0;
+  }
+  .contacto { font-size: 1.05rem; }
+  footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.92rem; }
+  code { background: var(--surface-2); padding: 1px 5px; border-radius: 5px; font-size: 0.9em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <a class="brand" href="/"><span class="brand-mark"></span><span class="brand-name">Foodboxd</span></a>
+</header>
+
+<h1>Ajuda</h1>
+<p class="sub">Se não encontrares aqui, escreve — respondemos.</p>
+
+<div class="card contacto">
+  <strong>Falar connosco:</strong>
+  <a href="mailto:pedromouzinho812@gmail.com">pedromouzinho812@gmail.com</a>
+  <p style="margin:8px 0 0; color:var(--text-muted); font-size:0.94rem">
+    É uma pessoa a responder, não um sistema de bilhetes. Diz o que se passou e,
+    se puderes, manda uma fotografia do ecrã — poupa metade das perguntas.
+  </p>
+</div>
+
+<h2>Começar</h2>
+
+<h3>Preciso de conta?</h3>
+<p>
+  Sim. O Foodboxd só abre com sessão iniciada: o mapa, a lista, os filtros e a
+  ficha de cada restaurante ficam do outro lado da entrada. A conta é o que
+  guarda o teu diário — visitas, avaliações, pratos, fotografias e as pessoas
+  que segues.
+</p>
+
+<h3>Como entro?</h3>
+<p>
+  De três maneiras, e estão todas no mesmo ecrã: <strong>email e
+  palavra-passe</strong>, <strong>a Google</strong> ou <strong>a Apple</strong>.
+  Para criar conta por email, toca em <em>Criar conta</em>, escreve o email, o
+  teu nome e uma palavra-passe com pelo menos 6 caracteres. Com a Apple podes
+  usar <em>Ocultar o meu email</em>: recebemos um endereço de reencaminhamento e
+  nunca o teu email verdadeiro.
+</p>
+
+<h3>Esqueci-me da palavra-passe</h3>
+<p>
+  Escreve o email no ecrã de entrada e toca em <strong>Esqueci-me da
+  palavra-passe</strong>. Vai um link para esse endereço e defines aí uma nova.
+  O que aparece no ecrã é o mesmo haja ou não conta com esse email — de
+  propósito, para o campo não servir para descobrir quem tem conta aqui. Se a
+  mensagem não chegar, vê o spam.
+</p>
+<p>
+  Se entraste com a Google ou com a Apple não há palavra-passe nenhuma para
+  repor: entra pelo mesmo botão da primeira vez.
+</p>
+
+<h3>Entrei com a Google e não vejo o que tinha na Apple</h3>
+<p>
+  São contas separadas, mesmo sendo a mesma pessoa — sobretudo se usaste
+  <em>Ocultar o meu email</em> da Apple, que dá um endereço diferente. A regra é
+  entrares sempre pela mesma via da primeira vez — email, Google ou Apple — e o
+  teu diário está lá. Se te perdeste no meio disto, escreve-nos: dá-se para
+  resolver.
+</p>
+
+<h2>O dia a dia</h2>
+
+<h3>Como acrescento um sítio?</h3>
+<p>
+  No <strong>+</strong> da barra de cima, tanto no mapa como na lista. Escreves
+  o nome, a localidade e o tipo de sítio, e no fim dizes se já lá foste:
+  <em>Quero ir</em> deixa-o marcado como prioritário no mapa; <em>Já fui</em>
+  marca-o como visitado e deixa-te juntar uma fotografia ali mesmo.
+</p>
+
+<h3>Como registo uma visita?</h3>
+<p>
+  Abre o restaurante e toca em <strong>Registar visita</strong>. Dás estrelas,
+  escreves o que quiseres e registas os pratos. As fotografias juntam-se depois,
+  em <em>Mudar foto</em> na ficha ou no separador <em>A minha experiência</em>.
+</p>
+
+<h3>O que é o «Pergunta-me»?</h3>
+<p>
+  O botão das estrelinhas, no topo. Descreves o que te apetece — «peixe fresco,
+  barato, perto e tranquilo» — e a app sugere, cruzando o que já avaliaste, a tua
+  lista e onde estás.
+</p>
+
+<h3>Porque é que me pede a localização?</h3>
+<p>
+  Só dentro do «Pergunta-me», e só para saber o que está perto. <strong>Nunca ao
+  abrir a app e nunca em segundo plano.</strong> Se recusares, continua a
+  responder — apenas não consegue dizer «perto».
+</p>
+
+<h3>Quem vê o que eu escrevo?</h3>
+<p>
+  As críticas e as fotografias aparecem na ficha do restaurante, com o teu nome.
+  As avaliações, visitas e as notas que escreves numa visita aparecem a quem te
+  segue. O teu perfil de gosto não é mostrado a ninguém. Podes restringir a tua
+  atividade no <strong>Perfil → Quem vê a minha atividade</strong>.
+</p>
+
+<h2>Quando corre mal</h2>
+
+<h3>Vi conteúdo ofensivo</h3>
+<p>
+  Toca no ícone de bandeira ao lado do comentário, ou em <strong>Denunciar</strong>
+  ao abrir uma fotografia. A denúncia chega-nos e é analisada. Na mesma janela
+  podes <strong>bloquear</strong> a pessoa: deixas de ver tudo o que ela publica,
+  e ela não é avisada.
+</p>
+
+<h3>Quero desbloquear alguém</h3>
+<p>
+  <strong>Perfil → Pessoas bloqueadas</strong>. A entrada só aparece se tiveres
+  alguém bloqueado.
+</p>
+
+<h3>Quero apagar a minha conta</h3>
+<p>
+  <strong>Perfil → Apagar conta</strong>, e confirma-se escrevendo
+  <code>APAGAR</code>. Apaga a conta, o perfil, as críticas, avaliações, pratos,
+  visitas, notas e as fotografias — incluindo os ficheiros. Não tem volta.
+</p>
+<p>
+  Os restaurantes que acrescentaste ficam na lista partilhada, porque passaram a
+  ser de toda a gente, mas deixam de estar associados a ti. Um grupo de que eras
+  dono passa para outro membro; se ficar vazio, desaparece.
+</p>
+
+<h3>A app não mostra a versão nova</h3>
+<p>
+  Fecha-a por completo e volta a abrir. Se estiver instalada no ecrã principal,
+  pode ser preciso fazê-lo duas vezes.
+</p>
+
+<h2>Privacidade</h2>
+<p>
+  O que é recolhido, para que serve, com quem é partilhado e como se apaga está
+  todo na <a href="/privacidade">política de privacidade</a>. Não há publicidade,
+  não há seguimento para publicidade, e não há venda de dados.
+</p>
+
+<footer>
+  Foodboxd · <a href="/">foodboxd.pt</a> · <a href="/privacidade">Privacidade</a>
+</footer>
+
+</div>
+</body>
+</html>
