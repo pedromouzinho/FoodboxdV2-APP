@@ -82,7 +82,7 @@ const SEED = () => {
 };
 
 const CHECKS = () => {
-  const out={contraste:[],alvos:[],campos:[],semNome:[],semAlt:[],idsRepetidos:[],transbordo:null,cortado:[]};
+  const out={contraste:[],alvos:[],campos:[],semNome:[],semAlt:[],idsRepetidos:[],transbordo:null,cortado:[],apple:[]};
   const lum=(c)=>{const [r,g,b]=c;const f=(v)=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);};return .2126*f(r)+.7152*f(g)+.0722*f(b);};
   // O color-mix() computa para color(srgb r g b / a), não para rgba() — e sem
   // isto qualquer fundo feito com color-mix era lido como inexistente.
@@ -128,6 +128,19 @@ const CHECKS = () => {
     const min=(px>=24||(px>=18.66&&bold))?3:4.5;
     if(r<min) out.contraste.push({txt:txt.slice(0,40),cls:(el.className||el.tagName).toString().slice(0,30),r:+r.toFixed(2),min,px});
   });
+  // O botão do Sign in with Apple contra o FUNDO — não o texto contra o botão.
+  // A App Review recusou a 1.0 (4) a 03/09/2026 por "Sign in with Apple
+  // buttons should be clearly identifiable as buttons": no tema escuro o
+  // botão era #000 sobre #181511, sem contorno — uma barra preta sobre preto.
+  // O contraste de texto (branco sobre preto) passava aqui com distinção, e
+  // por isso este arnês nunca o viu: media a letra, não a caixa. WCAG 1.4.11
+  // pede ≥3:1 para a fronteira de um componente; as HIG pedem o botão branco
+  // em fundos escuros.
+  document.querySelectorAll(".btn-apple").forEach((el)=>{
+    if(!vis(el))return;
+    const r=ratio(bgOf(el), bgOf(el.parentElement));
+    if(r<3) out.apple.push({r:+r.toFixed(2)});
+  });
   document.querySelectorAll("button,a,[role=button],input,select,textarea").forEach((el)=>{
     if(!vis(el))return;
     const r=el.getBoundingClientRect();
@@ -171,7 +184,7 @@ const CHECKS = () => {
 };
 
 const b=await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
-const problemas={contraste:new Map(),alvos:new Map(),campos:new Set(),semNome:new Set(),semAlt:new Set(),idsRepetidos:new Set(),transbordo:new Set(),cortado:new Map(),erros:new Set()};
+const problemas={contraste:new Map(),alvos:new Map(),campos:new Set(),semNome:new Set(),semAlt:new Set(),idsRepetidos:new Set(),transbordo:new Set(),cortado:new Map(),erros:new Set(),apple:new Set()};
 const add=(m,k,v)=>{ if(!m.has(k)) m.set(k,v); };
 
 for (const scheme of ["light","dark"]) {
@@ -303,6 +316,7 @@ for (const scheme of ["light","dark"]) {
     r.idsRepetidos.forEach(x=>problemas.idsRepetidos.add(x));
     if(r.transbordo) problemas.transbordo.add(`${nome}: ${r.transbordo}`);
     r.cortado.forEach(x=>add(problemas.cortado, x.cls+"|"+x.txt, {...x, cena:nome}));
+    r.apple.forEach(x=>problemas.apple.add(`${x.r}:1 (min 3) · ${nome} · ${scheme}`));
   }
   // AS DUAS PÁGINAS PUBLICADAS.
   //
@@ -337,6 +351,7 @@ await b.close(); srv.close();
 const sec=(t,v)=>{ console.log("\n## "+t); if(!v.length){console.log("   nada"); return;} v.forEach(x=>console.log("   "+x)); };
 sec("Erros de JavaScript / cenas falhadas", [...problemas.erros]);
 sec("Contraste abaixo do mínimo", [...problemas.contraste.values()].map(x=>`${x.r}:1 (min ${x.min}) ${x.px}px · ${x.cls} · "${x.txt}" · ${x.cena} · ${x.tema}`));
+sec("Sign in with Apple sem contraste contra o fundo (HIG · App Review 03/09)", [...problemas.apple]);
 sec("Campos abaixo de 16px", [...problemas.campos]);
 sec("Botões/links sem nome acessível", [...problemas.semNome]);
 sec("Imagens sem alt", [...problemas.semAlt]);

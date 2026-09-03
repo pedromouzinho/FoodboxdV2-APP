@@ -1,5 +1,30 @@
 # Metadados da App Store — rascunho para aprovar
 
+> ## 03/09/2026: a 1.0 (4) foi devolvida, e a resposta está pronta
+>
+> **Guideline 4 — Design**, uma coisa só: *"Sign in with Apple buttons should
+> be clearly identifiable to users as buttons."* Revisto num iPad Air 11" (M3).
+> A causa, medida: no tema escuro o botão era `#000` sobre `#181511`, sem
+> contorno — **1,15:1** de contraste contra o fundo. Corrigido no ramo: branco
+> em fundo escuro e fonte do sistema, como as HIG pedem; o `audit` mede agora
+> esse contraste e falhou primeiro contra o defeito.
+>
+> **O que falta, por ordem:** (1) o agente do Mac arquiva e carrega o **build
+> 5** (`ios-build.json` já o diz); (2) na App Store Connect, na versão 1.0,
+> trocar o build 4 pelo 5, **responder à mensagem** da App Review com o texto
+> abaixo, e carregar em *Add for Review* outra vez. Uma rejeição respondida
+> volta à fila com prioridade — costuma demorar menos do que a primeira.
+>
+> **Texto para a resposta (colar na mensagem da App Review, em inglês):**
+>
+> > Thank you for the review. The Sign in with Apple button was rendered black
+> > on a near-black background in Dark Mode, without a visible border, which
+> > made it hard to identify as a button. Build 5 fixes this: the button now
+> > follows the Human Interface Guidelines for Sign in with Apple — black on
+> > light backgrounds, white on dark backgrounds, system font — and is clearly
+> > identifiable as a button in both appearances on iPhone and iPad. No other
+> > changes to the sign-in flow.
+>
 > ## Estado a 26/08/2026: o formulário está preenchido
 >
 > Os textos deste ficheiro foram passados para a App Store Connect (build 4,

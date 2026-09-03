@@ -1645,7 +1645,9 @@ quem chegar a seguir lê o repositório, não o chat.
 | — | Campos da consola: copyright, nota ao revisor, descrição, palavras-chave — colados na App Store Connect a 26/08 | agente preencheu, dono fechou | ✅ ver `loja/README.md` |
 | — | Etiquetas de privacidade, DSA (27 países), Content Rights, conta bancária | dono | ✅ fechado 26/08 |
 | — | Carregar no «Add for Review» e colar as credenciais da conta de teste | dono | ✅ **submetida 26/08** — *Waiting for Review*; e a beta do TestFlight está no ar e a funcionar |
-| 1 | **Responder ao que a App Review levantar** — quando o estado mudar, é aqui que se volta | dono decide, agente executa | **à espera da revisão** |
+| — | **App Review devolveu a 1.0 (4) a 03/09** — Guideline 4 (Design): o botão do Sign in with Apple "não é claramente identificável como botão". Causa medida: no tema escuro era `#000` sobre `#181511`, 1,15:1 de contraste contra o fundo. Revisto num iPad Air 11" (M3) | agente corrigiu | ✅ corrigido: branco em fundo escuro + fonte do sistema (HIG); o `audit` mede agora o contraste do botão contra o fundo (≥3:1) e falhou primeiro contra o defeito |
+| 1 | **Arquivar e carregar o build 5** (`ios-build.json` já diz 5) — `git pull`, `npm run sync`, archive, upload | agente do Mac | **por fazer** |
+| 2 | **Resubmeter**: escolher o build 5 na versão 1.0, responder à mensagem da App Review (texto no `loja/README.md`) e *Add for Review* outra vez | dono | por fazer, depois do 1 |
 
 > **W-8BEN por completar:** não bloqueia — a app é grátis, o *Free Apps
 > Agreement* está ativo; impostos e banco pertencem ao *Paid Apps Agreement*,

@@ -1001,13 +1001,23 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
    quente (#29231b) não serve aqui.
 
    O raio de pílula é permitido: a Apple aceita de 0 a metade da altura. */
+/* As HIG do Sign in with Apple, e não a paleta da app: preto em fundos claros,
+   BRANCO em fundos escuros, e a fonte do sistema. A App Review recusou a
+   1.0 (4) a 03/09/2026 — "buttons should be clearly identifiable as buttons":
+   no tema escuro o botão era #000 sobre #181511, sem contorno, 1,15:1 de
+   contraste contra o fundo. O audit mede agora esse contraste (≥3:1). */
 .btn-apple {
   background: #000;
   color: #fff;
   border-color: transparent;
   font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, "Helvetica Neue", sans-serif;
 }
 .btn-apple:hover { background: #1a1a1a; }
+@media (prefers-color-scheme: dark) {
+  .btn-apple { background: #fff; color: #000; }
+  .btn-apple:hover { background: #e8e8e8; }
+}
 /* A marca é um caminho preenchido; a regra geral de `.icon` é traço. */
 .icon-apple { width: 17px; height: 17px; fill: currentColor; stroke: none; }
 /* Óptico: a marca da Apple tem o peso em baixo e fica alta em relação ao texto. */
