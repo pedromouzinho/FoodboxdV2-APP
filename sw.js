@@ -10,7 +10,7 @@
 // Este service worker não tem handler de push de propósito; quando a web
 // entrar, é aqui que ele nasce.
 
-const CACHE = "foodboxd-v99";
+const CACHE = "foodboxd-v100";
 const ASSETS = [
   "./",
   "index.html",

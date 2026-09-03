@@ -412,6 +412,13 @@ const App = (() => {
   //     espaçado que a Google aceita;
   //   · guarda — uma "foto" de 100×100 vinda do GetPhoto é o erro da Google:
   //     fica o placeholder, e tenta-se UMA vez mais, espaçado.
+  // Repetir o MESMO url não repete o pedido: o browser serve a imagem da cache
+  // de memória, devolve outra vez a cruz de 100×100 e a reparação nunca chega
+  // à rede. Medido a 03/09/2026 no arnês — três repetições correram e a rota
+  // viu ZERO pedidos novos, o que faz a reparação parecer feita e não estar.
+  // Um parâmetro a mais separa os pedidos, e é inofensivo: um GetPhoto vivo,
+  // pedido com `&_fb=2`, devolveu os mesmos 200 e os mesmos 155 688 bytes.
+  const semCache = (u, n) => u + (u.includes("?") ? "&" : "?") + "_fb=" + n;
   const FOTO_LIMITE = 4;
   let fotoEmCurso = 0;
   const fotoEspera = [];
@@ -427,7 +434,7 @@ const App = (() => {
           fotoIO.unobserve(e.target);
           fotoObservados.delete(e.target);
           const pedido = fotoPedidos.get(e.target);
-          if (pedido) carregarFoto(pedido);
+          if (pedido) abrirFoto(pedido);
         }
         for (const el of [...fotoObservados]) {
           if (el.isConnected) continue;
@@ -436,6 +443,35 @@ const App = (() => {
         }
       }, { rootMargin: "200px" })
     : null;
+  // Um pedido pode chegar aqui sem URL: é um cartão cujo sítio não está na
+  // cache local, e cuja foto vive na cache PARTILHADA do Firestore. Vai-se lá
+  // buscá-la no momento em que o cartão se aproxima do ecrã — leitura livre
+  // (`allow read: if true`) e a custo ZERO para a Google, ao contrário do
+  // GetPhoto que se segue.
+  function abrirFoto(pedido) {
+    if (pedido.url) { carregarFoto(pedido); return; }
+    if (!pedido.r || !pedido.r.id || !DB.isAvailable()) return;
+    DB.fetchPlaceCache(pedido.r.id).then((dados) => {
+      if (!dados || !dados.photos || !dados.photos[0]) return;
+      // SÓ URLs DURÁVEIS. Medido a 03/09/2026 contra a Google real: os URLs
+      // `PhotoService.GetPhoto` guardados na cache partilhada entre 26 e 29/08
+      // devolvem hoje 403 com a cruz de 100×100 — um a um, espaçados, com a
+      // chave boa (uma foto pedida de fresco no mesmo minuto deu 302 → 200,
+      // 800×1062). Ou seja, expiram em dias e a cache diz 30.
+      //
+      // Pedi-los é pagar uma chamada para receber uma cruz. Enquanto a cache
+      // guardar GetPhoto, este caminho fica calado; assim que guardar o `lh3`
+      // para onde o 302 aponta — que é livre, sem chave nem referrer, e o
+      // próprio commit das rajadas já dizia ser o caminho — os thumbnails
+      // acendem-se sem mais nada mudar aqui.
+      if (/PhotoService\.GetPhoto/.test(dados.photos[0])) return;
+      // Guardar em local fecha o ciclo: o próximo desenho é instantâneo e a
+      // ficha deste sítio deixa de repetir a leitura.
+      try { Storage.setCachedPlace(pedido.r.id, dados); } catch (e) {}
+      if (!pedido.phEl.isConnected) return;
+      carregarFoto({ phEl: pedido.phEl, url: dados.photos[0], r: pedido.r });
+    }).catch(() => {});
+  }
   function carregarFoto(pedido) {
     if (fotoEmCurso >= FOTO_LIMITE) { fotoEspera.push(pedido); return; }
     if (!pedido.phEl.isConnected) return; // o render() trocou o cartão entretanto
@@ -455,7 +491,8 @@ const App = (() => {
         // A cruz da Google. O placeholder fica; uma nova tentativa, espaçada
         // com um pouco de sorte para as tentativas não voltarem a ser rajada.
         if (!pedido.repetiu) {
-          setTimeout(() => carregarFoto({ ...pedido, repetiu: true }), 4000 + Math.random() * 3000);
+          setTimeout(() => carregarFoto({ ...pedido, url: semCache(pedido.url, 2), repetiu: true }),
+            4000 + Math.random() * 3000);
         }
         return;
       }
@@ -470,11 +507,19 @@ const App = (() => {
   }
   function setThumbPhoto(phEl, url, r) {
     if (!phEl || !url) return;
-    const pedido = { phEl, url, r };
-    if (!fotoIO) { carregarFoto(pedido); return; }
-    fotoPedidos.set(phEl, pedido);
-    fotoObservados.add(phEl);
-    fotoIO.observe(phEl);
+    agendarFoto({ phEl, url, r });
+  }
+  // Sem foto em lado nenhum do lado de cá: fica agendado sem URL, e o
+  // despachante resolve-o na cache partilhada quando o cartão aparecer.
+  function setThumbPartilhada(phEl, r) {
+    if (!phEl || !r || !r.id) return;
+    agendarFoto({ phEl, url: null, r });
+  }
+  function agendarFoto(pedido) {
+    if (!fotoIO) { abrirFoto(pedido); return; }
+    fotoPedidos.set(pedido.phEl, pedido);
+    fotoObservados.add(pedido.phEl);
+    fotoIO.observe(pedido.phEl);
   }
   // Fill a `.ph` thumbnail: a community "cover" photo (override) wins; otherwise
   // fall back to the cached Google photo.
@@ -485,7 +530,15 @@ const App = (() => {
     // fatura de agosto de 2026). A foto aparece depois de a ficha ser aberta
     // uma vez, por alguém, em qualquer dispositivo (cache partilhada).
     const data = PlacesModule.fromCache ? PlacesModule.fromCache(r) : null;
-    if (data && data.photos && data.photos[0]) setThumbPhoto(phEl, data.photos[0], r);
+    if (data && data.photos && data.photos[0]) { setThumbPhoto(phEl, data.photos[0], r); return; }
+    // E se não estiver na cache LOCAL, ainda pode estar na PARTILHADA — que é
+    // o ponto todo de ela existir. O `fromCache` acima só lê o localStorage,
+    // e por isso uma instalação de fresco não via foto nenhuma: medido a
+    // 03/09/2026 contra a produção, 77 cartões, 77 placeholders, ZERO pedidos,
+    // com 23 sítios com foto à espera na cache partilhada. É o que o revisor
+    // da Apple veria, e o que se via no telemóvel com o build 5 acabado de
+    // instalar.
+    setThumbPartilhada(phEl, r);
   }
 
   // Self-healing pins: geocoding a place with the wrong country (or an ambiguous
@@ -562,6 +615,12 @@ const App = (() => {
     // The chosen cover wins on the list card too — and shows even when Google
     // can't resolve the place at all (e.g. a mangled mapsQuery).
     if (ph && r.photoURL) setThumbPhoto(ph, r.photoURL, r);
+    // O enrichCard abaixo trata a foto quando o sítio está na cache LOCAL. Não
+    // estando, ele devolve null e o cartão ficava sem foto para sempre — que é
+    // o estado de qualquer instalação de fresco, medido a 03/09/2026: 77
+    // cartões, 77 placeholders, zero pedidos. A foto está na cache PARTILHADA,
+    // e a decisão de onde ela vem não depende do PlacesModule: é só um URL.
+    else if (ph && !(PlacesModule.fromCache && PlacesModule.fromCache(r))) setThumbPartilhada(ph, r);
     if (PlacesModule.isAvailable()) {
       PlacesModule.enrichCard(r, card.querySelector("[data-meta]")).then((data) => {
         if (!data) return;
@@ -2998,7 +3057,7 @@ const App = (() => {
       if (img.naturalWidth === 100 && img.naturalHeight === 100 && /PhotoService\.GetPhoto/.test(url)) {
         if (!r.__heroTravado) {
           r.__heroTravado = true;
-          setTimeout(() => { if (state.currentDetail === r) setHeroPhoto(r, url); }, 4000);
+          setTimeout(() => { if (state.currentDetail === r) setHeroPhoto(r, semCache(url, 2)); }, 4000);
         }
         return;
       }

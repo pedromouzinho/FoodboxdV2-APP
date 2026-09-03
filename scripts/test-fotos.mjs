@@ -111,7 +111,7 @@ for (const dom of ["https://www.gstatic.com/**", "https://firestore.googleapis.c
 // disponível, o PlacesModule fica sem service, e o enrichCard — que é quem
 // pede as fotos dos cartões — nunca corre. Correu-se sem isto e o ensaio
 // media zero pedidos: não era o código a ser poupado, era o caminho morto.
-await p.addInitScript(() => {
+const MAPS_FALSO = () => {
   const LatLng = function (lat, lng) { this.lat = () => lat; this.lng = () => lng; };
   const Bounds = function (sw, ne) { this.sw = sw; this.ne = ne; };
   window.google = { maps: {
@@ -128,7 +128,8 @@ await p.addInitScript(() => {
     places: { PlacesService: function () { return { textSearch: () => {}, getDetails: () => {}, findPlaceFromQuery: () => {} }; }, PlacesServiceStatus: { OK: "OK" } },
     Geocoder: function () { return { geocode: () => {} }; }, GeocoderStatus: { OK: "OK" }
   } };
-});
+};
+await p.addInitScript(MAPS_FALSO);
 
 const curados = JSON.parse(await readFile(join(process.cwd(), "data/restaurants.json"), "utf8")).map((r) => r.id);
 await p.addInitScript(({ ids }) => {
@@ -198,6 +199,143 @@ const cresceu = await (async () => {
   return false;
 })();
 chk("rolar a lista pede as fotos que faltavam", cresceu, `ficou em ${pedidos.size} (tinha ${antes})`);
+
+// ---- 6 · O DISPOSITIVO NOVO -------------------------------------------
+//
+// Tudo acima corre com o localStorage JÁ CHEIO — a semente deste ficheiro
+// escreve a placesCache.v2 antes de a app arrancar. É realista para quem usa
+// a app há meses, e é precisamente por isso que o arnês não via este defeito:
+// media a fila e a guarda num dispositivo que já tinha as fotos todas.
+//
+// Uma instalação de fresco não tem nada disso. E o fillThumbPhoto só olhava
+// para o localStorage, portanto não mostrava foto nenhuma E NEM SEQUER PEDIA:
+// medido a 03/09 contra a produção, 77 cartões, 77 placeholders, zero pedidos.
+// A cache PARTILHADA no Firestore tinha 23 sítios com foto, de leitura livre
+// (allow read: if true) e a custo zero — e os thumbnails nunca lhe chegavam.
+//
+// É o cenário do revisor da Apple, que instala de fresco. Daí ser um caso.
+const c2 = await b.newContext({ ...devices["iPhone 13 Pro"] });
+const p2 = await c2.newPage(); p2.setDefaultTimeout(5000);
+
+let pedidos2 = new Set();
+await p2.route("https://maps.googleapis.com/**", async (route) => {
+  const url = route.request().url();
+  if (!url.includes("PhotoService.GetPhoto")) {
+    return route.fulfill({ status: 200, contentType: "application/javascript", body: "window.initApp && window.initApp();" });
+  }
+  pedidos2.add(url.split("?")[1].slice(0, 40));
+  return route.fulfill({ status: 200, contentType: "image/png", body: PNG_FOTO });
+});
+for (const dom of ["https://www.gstatic.com/**", "https://identitytoolkit.googleapis.com/**", "https://unpkg.com/**"])
+  await p2.route(dom, (route) => route.abort());
+// O lh3 é o destino do 302 do GetPhoto: livre, sem chave nem referrer, e
+// medido a responder 200 com a foto a sério (03/09/2026).
+let lh3Pedidos = 0;
+await p2.route("https://lh3.googleusercontent.com/**", (route) => {
+  lh3Pedidos++;
+  return route.fulfill({ status: 200, contentType: "image/png", body: PNG_FOTO });
+});
+
+// A cache partilhada a responder como o Firestore responde: um documento por
+// sítio, com {dados, quando}. Tudo o que NÃO for placesCache continua cortado,
+// para o resto da app não depender de rede (a quinta lição do CLAUDE.md).
+// O endereço: em 127.0.0.1 o CONFIG.EMULATORS é VERDADE, e o db.js aponta o
+// docsBase ao emulador (porta 8080) em vez do firestore.googleapis.com. Uma
+// rota só para o domínio da Google nunca disparava — e o ensaio media zero
+// leituras a dizer que a app não tentava, quando ela tentava noutra porta.
+// É a família do CLAUDE.md: a ferramenta não sabia responder à pergunta.
+let lidosDaPartilhada = 0;
+const rotaPartilhada = async (route) => {
+  const url = route.request().url();
+  const m = url.match(/documents\/placesCache\/([^?]+)/);
+  if (!m || route.request().method() !== "GET") return route.abort();
+  lidosDaPartilhada++;
+  const id = decodeURIComponent(m[1]);
+  return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+    name: "projects/p/databases/(default)/documents/placesCache/" + id,
+    fields: {
+      quando: { stringValue: new Date().toISOString() },
+      dados: { mapValue: { fields: {
+        rating: { doubleValue: 4.5 },
+        userRatingsTotal: { integerValue: "100" },
+        photos: { arrayValue: { values: [
+          // Metade durável (lh3, como o 302 do GetPhoto devolve) e metade
+          // expirada (GetPhoto guardado na cache). Só a primeira deve ser pedida.
+          { stringValue: /[02468]$/.test(id)
+            ? "https://lh3.googleusercontent.com/place-photos/DURAVEL-" + id + "=s1600-w800"
+            : "https://maps.googleapis.com/maps/api/place/js/PhotoService.GetPhoto?1sEXPIRADO-" + id }
+        ] } }
+      } } }
+    }
+  }) });
+};
+await p2.route("http://127.0.0.1:8080/**", rotaPartilhada);
+await p2.route("https://firestore.googleapis.com/**", rotaPartilhada);
+
+
+await p2.addInitScript(({ ids }) => {
+  window.__semPortao = true;
+  const extras = [];
+  for (let i = 0; i < 24; i++) extras.push({
+    id: "foto-x" + i, name: "Tasca " + i, town: "Lisboa", region: "Lisboa", country: "Portugal",
+    category: "tradicional", lat: 38.71 + i * 0.001, lng: -9.14, tags: ["tradicional"], mapsQuery: "x", source: "custom"
+  });
+  try { localStorage.setItem("portugalRestaurants.custom", JSON.stringify(extras)); } catch (e) {}
+  // A DIFERENÇA: nada em localStorage. É uma instalação de fresco.
+  try { localStorage.removeItem("portugalRestaurants.placesCache.v2"); } catch (e) {}
+}, { ids: curados });
+// O mesmo Maps a fingir do cenário de cima, sem o qual o caminho é morto.
+await p2.addInitScript(MAPS_FALSO);
+
+await p2.goto("http://127.0.0.1:8807/index.html", { waitUntil: "domcontentloaded", timeout: 30000 });
+await p2.waitForTimeout(2500);
+await p2.evaluate(() => {
+  const e = document.getElementById("entrada");
+  if (e) e.hidden = true;
+  document.body.classList.remove("sem-sessao");
+});
+await p2.click('[data-map-mode="lista"]');
+const n2 = await (async () => {
+  const fim = Date.now() + 5000; let v = 0;
+  while (Date.now() < fim) { v = await p2.evaluate(() => document.querySelectorAll('[data-mode-pane="lista"] .rcard-thumb .ph').length); if (v) return v; await p2.waitForTimeout(200); }
+  return v;
+})();
+chk("instalação de fresco: a lista desenhou cartões", n2 >= 20, `cartões=${n2}`);
+
+// Rolar: sem isto só ~2 cartões entram na margem do observer, e a amostra pode
+// sair toda do mesmo tipo. Rolando, passam pelos dois — que é o que se quer
+// medir (o durável acende, o expirado nem é pedido).
+for (let i = 0; i < 4; i++) {
+  await p2.evaluate(() => {
+    const pane = document.querySelector('[data-mode-pane="lista"]');
+    const alvo = pane && pane.scrollHeight > pane.clientHeight ? pane : document.scrollingElement;
+    alvo.scrollTop += 600;
+    window.scrollBy(0, 600);
+  });
+  await p2.waitForTimeout(700);
+}
+const comFoto2 = await (async () => {
+  const fim = Date.now() + 15000; let v = 0;
+  while (Date.now() < fim) {
+    v = await p2.evaluate(() => [...document.querySelectorAll('[data-mode-pane="lista"] .rcard-thumb .ph img')]
+      .filter((i) => i.naturalWidth > 0 && i.naturalWidth !== 100).length);
+    if (v >= 1) return v; await p2.waitForTimeout(250);
+  }
+  return v;
+})();
+chk("num dispositivo NOVO os cartões ganham foto da cache partilhada",
+  comFoto2 >= 1, `cartões com foto=${comFoto2} — o fillThumbPhoto só olha para o localStorage`);
+chk("e essa foto custou zero à Google: veio da cache partilhada",
+  lidosDaPartilhada > 0 && lh3Pedidos > 0, `leituras=${lidosDaPartilhada}, lh3=${lh3Pedidos}`);
+// O outro lado da mesma moeda, e é o que impede a correção de piorar a fatura:
+// os GetPhoto guardados na cache estão MORTOS (medido — 403 com a cruz, um a
+// um, espaçados). Pedi-los é pagar para receber uma cruz.
+chk("um GetPhoto guardado na cache NUNCA é pedido: expira em dias e custa",
+  pedidos2.size === 0, `pediu ${pedidos2.size} GetPhoto a partir da cache partilhada`);
+// Sem o `> 0` isto passava com zero leituras — verde sobre código partido,
+// que é o ramo de escape que o CLAUDE.md manda não escrever.
+chk("a preguiça mantém-se: não lê os 34 documentos de uma vez",
+  lidosDaPartilhada > 0 && lidosDaPartilhada <= 16, `leituras=${lidosDaPartilhada}`);
 
 await b.close(); srv.close();
 console.log(falhas ? `\nfotos sob rajada: ${falhas} FALHA(S)` : "\nfotos sob rajada: tudo verde");
